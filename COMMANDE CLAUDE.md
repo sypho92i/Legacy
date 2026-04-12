@@ -2,3 +2,19 @@
 
 Projet LEGACY, dossier legacycode. GDD dans docs/LEGACY\_game\_design\_3.md. Lis-le. Ticket du jour : "\[nom du ticket]". Description : \[colle la description].
 
+
+
+Lis CONTEXT.md. Ticket : "nom". Description : \[description du ticket].
+
+
+
+**COMMANDE GIT:**
+
+git add .
+
+git commit -m "feat: structure HTML/JS du jeu"
+
+
+
+**npx serve .** dans PowerShell → Chrome sur http://localhost:3000/ = ton seul moyen de tester.
+

@@ -50,7 +50,26 @@ export const AppRoot = {
 
     const revenuClicAffiche = computed(() => calculerRevenuClic())
 
-    return { state, CONFIG, flottants, verbeBouton, revenuClicAffiche, onClic, toggleMenu, toggleEngine, isEngineRunning }
+    // ── Upgrades Commerce ─────────────────────────────────────────────────────
+
+    const renderUpgradesCommerce = computed(() =>
+      CONFIG.METIERS.commerce.upgrades.map((upg, idx) => {
+        const n    = idx + 1
+        const cout = Math.round(100 * Math.pow(2.8, n - 1))
+        const estAchete       = state.upgrades.some(u => u.id === upg.id)
+        const prerequisRempli = upg.prerequis === null || state.upgrades.some(u => u.id === upg.prerequis)
+
+        let etat
+        if (estAchete)              etat = 'achete'
+        else if (!prerequisRempli)  etat = 'verrouille'
+        else if (state.argent < cout) etat = 'trop-cher'
+        else                        etat = 'disponible'
+
+        return { ...upg, cout, etat }
+      })
+    )
+
+    return { state, CONFIG, flottants, verbeBouton, revenuClicAffiche, onClic, toggleMenu, toggleEngine, isEngineRunning, renderUpgradesCommerce }
   },
 
   template: `
@@ -112,7 +131,35 @@ export const AppRoot = {
 
       <div v-if="state.menuOuvert" class="panel">
         <h2>{{ state.menuOuvert }}</h2>
-        <p><em>Contenu à venir (prochains tickets)</em></p>
+
+        <template v-if="state.menuOuvert === 'upgrades'">
+          <ul class="upgrades-list">
+            <li
+              v-for="upg in renderUpgradesCommerce"
+              :key="upg.id"
+              :class="['upgrade-item', 'upgrade-item--' + upg.etat]"
+            >
+              <div class="upgrade-header">
+                <span class="upgrade-nom">{{ upg.nom }}</span>
+                <span class="upgrade-cout" :class="{ 'upgrade-cout--rouge': upg.etat === 'trop-cher' }">{{ upg.cout }} €</span>
+              </div>
+              <div class="upgrade-footer">
+                <span class="upgrade-effet">{{ upg.effet }}</span>
+                <span v-if="upg.etat === 'verrouille'" class="upgrade-cadenas" aria-label="verrouillé">🔒</span>
+                <span v-else-if="upg.etat === 'achete'" class="upgrade-check">✓</span>
+                <button
+                  v-else
+                  class="upgrade-btn"
+                  :disabled="upg.etat !== 'disponible'"
+                >Acheter</button>
+              </div>
+            </li>
+          </ul>
+        </template>
+        <template v-else>
+          <p><em>Contenu à venir (prochains tickets)</em></p>
+        </template>
+
         <button @click="toggleMenu(state.menuOuvert)">Fermer</button>
       </div>
 

@@ -14,8 +14,6 @@ Naissance → Formation → Carrière → Accumulation → Mort → Héritage
 
 Run de **~15–25 min** — durée émergente. Jour abstrait passif. Multiplicateur de clic coloré selon niveau compétence : ◆ gris → ◆ blanc → ◆ jaune → ◆ orange → ◆ rouge/or.
 
-> 🔧 **Implémentation** — Le multiplicateur coloré est un système à part entière : 5 niveaux visuels distincts, chacun lié à un seuil de compétence. C'est le premier feedback gameplay visible — doit être implémenté avant les upgrades.
-
 ---
 
 ## ⚒ Métiers — anatomie d'un métier
@@ -34,8 +32,6 @@ Propres à chaque métier, débloqués par les upgrades.
 ### 4. Upgrades propres
 5–6 niveaux par métier. Certains augmentent le clic, d'autres débloquent des passifs, d'autres ouvrent le métier suivant du secteur.
 
-> 🔧 **Implémentation** — Découper en 3 tâches distinctes : (1) modèle de données upgrades, (2) UI liste upgrades disponibles, (3) logique achat + application effet.
-
 ### 5. Événements spéciaux par métier
 Pool de **8–12 événements uniques** par métier — chacun n'apparaît qu'une seule fois par vie.
 
@@ -45,23 +41,18 @@ Pool de **8–12 événements uniques** par métier — chacun n'apparaît qu'un
 | ◈ Rares | 3–4 | Mid-game, enjeux forts. Pas garantis à chaque vie. |
 | ◈ Exceptionnels | 1–2 | Changent le cours d'une vie. Peuvent ne jamais apparaître. Moments de légende dans la lignée. |
 
-> 🔧 **Implémentation** — Développer d'abord sur le secteur Commerce uniquement (5 communs + 3 rares). Le moteur de déclenchement est une tâche séparée du contenu des events.
-
-### 6. Métier pilote MVP
-Le secteur **Commerce / Vendeur** est le seul métier complet en Phase 1. Tous les autres secteurs sont traités en Phase 3, une filière par sprint.
-
 ---
 
 ## ◎ Secteurs — revenus passifs + avantages croisés
 
-| Secteur | Compétence | Revenu passif | Avantage croisé | Phase |
-|---------|-----------|---------------|-----------------|-------|
-| 🛒 Commerce | Négociation niv. 1→5 | Commissions automatisées | −10 à −20% sur tous les achats boutique | Phase 1 |
-| 💻 Tech / Création | Programmation niv. 1→5 | Revenus SaaS, algo | Automatisation du clic débloquée plus tôt | Phase 3 |
-| 🏦 Finance / Droit | Analyse niv. 1→5 | Intérêts, dividendes | +% sur transmission d'argent à la mort | Phase 3 |
-| 🏗️ BTP / Artisanat | Maîtrise niv. 1→5 | Contrats récurrents | Logement + véhicule construits/réparés à coût réduit | Phase 3 |
-| 🏠 Immobilier | Gestion niv. 1→5 | Loyers mensuels | Réductions logement perso + accès niveaux supérieurs tôt | Phase 3 |
-| 🌐 Influence / Politique | Réseau niv. 1→5 | Rétributions, rentes | Réduction malus karma + accès événements premium | Phase 4 |
+| Secteur | Compétence | Revenu passif | Avantage croisé |
+|---------|-----------|---------------|-----------------|
+| 🛒 Commerce | Négociation niv. 1→5 | Commissions automatisées | −10 à −20% sur tous les achats boutique |
+| 🏦 Finance / Droit | Analyse niv. 1→5 | Intérêts, dividendes | +% sur transmission d'argent à la mort |
+| 💻 Tech / Création | Programmation niv. 1→5 | Revenus SaaS, algo | Automatisation du clic débloquée plus tôt |
+| 🏠 Immobilier | Gestion niv. 1→5 | Loyers mensuels | Réductions logement perso + accès niveaux supérieurs tôt |
+| 🏗️ BTP / Artisanat | Maîtrise niv. 1→5 | Contrats récurrents | Logement + véhicule construits/réparés à coût réduit |
+| 🌐 Influence / Politique | Réseau niv. 1→5 | Rétributions, rentes | Réduction malus karma + accès événements premium |
 
 > ⚠ Influence / Politique : déblocage tardif uniquement — prérequis niveau 3+ dans un autre secteur.
 
@@ -78,22 +69,14 @@ Petite fraude du quotidien liée au métier. Vendeur qui gonfle ses notes de fra
 |-----------------|-----------|-----------------|---------|
 | −2 à −5 | Aucun | Linéaire, lente | Aucun |
 
-> 🔧 **Implémentation Phase 3** — Implémenter couche 1 sur Commerce uniquement. Le verbe de clic change, le karma descend. Une tâche séparée par secteur ensuite.
-
----
-
 ### ② Couche 2 — Organisé
 *Mid-game · nécessite compétence niv.3+ + karma < 65*
 
 Sort du secteur d'origine. Trafic, blanchiment, fraude à grande échelle. Nécessite une compétence légale comme couverture. Certains upgrades sont **irréversibles**.
-- Comptable niv.3 → blanchiment
-- Agent immobilier niv.3 → marchands de sommeil
 
 | Karma par palier | Prérequis | Type de descente | Plancher |
 |-----------------|-----------|-----------------|---------|
 | −15 à −25 | karma < 65 | Paliers brutaux | 55 max |
-
----
 
 ### ③ Couche 3 — Haut niveau
 *Late-game · nécessite réseau + couche 2 active + karma < 35*
@@ -103,8 +86,6 @@ Corruption, crime organisé, manipulation de marché. Revenus massifs, expositio
 | Karma par palier | Prérequis | Type de descente | Plancher |
 |-----------------|-----------|-----------------|---------|
 | −30 à −40 | karma < 35 | Spirale accélérée | 30 max |
-
----
 
 ### ↑ Remontée karma — asymétrie intentionnelle
 
@@ -135,8 +116,6 @@ Corruption, crime organisé, manipulation de marché. Revenus massifs, expositio
 Contrôle fiscal · saisie d'actifs · hospitalisation · mort prématurée.
 Jauge toujours visible, couleur progressive vert→rouge. Apprentissage par l'expérience, pas de tutoriel.
 
-> 🔧 **Implémentation** — La formule probabiliste est une tâche technique à part. Elle dépend du système karma (Phase 2) et conditionne tous les événements négatifs. À implémenter en même temps que le moteur d'événements.
-
 ---
 
 ## ⬡ Héritage karma intergénérationnel
@@ -151,8 +130,6 @@ Jauge toujours visible, couleur progressive vert→rouge. Apprentissage par l'ex
 
 > ↑ **Rédemption** — +5 karma de départ par génération vertueuse consécutive. 4 générations vertueuses effacent une génération de couche 3.
 
-> 🔧 **Implémentation Phase 4** — Ce système est distinct des malédictions/bénédictions ponctuelles. C'est la table structurelle de karma de départ. Implémenter séparément, en vérifiant les edge cases : que se passe-t-il si le parent a fait couche 2 puis s'est racheté ? La rédemption s'applique-t-elle partiellement ?
-
 ---
 
 ## ⬢ Héritage intergénérationnel
@@ -166,7 +143,75 @@ Jauge toujours visible, couleur progressive vert→rouge. Apprentissage par l'ex
 
 **Lignées hybrides** — boosts transmis dans tous les secteurs développés par les ancêtres. Plafond +25% atteint en 4–5 générations. La méta-progression **est** l'héritage — pas de système Prestige séparé.
 
-> ⚠ **Piège de l'héritage logement** — Hériter d'une berline ou d'un penthouse au niveau 1 = charges impossibles à tenir. Vendre = perdre la progression. Garder = cashflow négatif. Ce dilemme est intentionnel et doit être lisible dès la 2e génération.
+---
+
+## 🗺 Vue carte — map de la ville
+
+Accessible via un bouton dédié depuis l'interface principale. Vue du dessus de la ville, navigation entre les zones.
+
+### Zones disponibles au lancement
+| Zone | Description | Accès |
+|------|-------------|-------|
+| 🏪 Quartier Commercial | Hub principal du secteur Commerce. Boutiques, bureaux, marché. | Dès le début |
+| 🏘 Quartier Populaire | Zone résidentielle de départ. Logements bas de gamme, petits boulots. | Dès le début |
+
+> ⚠ D'autres quartiers se débloquent avec la progression : quartier financier, zone industrielle, quartier huppé, etc.
+
+Le secteur actif du personnage détermine dans quelle zone il travaille. Changer de zone via la map = changer de secteur actif (nécessite un véhicule pour les zones éloignées).
+
+---
+
+## 📱 Téléphone — réseau social & renommée
+
+Le téléphone remplace la mécanique "réseau social" sous forme de silhouettes. C'est un objet accessible dès le début, avec des actions débloquées progressivement selon le niveau de renommée.
+
+### Jauge Renommée
+- Mesurée en **nombre d'abonnés** (0 → des milliers → des millions)
+- Monte via les actions téléphone et certains événements
+- Impacte directement la **réputation** du personnage
+- Les features avancées n'apparaissent **pas à l'avance** — elles se révèlent au fur et à mesure
+
+### Actions téléphone
+
+| Action | Effet | Disponibilité |
+|--------|-------|---------------|
+| 📲 Monter son compte réseaux | +abonnés, +renommée lentement | Dès le début |
+| 📣 Promouvoir son secteur | +renommée, +revenus passifs légers | Dès le début |
+| 🎮 Jeux mobile | +bonheur temporaire (divertissement) | Dès le début |
+| 🤝 Placement de produit | Revenu passif — grandes marques | Déblocage renommée moyenne |
+| 💰 Revenus vues YouTube | Revenu passif — monétisation contenu | Déblocage renommée élevée |
+| ★ *Autres features cachées* | *Se révèlent avec la renommée* | *Progression naturelle* |
+
+> Les features avancées ne sont pas listées dans l'interface — le joueur les découvre en jouant.
+
+---
+
+## 💻 Ordinateur — actions avancées
+
+L'ordinateur est un **objet à acheter en boutique**. Une fois acquis, certaines commandes nécessitent des **tokens** également achetables en boutique.
+
+### Acquisition
+- Achat en boutique (coût modéré, mid-game)
+- Visible dans la scène logement une fois acquis
+- Débloque immédiatement les commandes gratuites
+
+### Commandes disponibles
+
+| Commande | Coût | Effet | Légalité |
+|----------|------|-------|----------|
+| 📈 Bourse | Token × 1 | Revenu passif financier — investissements automatisés | ✅ Légal |
+| 🤲 Don caritatif | Token × 1 | +karma, +réputation | ✅ Légal |
+| 🔍 Recherche marché | Token × 1 | Boost temporaire revenus secteur actif | ✅ Légal |
+| 💸 Fraude fiscale | Token × 2 | +argent massif, karma −15 | ⚠ Couche 1 |
+| 🖥 Piratage | Token × 3 | Vol d'actifs d'un concurrent, karma −25 | ⚠ Couche 2 |
+| 👾 Hacking avancé | Token × 5 | Revenus massifs, exposition maximale, karma −40 | ⚠ Couche 3 |
+
+> Les commandes illégales de l'ordinateur s'inscrivent dans le système des trois couches — mêmes règles de karma, mêmes conséquences héréditaires.
+
+### Tokens en boutique
+- Achetés par packs (×5, ×10, ×20)
+- Coût croissant — les tokens deviennent une vraie décision budgétaire en mid-game
+- Pas de tokens = ordinateur inutilisable pour les commandes avancées
 
 ---
 
@@ -182,8 +227,6 @@ Jauge toujours visible, couleur progressive vert→rouge. Apprentissage par l'ex
 
 > ⚠ **Piège de l'héritage** — Hériter d'une berline au niveau 1 = charges impossibles à tenir. Vendre = perdre la mobilité multi-secteurs. Garder = cashflow négatif. Premier vrai dilemme stratégique de chaque nouvelle génération.
 
-> 🔧 **Implémentation** — Les véhicules ne sont pas encore dans le backlog. À ajouter en Phase 3 (Could Have MVP). Les charges fixes s'appuient sur le menu finances.
-
 ---
 
 ## 📊 Menu finances
@@ -196,8 +239,6 @@ Débit automatique invisible dans le flux de jeu. Icône menu pulse discrètemen
 | 📉 Charges | Dépenses récurrentes, fréquence, option vente/résiliation directe |
 | ⚖ Bilan | Cashflow net /s — vert si positif, rouge si négatif. KPI principal du mid-game |
 
-> 🔧 **Implémentation Phase 2** — Ce menu est nécessaire dès que la boutique logement existe. Sans lui, le joueur ne peut pas voir l'effet de ses charges. Dépendance : boutique logement doit exister avant que ce menu soit utile, mais ils peuvent être développés en parallèle.
-
 ---
 
 ## 🎨 Représentations visuelles évolutives
@@ -209,22 +250,21 @@ Débit automatique invisible dans le flux de jeu. Icône menu pulse discrètemen
 | 🏠 Logement | Squat → studio → appartement → maison → villa → penthouse |
 | ✈ Vacances | Camping → plage → croisière privée *(débloquée par les voyages)* |
 | 🚗 Véhicule | Visible dans la scène quartier — vélo → supercar |
-| 👥 Réseau social | Silhouettes autour du perso — nombre et tenues évoluent avec niveau Social |
+| 📱 Téléphone | Visible dans la scène logement — actions débloquées progressivement |
+| 💻 Ordinateur | Visible dans la scène logement une fois acheté en boutique |
 | 🐾 Animal de compagnie | Chat (+bonheur léger) ou chien (+bonheur fort, +réputation). Charge mensuelle. |
 | 👕 Items équipés | Vêtements + accessoires visibles sur le sprite. Effets réputation et bonheur. |
 | ❤ Santé visible | Posture et silhouette reflètent la jauge Santé |
 
 ### Vieillissement du personnage
-| Âge | Apparence | Effet gameplay |
-|-----|-----------|----------------|
-| 18–29 | Posture droite, sprite dynamique | Vitesse de clic normale |
-| 30–39 | Légèrement plus solide, premières rides | Aucun malus |
-| 40–49 | Posture selon santé, cheveux grisonnants | Léger malus si santé < 40 |
-| 50–59 | Nettement marqué, clic ralenti si santé basse | −10% clic si santé < 30 |
-| 60–69 | Vieux mais actif si bien entretenu | −20% clic si santé < 50 |
-| 70+ | Phase de déclin, mort naturelle imminente | −40% clic · timer mort visible |
-
-> 🔧 **Implémentation Phase 5** — Le vieillissement visuel est lié à la jauge Santé (Phase 1). Les effets gameplay de ralentissement du clic se branchent sur la même jauge. À traiter en Phase 5 côté sprites, mais la logique de malus peut être câblée dès Phase 1 sans visuels.
+| Âge | Apparence |
+|-----|-----------|
+| 18–29 | Posture droite, sprite dynamique |
+| 30–39 | Légèrement plus solide, premières rides |
+| 40–49 | Posture selon santé, cheveux grisonnants |
+| 50–59 | Nettement marqué, clic ralenti si santé basse |
+| 60–69 | Vieux mais actif si bien entretenu |
+| 70+ | Phase de déclin, mort naturelle imminente |
 
 ---
 
@@ -238,6 +278,8 @@ Débit automatique invisible dans le flux de jeu. Icône menu pulse discrètemen
 | 🍽 Alimentation | Quotidien | Restaure jauge Faim + boost bonheur temporaire. |
 | 🏥 Santé | Permanent | Salle de sport, médecin privé. Rallonge l'espérance de vie. |
 | 👥 Social / Réseau | Karma | Booste karma + opportunités rares. Gala de charité = défense karma. |
+| 💻 Ordinateur | Permanent | Débloque les commandes avancées (bourse, hacking, etc.). |
+| 🪙 Tokens ordi | Consommable | Packs ×5 / ×10 / ×20. Nécessaires pour les commandes avancées. |
 
 ---
 
@@ -251,35 +293,10 @@ Débit automatique invisible dans le flux de jeu. Icône menu pulse discrètemen
 
 ---
 
-## 🗓 Ordre de développement recommandé
-
-### Sprint 1 — Boucle de clic jouable
-1. Structure HTML/JS du jeu
-2. Bouton de clic + gain monnaie
-3. Multiplicateur coloré du clic (5 niveaux)
-4. Modèle de données upgrades
-5. Système tick/seconde passifs
-
-### Sprint 2 — Métier pilote Commerce complet
-6. UI liste upgrades disponibles
-7. Logique achat + application effet upgrades
-8. Progression vendeur → franchisé
-9. Jauges personnage (5 jauges)
-
-### Sprint 3 — Mort, karma, héritage de base
-10. Logique de mort + transition génération *(dépend des jauges Santé)*
-11. Calcul héritage argent + compétences
-12. Jauge karma 5 paliers + modificateurs productivité *(peut démarrer Sprint 2)*
-13. Moteur déclenchement événements + formule probabiliste
-
-> 🔧 **Règle de debug** — Implémenter un bouton "Mort simulée" dès Sprint 2 pour tester le passage de génération sans attendre une vraie mort en jeu.
-
----
-
 ## 🎵 Bande son
 
 Composée par **Silent Knight Studio** — dark fantasy, orchestral, cinématique.
 
 ---
 
-*LEGACY — v5 · Game Design Document · mis à jour post-audit backlog*
+*LEGACY — v5 · Game Design Document*
