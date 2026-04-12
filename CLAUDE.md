@@ -312,6 +312,39 @@ Moteur vide opérationnel : boucle tick 200ms, état global réactif, HUD + jaug
 - CSS upgrades ajouté dans `index.html` (`.upgrade-item--disponible`, `--trop-cher`, `--verrouille`, `--achete`, `.upgrade-cout--rouge`).
 - Logique d'achat NON implémentée (ticket suivant). engine.js et state.js non modifiés.
 
+### Ticket 4 — Arbre d'upgrades Commerce — Logique achat
+- `state.bonusUpgrades: 0` ajouté dans state.js (cumul additif des bonus clic).
+- `passifValeur` ajouté sur u_c4/u_c5/u_c6 dans config.js (8, 25, 50 — valeurs implicites dans les strings effet).
+- `calculerRevenuClic()` mis à jour : `(CONFIG.REVENU_BASE_CLIC + state.bonusUpgrades) × ...` — bonus additif.
+- `acheterUpgrade(id)` dans engine.js : vérifie argent ≥ coût, prérequis rempli, non déjà acheté → déduit argent, push `{ id }` dans `state.upgrades`, applique effet (bonusClic additif sur `state.bonusUpgrades` / passifId push dans `state.passifs`). Exposée via `window.acheterUpgrade`.
+- ui.js : import `acheterUpgrade`, exposé dans setup() return, `@click="acheterUpgrade(upg.id)"` sur le bouton Acheter.
+
+### Ticket 5 — Système de revenus passifs (tick/seconde)
+- `CONFIG.MALUS_PASSIF_TICK: 5` ajouté dans config.js (€/s déduits si bonheur < 20).
+- `getPlafondPassif(passifId)` : cherche `upgrade.plafond` dans CONFIG.METIERS pour le passif correspondant — retourne null si absent (aucun plafond appliqué). Prêt pour quand les plafonds seront définis.
+- `tauxPassifPlafonné(p)` : applique le plafond si défini, sinon retourne `p.tauxParSeconde` brut.
+- `getTauxPassifTotal()` exportée : somme des taux plafonnés — utilisée par tickPassifs() et par le HUD via computed Vue.
+- `tickPassifs()` modifiée : calcule via `getTauxPassifTotal()`, applique malus bonheur si `state.jauges.bonheur < 20` (soustrait `MALUS_PASSIF_TICK` du taux €/s, plancher 0), puis multiplie par tick ratio.
+- HUD : `| Passifs : +X.X €/s` ajouté dans `.hud__meta` — computed `tauxPassifAffiche` réactif sur `state.passifs`. Temporaire, migrera en vue Finances.
+
+### Ticket 6 — Système de niveaux par secteur (Commerce)
+- `state.secteurActif: 'commerce'` et `state.xpSecteurs: { commerce:0, finance:0, ... }` ajoutés dans state.js.
+- `CONFIG.NIVEAUX` ajouté dans config.js : `SEUILS: [0, 100, 280]`, `PALIERS_COMMERCE: { 1:'Vendeur', 2:'Responsable commercial', 3:'Franchisé' }`, `FACTEUR_XP: 1.8`.
+- `niveauRequis` ajouté sur chaque upgrade Commerce : u_c1/u_c2 → 1, u_c3/u_c4 → 2, u_c5/u_c6 → 3.
+- `calculerXpClic()` dans engine.js : `Math.max(0.1, 1 × modifKarma × modifBonheur)`. Exportée.
+- `calculerNiveau(secteur)` dans engine.js : cherche le palier atteint dans SEUILS (itération descendante), retourne 1–3. Exportée.
+- `onClic()` dans ui.js : après gain argent, `state.xpSecteurs[state.secteurActif] += calculerXpClic()`.
+- `renderUpgradesCommerce` mis à jour : condition `verrouille` = `!prerequisRempli || !niveauOk` (niveauOk = niveauAtteint >= upg.niveauRequis).
+- Computeds ajoutés dans setup() : `niveauCommerce`, `nomPalierCommerce`, `xpCommerceInfo` (current/max/pct pour la barre).
+- Template upgrades : bloc `.niveau-commerce` affiché en tête — palier + numéro de niveau + barre XP bleue + label `X / Y XP`.
+- CSS ajouté dans index.html : `.niveau-commerce`, `.xp-piste`, `.xp-barre`, `.xp-label`.
+
+### Ticket 6b — Extension niveaux Commerce : 3 → 5 paliers
+- `CONFIG.NIVEAUX.SEUILS` : `[0, 100, 400, 1200, 3500]` — 5 paliers.
+- `CONFIG.NIVEAUX.PALIERS_COMMERCE` : 1→Vendeur, 2→Responsable commercial, 3→Franchisé, 4→Directeur régional, 5→Magnat.
+- `niveauRequis` : u_c1→1, u_c2→2, u_c3→2, u_c4→3, u_c5→4, u_c6→5.
+- Seul config.js modifié — `calculerNiveau` (engine.js) est générique, gère N seuils sans changement.
+
 ---
 *Ne jamais lire le GDD pour coder — toutes les infos techniques sont ici.*
 *Mettre à jour la section "Sessions terminées" à chaque fin de ticket.*

@@ -1,7 +1,7 @@
 // ui.js — composants Vue, handlers d'événements, update UI
 // Règle : ne contient que du Vue réactif — zéro querySelector/getElementById
 import { state }            from './state.js'
-import { calculerRevenuClic, startEngine, stopEngine, isEngineRunning } from './engine.js'
+import { calculerRevenuClic, calculerXpClic, calculerNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, getTauxPassifTotal } from './engine.js'
 import { CONFIG }           from './config.js'
 
 // ─── Composant racine ─────────────────────────────────────────────────────────
@@ -25,6 +25,7 @@ export const AppRoot = {
     function onClic() {
       const gain = calculerRevenuClic()
       state.argent += gain
+      state.xpSecteurs[state.secteurActif] += calculerXpClic()
 
       const id = _nextFlottantId++
       flottants.value.push({ id, gain })
@@ -49,27 +50,52 @@ export const AppRoot = {
     )
 
     const revenuClicAffiche = computed(() => calculerRevenuClic())
+    const tauxPassifAffiche = computed(() => getTauxPassifTotal())
 
     // ── Upgrades Commerce ─────────────────────────────────────────────────────
 
-    const renderUpgradesCommerce = computed(() =>
-      CONFIG.METIERS.commerce.upgrades.map((upg, idx) => {
+    const renderUpgradesCommerce = computed(() => {
+      const niveauAtteint = calculerNiveau('commerce')
+      return CONFIG.METIERS.commerce.upgrades.map((upg, idx) => {
         const n    = idx + 1
         const cout = Math.round(100 * Math.pow(2.8, n - 1))
         const estAchete       = state.upgrades.some(u => u.id === upg.id)
         const prerequisRempli = upg.prerequis === null || state.upgrades.some(u => u.id === upg.prerequis)
+        const niveauOk        = !upg.niveauRequis || niveauAtteint >= upg.niveauRequis
 
         let etat
-        if (estAchete)              etat = 'achete'
-        else if (!prerequisRempli)  etat = 'verrouille'
-        else if (state.argent < cout) etat = 'trop-cher'
-        else                        etat = 'disponible'
+        if (estAchete)                          etat = 'achete'
+        else if (!prerequisRempli || !niveauOk) etat = 'verrouille'
+        else if (state.argent < cout)           etat = 'trop-cher'
+        else                                    etat = 'disponible'
 
         return { ...upg, cout, etat }
       })
+    })
+
+    // ── Niveau Commerce ───────────────────────────────────────────────────────
+
+    const niveauCommerce = computed(() => calculerNiveau('commerce'))
+
+    const nomPalierCommerce = computed(() =>
+      CONFIG.NIVEAUX.PALIERS_COMMERCE[niveauCommerce.value] ?? 'Inconnu'
     )
 
-    return { state, CONFIG, flottants, verbeBouton, revenuClicAffiche, onClic, toggleMenu, toggleEngine, isEngineRunning, renderUpgradesCommerce }
+    const xpCommerceInfo = computed(() => {
+      const xp     = state.xpSecteurs.commerce
+      const niveau = niveauCommerce.value
+      const seuils = CONFIG.NIVEAUX.SEUILS
+      if (niveau >= seuils.length) {
+        return { current: Math.round(xp), max: Math.round(xp), pct: 100 }
+      }
+      const seuilActuel  = seuils[niveau - 1]
+      const seuilSuivant = seuils[niveau]
+      const current      = Math.round(xp - seuilActuel)
+      const max          = seuilSuivant - seuilActuel
+      return { current, max, pct: Math.min(100, (current / max) * 100) }
+    })
+
+    return { state, CONFIG, flottants, verbeBouton, revenuClicAffiche, tauxPassifAffiche, niveauCommerce, nomPalierCommerce, xpCommerceInfo, onClic, toggleMenu, toggleEngine, isEngineRunning, renderUpgradesCommerce, acheterUpgrade }
   },
 
   template: `
@@ -84,6 +110,7 @@ export const AppRoot = {
           Génération {{ state.generation }} — Âge {{ state.age }} ans
           | Métier : {{ state.metierActif }}
           | Karma : {{ state.karma }} ({{ state.palierKarma }})
+          | Passifs : +{{ tauxPassifAffiche.toFixed(1) }} €/s
         </div>
       </section>
 
@@ -133,6 +160,16 @@ export const AppRoot = {
         <h2>{{ state.menuOuvert }}</h2>
 
         <template v-if="state.menuOuvert === 'upgrades'">
+          <div class="niveau-commerce">
+            <div class="niveau-commerce__header">
+              <span class="niveau-commerce__palier">{{ nomPalierCommerce }}</span>
+              <span class="niveau-commerce__niv">Niv.{{ niveauCommerce }}</span>
+            </div>
+            <div class="xp-piste">
+              <div class="xp-barre" :style="{ width: xpCommerceInfo.pct + '%' }"></div>
+            </div>
+            <div class="xp-label">{{ xpCommerceInfo.current }} / {{ xpCommerceInfo.max }} XP</div>
+          </div>
           <ul class="upgrades-list">
             <li
               v-for="upg in renderUpgradesCommerce"
@@ -151,6 +188,7 @@ export const AppRoot = {
                   v-else
                   class="upgrade-btn"
                   :disabled="upg.etat !== 'disponible'"
+                  @click="acheterUpgrade(upg.id)"
                 >Acheter</button>
               </div>
             </li>

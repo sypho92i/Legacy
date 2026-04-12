@@ -23,21 +23,92 @@ export function getMultiplicateurCompetence(competence) {
   return CONFIG.MULTIPLICATEUR_COMPETENCE[competence] ?? 1
 }
 
+export function calculerXpClic() {
+  return Math.max(0.1,
+    1 * getModifKarma(state.karma) * getModifBonheur(state.jauges.bonheur)
+  )
+}
+
+export function calculerNiveau(secteur) {
+  const xp = state.xpSecteurs[secteur] ?? 0
+  const seuils = CONFIG.NIVEAUX.SEUILS
+  let niveau = 1
+  for (let i = seuils.length - 1; i >= 0; i--) {
+    if (xp >= seuils[i]) { niveau = i + 1; break }
+  }
+  return niveau
+}
+
 export function calculerRevenuClic() {
   return (
-    CONFIG.REVENU_BASE_CLIC
+    (CONFIG.REVENU_BASE_CLIC + state.bonusUpgrades)
     * getMultiplicateurCompetence(state.competence)
     * getModifKarma(state.karma)
     * getModifBonheur(state.jauges.bonheur)
   )
 }
 
+// ─── Achat d'upgrade ──────────────────────────────────────────────────────────
+
+export function acheterUpgrade(id) {
+  const upgrades = CONFIG.METIERS[state.secteurActif ?? 'commerce'].upgrades
+  const idx      = upgrades.findIndex(u => u.id === id)
+  if (idx === -1) return
+
+  const upgrade = upgrades[idx]
+  const cout    = Math.round(100 * Math.pow(2.8, idx))
+
+  // Vérifications
+  if (state.argent < cout) return
+  const prerequisRempli = upgrade.prerequis === null || state.upgrades.some(u => u.id === upgrade.prerequis)
+  if (!prerequisRempli) return
+  if (state.upgrades.some(u => u.id === id)) return
+
+  // Déduire le coût
+  state.argent -= cout
+
+  // Activer l'upgrade
+  state.upgrades.push({ id })
+
+  // Appliquer l'effet (additif)
+  if (upgrade.bonusClic) {
+    state.bonusUpgrades += upgrade.bonusClic
+  }
+  if (upgrade.passifId) {
+    state.passifs.push({ id: upgrade.passifId, nom: upgrade.nom, tauxParSeconde: upgrade.passifValeur })
+  }
+}
+
+window.acheterUpgrade = acheterUpgrade
+
+// ─── Helpers passifs ──────────────────────────────────────────────────────────
+
+function getPlafondPassif(passifId) {
+  for (const secteur of Object.values(CONFIG.METIERS)) {
+    const upgrade = secteur.upgrades?.find(u => u.passifId === passifId)
+    if (upgrade?.plafond !== undefined) return upgrade.plafond
+  }
+  return null
+}
+
+function tauxPassifPlafonné(p) {
+  const plafond = getPlafondPassif(p.id)
+  return plafond !== null ? Math.min(p.tauxParSeconde, plafond) : p.tauxParSeconde
+}
+
+export function getTauxPassifTotal() {
+  return state.passifs.reduce((acc, p) => acc + tauxPassifPlafonné(p), 0)
+}
+
 // ─── Étapes du tick ───────────────────────────────────────────────────────────
 
 function tickPassifs() {
-  const tauxTotal = state.passifs.reduce((acc, p) => acc + p.tauxParSeconde, 0)
+  const tauxTotal = getTauxPassifTotal()
+  const taux = state.jauges.bonheur < 20
+    ? Math.max(0, tauxTotal - CONFIG.MALUS_PASSIF_TICK)
+    : tauxTotal
   // Les passifs sont en $/s, le tick est en fraction de seconde
-  state.argent += tauxTotal * (CONFIG.TICK_MS / 1000)
+  state.argent += taux * (CONFIG.TICK_MS / 1000)
 }
 
 function tickJauges() {

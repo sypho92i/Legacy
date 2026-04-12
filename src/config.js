@@ -7,6 +7,7 @@ export const CONFIG = {
 
   // Finances
   REVENU_BASE_CLIC: 1,
+  MALUS_PASSIF_TICK: 5,            // €/s déduits des passifs si bonheur < 20
 
   // Compétence → multiplicateur de clic
   MULTIPLICATEUR_COMPETENCE: {
@@ -68,15 +69,28 @@ export const CONFIG = {
   },
   VERBE_METIER_DEFAUT: 'Travailler',
 
+  // Niveaux par secteur
+  NIVEAUX: {
+    SEUILS: [0, 100, 400, 1200, 3500], // XP cumulée requise pour niv.1 à 5
+    PALIERS_COMMERCE: {
+      1: 'Vendeur',
+      2: 'Responsable commercial',
+      3: 'Franchisé',
+      4: 'Directeur régional',
+      5: 'Magnat',
+    },
+    FACTEUR_XP: 1.8,
+  },
+
   METIERS: {
     commerce: {
       upgrades: [
-        { id: 'u_c1', nom: 'Costume pro',          effet: '+€5 / clic',            bonusClic: 5,  prerequis: null   },
-        { id: 'u_c2', nom: 'CRM basique',           effet: '+€12 / clic',           bonusClic: 12, prerequis: 'u_c1' },
-        { id: 'u_c3', nom: 'Technique vente niv.2', effet: '+€30 / clic',           bonusClic: 30, prerequis: 'u_c2' },
-        { id: 'u_c4', nom: 'Bureau propre',          effet: 'Débloque €8/s passif',  passifId: 'p_c1', prerequis: 'u_c3' },
-        { id: 'u_c5', nom: 'Équipe de 3',            effet: 'Débloque €25/s passif', passifId: 'p_c2', prerequis: 'u_c4' },
-        { id: 'u_c6', nom: 'E-commerce',             effet: 'Débloque €50/s passif', passifId: 'p_c3', prerequis: 'u_c5' },
+        { id: 'u_c1', nom: 'Costume pro',          effet: '+€5 / clic',            bonusClic: 5,  prerequis: null,   niveauRequis: 1 },
+        { id: 'u_c2', nom: 'CRM basique',           effet: '+€12 / clic',           bonusClic: 12, prerequis: 'u_c1', niveauRequis: 2 },
+        { id: 'u_c3', nom: 'Technique vente niv.2', effet: '+€30 / clic',           bonusClic: 30, prerequis: 'u_c2', niveauRequis: 2 },
+        { id: 'u_c4', nom: 'Bureau propre',          effet: 'Débloque €8/s passif',  passifId: 'p_c1', passifValeur: 8,  prerequis: 'u_c3', niveauRequis: 3 },
+        { id: 'u_c5', nom: 'Équipe de 3',            effet: 'Débloque €25/s passif', passifId: 'p_c2', passifValeur: 25, prerequis: 'u_c4', niveauRequis: 4 },
+        { id: 'u_c6', nom: 'E-commerce',             effet: 'Débloque €50/s passif', passifId: 'p_c3', passifValeur: 50, prerequis: 'u_c5', niveauRequis: 5 },
       ],
     },
   },

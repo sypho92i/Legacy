@@ -16,7 +16,19 @@ export const state = reactive({
   multiplicateurCouleur: CONFIG.COULEUR_COMPETENCE[1],
 
   // Upgrades
-  upgrades: [],          // { id, nom, cout, effet, debloque, prerequis }
+  upgrades: [],          // { id }
+  bonusUpgrades: 0,      // cumul additif des bonus clic achetés
+
+  // XP par secteur
+  secteurActif: 'commerce',
+  xpSecteurs: {
+    commerce:    0,
+    finance:     0,
+    tech:        0,
+    immobilier:  0,
+    btp:         0,
+    influence:   0,
+  },
 
   // Jauges personnage (0-100)
   jauges: {
