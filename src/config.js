@@ -60,4 +60,11 @@ export const CONFIG = {
 
   // Karma de départ — héritage
   KARMA_DEPART_DEFAUT: 75,
+
+  // Verbe affiché sur le bouton de clic selon le métier actif
+  VERBE_METIER: {
+    vendeur:     'Conclure une vente',
+    // Phase 3+ : tech, finance, BTP, immobilier, influence…
+  },
+  VERBE_METIER_DEFAUT: 'Travailler',
 };

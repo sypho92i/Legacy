@@ -48,6 +48,31 @@
 
     .revenu-par-clic { color: #666; font-size: 0.85em; }
 
+    /* Floating text au clic */
+    .btn-clic-wrap { position: relative; display: inline-block; }
+    .zone-clic__flottants {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      pointer-events: none;
+      width: 0;
+    }
+    .flottant {
+      position: absolute;
+      bottom: 4px;
+      left: 50%;
+      color: #4caf50;
+      font-weight: bold;
+      font-size: 1em;
+      white-space: nowrap;
+      animation: flotter 0.8s ease-out forwards;
+    }
+    @keyframes flotter {
+      from { opacity: 1; transform: translateX(-50%) translateY(0); }
+      to   { opacity: 0; transform: translateX(-50%) translateY(-48px); }
+    }
+
     /* Menus */
     .menus   { display: flex; gap: 8px; }
     .menus button { flex: 1; padding: 8px; font-family: monospace; cursor: pointer;
@@ -70,7 +95,7 @@
   <div id="mount"></div>
 
   <!-- Vue 3 CDN -->
-  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
 
   <script type="module">
     import { AppRoot, JaugeBar } from './src/ui.js'

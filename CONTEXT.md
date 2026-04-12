@@ -119,6 +119,12 @@ LEGACY/
 Fichiers créés : `index.html`, `src/state.js`, `src/engine.js`, `src/ui.js`, `src/config.js`.
 Moteur vide opérationnel : boucle tick 200ms, état global réactif, HUD + jauges + bouton clic squelettes, zéro logique métier.
 
+### Ticket 2 — Bouton de clic avec gain de monnaie
+- `onClic()` incrémente `state.argent` via `calculerRevenuClic()` (formule complète : `revenuBase × multiplicateurCompétence × modifKarma × modifBonheur`).
+- Floating text : `flottants` ref locale (UI pure, hors state.js), animation CSS `@keyframes flotter` 800ms, nettoyage par `setTimeout`.
+- Verbe bouton : `verbeBouton` computed depuis `CONFIG.VERBE_METIER[metierActif]` avec fallback `VERBE_METIER_DEFAUT`.
+- `revenuClicAffiche` computed remplace l'ancienne valeur statique `state.revenuParClic` dans le template.
+
 ---
 *Ne jamais lire le GDD pour coder — toutes les infos techniques sont ici.*
 *Mettre à jour la section "Sessions terminées" à chaque fin de ticket.*

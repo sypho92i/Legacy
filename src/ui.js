@@ -8,17 +8,30 @@ import { CONFIG }           from './config.js'
 
 export const AppRoot = {
   setup() {
+    const { ref, computed } = Vue
+
     // Écouteur mort (dispatché par engine.js)
     window.addEventListener('legacy:mort', (e) => {
       console.log('[LEGACY] Mort — génération', e.detail.generation)
       // TODO ticket héritage : ouvrir écran de transition
     })
 
+    // ── Floating texts ────────────────────────────────────────────────────────
+    const flottants = ref([])
+    let _nextFlottantId = 0
+
     // ── Handlers ──────────────────────────────────────────────────────────────
 
     function onClic() {
       const gain = calculerRevenuClic()
       state.argent += gain
+
+      const id = _nextFlottantId++
+      flottants.value.push({ id, gain })
+      setTimeout(() => {
+        const idx = flottants.value.findIndex(f => f.id === id)
+        if (idx !== -1) flottants.value.splice(idx, 1)
+      }, 800)
     }
 
     function toggleMenu(nom) {
@@ -29,7 +42,15 @@ export const AppRoot = {
       isEngineRunning() ? stopEngine() : startEngine()
     }
 
-    return { state, CONFIG, onClic, toggleMenu, toggleEngine, isEngineRunning }
+    // ── Computed ──────────────────────────────────────────────────────────────
+
+    const verbeBouton = computed(() =>
+      CONFIG.VERBE_METIER[state.metierActif] ?? CONFIG.VERBE_METIER_DEFAUT
+    )
+
+    const revenuClicAffiche = computed(() => calculerRevenuClic())
+
+    return { state, CONFIG, flottants, verbeBouton, revenuClicAffiche, onClic, toggleMenu, toggleEngine, isEngineRunning }
   },
 
   template: `
@@ -60,18 +81,25 @@ export const AppRoot = {
 
       <!-- ── Zone de clic ──────────────────────────────────────── -->
       <section class="zone-clic">
-        <button
-          class="btn-clic"
-          :class="'btn-clic--' + state.multiplicateurCouleur"
-          @click="onClic"
-        >
-          Travailler
-          <span class="btn-clic__multi">
-            ×{{ CONFIG.MULTIPLICATEUR_COMPETENCE[state.competence] }}
-          </span>
-        </button>
+        <div class="btn-clic-wrap">
+          <div class="zone-clic__flottants" aria-hidden="true">
+            <span v-for="f in flottants" :key="f.id" class="flottant">
+              +{{ f.gain.toFixed(2) }} €
+            </span>
+          </div>
+          <button
+            class="btn-clic"
+            :class="'btn-clic--' + state.multiplicateurCouleur"
+            @click="onClic"
+          >
+            {{ verbeBouton }}
+            <span class="btn-clic__multi">
+              ×{{ CONFIG.MULTIPLICATEUR_COMPETENCE[state.competence] }}
+            </span>
+          </button>
+        </div>
         <p class="revenu-par-clic">
-          Revenu/clic : {{ state.revenuParClic.toFixed(2) }} €
+          Revenu/clic : {{ revenuClicAffiche.toFixed(2) }} €
         </p>
       </section>
 

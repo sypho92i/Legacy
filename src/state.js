@@ -1,5 +1,6 @@
 // state.js — source de vérité unique, état global réactif Vue
-import { reactive } from 'vue'
+// Vue est chargé via CDN global — pas d'import ES module
+const { reactive } = Vue
 import { CONFIG } from './config.js'
 
 export const state = reactive({
