@@ -1,7 +1,7 @@
 // ui.js — composants Vue, handlers d'événements, update UI
 // Règle : ne contient que du Vue réactif — zéro querySelector/getElementById
 import { state }            from './state.js'
-import { calculerRevenuClic, calculerXpClic, calculerNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, getTauxPassifTotal, initialiserNouvelleGeneration } from './engine.js'
+import { calculerRevenuClic, calculerXpClic, calculerNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, getTauxPassifTotal, initialiserNouvelleGeneration } from './engine.js'
 import { CONFIG }           from './config.js'
 
 // ─── Composant racine ─────────────────────────────────────────────────────────
@@ -44,6 +44,10 @@ export const AppRoot = {
     const flottants = ref([])
     let _nextFlottantId = 0
 
+    // ── Floating texts boutique ───────────────────────────────────────────────
+    const boutiqueFlottants = ref([])
+    let _nextBoutiqueFlottantId = 0
+
     // ── Handlers ──────────────────────────────────────────────────────────────
 
     function onClic() {
@@ -56,6 +60,17 @@ export const AppRoot = {
       setTimeout(() => {
         const idx = flottants.value.findIndex(f => f.id === id)
         if (idx !== -1) flottants.value.splice(idx, 1)
+      }, 800)
+    }
+
+    function acheterItemBoutique(id) {
+      const item = acheterItem(id)
+      if (!item) return
+      const fid = _nextBoutiqueFlottantId++
+      boutiqueFlottants.value.push({ id: fid, texte: `+${item.effet} ${item.jauge}` })
+      setTimeout(() => {
+        const idx = boutiqueFlottants.value.findIndex(f => f.id === fid)
+        if (idx !== -1) boutiqueFlottants.value.splice(idx, 1)
       }, 800)
     }
 
@@ -119,6 +134,15 @@ export const AppRoot = {
       return { current, max, pct: Math.min(100, (current / max) * 100) }
     })
 
+    // ── Boutique ──────────────────────────────────────────────────────────────
+
+    const itemsBoutique = computed(() =>
+      CONFIG.BOUTIQUE.ITEMS.map(item => ({
+        ...item,
+        disabled: state.argent < item.prix,
+      }))
+    )
+
     const competencesAuDeces = computed(() =>
       Object.entries(state.xpSecteurs).map(([secteur]) => ({
         secteur,
@@ -126,11 +150,14 @@ export const AppRoot = {
       }))
     )
 
-    return { state, CONFIG, flottants, verbeBouton, revenuClicAffiche, tauxPassifAffiche, niveauCommerce, nomPalierCommerce, xpCommerceInfo, onClic, toggleMenu, toggleEngine, isEngineRunning, renderUpgradesCommerce, acheterUpgrade, mort, heritageAffiche, competencesAuDeces, nouvelleGeneration, mortSimulee }
+    return { state, CONFIG, flottants, boutiqueFlottants, verbeBouton, revenuClicAffiche, tauxPassifAffiche, niveauCommerce, nomPalierCommerce, xpCommerceInfo, onClic, toggleMenu, toggleEngine, isEngineRunning, renderUpgradesCommerce, acheterUpgrade, acheterItemBoutique, itemsBoutique, mort, heritageAffiche, competencesAuDeces, nouvelleGeneration, mortSimulee }
   },
 
   template: `
     <div id="app">
+
+      <!-- ── Colonne principale ────────────────────────────────── -->
+      <div class="main-col">
 
       <!-- ── HUD principal ─────────────────────────────────────── -->
       <section class="hud">
@@ -183,7 +210,6 @@ export const AppRoot = {
       <!-- ── Menus ──────────────────────────────────────────────── -->
       <nav class="menus">
         <button @click="toggleMenu('finances')">Finances</button>
-        <button @click="toggleMenu('boutique')">Boutique</button>
         <button @click="toggleMenu('upgrades')">Améliorations</button>
       </nav>
 
@@ -231,6 +257,29 @@ export const AppRoot = {
 
         <button @click="toggleMenu(state.menuOuvert)">Fermer</button>
       </div>
+
+      </div><!-- /.main-col -->
+
+      <!-- ── Panneau boutique (toujours visible) ───────────────── -->
+      <aside class="boutique-panel">
+        <h2 class="boutique-panel__titre">Boutique</h2>
+        <div class="boutique-flottants" aria-hidden="true">
+          <span v-for="f in boutiqueFlottants" :key="f.id" class="boutique-flottant">
+            {{ f.texte }}
+          </span>
+        </div>
+        <ul class="boutique-liste">
+          <li v-for="item in itemsBoutique" :key="item.id" class="boutique-item" :class="{ 'boutique-item--disabled': item.disabled }">
+            <div class="boutique-item__label">{{ item.label }}</div>
+            <div class="boutique-item__prix">{{ item.prix }} €</div>
+            <button
+              class="boutique-item__btn"
+              :disabled="item.disabled"
+              @click="acheterItemBoutique(item.id)"
+            >Acheter</button>
+          </li>
+        </ul>
+      </aside>
 
       <!-- ── Debug engine ───────────────────────────────────────── -->
       <footer class="debug">

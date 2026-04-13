@@ -81,6 +81,19 @@ export function acheterUpgrade(id) {
 
 window.acheterUpgrade = acheterUpgrade
 
+// ─── Achat d'item boutique ────────────────────────────────────────────────────
+
+export function acheterItem(id) {
+  const item = CONFIG.BOUTIQUE.ITEMS.find(i => i.id === id)
+  if (!item) return null
+  if (state.argent < item.prix) return null
+  state.argent -= item.prix
+  state.jauges[item.jauge] = clampJauge(state.jauges[item.jauge] + item.effet)
+  return item
+}
+
+window.acheterItem = acheterItem
+
 // ─── Helpers passifs ──────────────────────────────────────────────────────────
 
 function getPlafondPassif(passifId) {

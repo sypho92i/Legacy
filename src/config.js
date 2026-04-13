@@ -42,10 +42,10 @@ export const CONFIG = {
   JAUGE_DEPART: 80,
 
   JAUGE_DECAY_PAR_TICK: {   // dégradation passive par tick (200 ms)
-    faim:       0.008,
-    hygiene:    0.004,
-    bonheur:    0.005,
-    sante:      0.002,
+    faim:       0.024,
+    hygiene:    0.012,
+    bonheur:    0.015,
+    sante:      0.006,
     reputation: 0,          // pas de déclin passif — modifiée uniquement par interactions
   },
 
@@ -88,6 +88,17 @@ export const CONFIG = {
       5: 'Magnat',
     },
     FACTEUR_XP: 1.8,
+  },
+
+  // Boutique — items consommables
+  BOUTIQUE: {
+    ITEMS: [
+      { id: 'repas_simple',  label: 'Repas simple',         prix: 10, jauge: 'faim',    effet: 40 },
+      { id: 'repas_correct', label: 'Repas correct',        prix: 25, jauge: 'faim',    effet: 70 },
+      { id: 'douche',        label: 'Douche',               prix: 5,  jauge: 'hygiene', effet: 50 },
+      { id: 'medecin',       label: 'Consultation médecin', prix: 50, jauge: 'sante',   effet: 35 },
+      { id: 'loisir',        label: 'Activité loisir',      prix: 30, jauge: 'bonheur', effet: 40 },
+    ],
   },
 
   METIERS: {
