@@ -353,6 +353,23 @@ Moteur vide opérationnel : boucle tick 200ms, état global réactif, HUD + jaug
 - engine.js : `tickJauges()` refactorisée — helper `clampJauge()`, déclin passif en boucle, puis interactions conditionnelles (faim < 20 → malus sante, hygiene < 20 → malus reputation).
 - ui.js / index.html : aucun changement (JaugeBar et CSS déjà opérationnels depuis ticket 6).
 
+### Ticket 8 — Système de mort et boucle générationnelle
+- `CONFIG.DEBUG: false` ajouté dans config.js.
+- state.js : `nomPersonnage: 'Héros'`, `coucheIllegalMax: 0`, `lignee: []` (tableau `{ nom, age_mort, argent_transmis, karma_final, couche_illegale_max }`).
+- engine.js : `tickAge()` ne déclenche plus `onMort()` — délégué à `verifierMort()`.
+- `verifierMort()` : vérifie `sante ≤ 0 || age ≥ CONFIG.AGE_MORT`, garde `_mortDeclenchee` pour éviter le double déclenchement.
+- `tickEvenementsKarma()` : ENNEMI_PUBLIC (karma 0–5) → 2%/tick → `sante −= 15` (clampé).
+- `calculerHeritage()` exportée : `{ nom, age_mort, argent_transmis (50%), karma_final, couche_illegale_max }`.
+- `karmaDepart(lignee)` interne : malus couche 2 (−10), couche 3 (−10), consécutivité couche 3 ≥2 (−15), ≥3 (−15), rédemption vertueuse (+5/génération).
+- `onMort()` : push héritage dans `state.lignee`, stop moteur, dispatch `legacy:mort` avec `{ heritage }`.
+- `initialiserNouvelleGeneration()` exportée : `generation += 1`, reset age/jauges/upgrades/passifs/XP, argent = `argent_transmis` du dernier héritage, karma = `karmaDepart(state.lignee)`.
+- `startEngine()` : reset `_mortDeclenchee = false`.
+- `tick()` : ajout de `tickEvenementsKarma()` + `verifierMort()` en fin de boucle.
+- ui.js : refs `mort` + `heritageAffiche` + listener `legacy:mort` → overlay. Computed `competencesAuDeces` (xpSecteurs → niveau par secteur). Fonctions `nouvelleGeneration()` + `mortSimulee()` (debug).
+- Overlay plein écran : résumé (nom, âge, argent transmis, karma) + grille 6 compétences + bouton "Nouvelle génération →".
+- Bouton debug `☠ Mort simulée` visible uniquement si `CONFIG.DEBUG === true`.
+- index.html : CSS `.overlay-mort`, `.ecran-mort` et enfants, `.debug__mort`.
+
 ---
 *Ne jamais lire le GDD pour coder — toutes les infos techniques sont ici.*
 *Mettre à jour la section "Sessions terminées" à chaque fin de ticket.*
