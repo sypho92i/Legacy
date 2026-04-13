@@ -370,6 +370,14 @@ Moteur vide opérationnel : boucle tick 200ms, état global réactif, HUD + jaug
 - Bouton debug `☠ Mort simulée` visible uniquement si `CONFIG.DEBUG === true`.
 - index.html : CSS `.overlay-mort`, `.ecran-mort` et enfants, `.debug__mort`.
 
+### Ticket 9 — Boutique basique
+- `CONFIG.JAUGE_DECAY_PAR_TICK` mis à jour ×3 : faim 0.024, hygiene 0.012, bonheur 0.015, sante 0.006.
+- `CONFIG.BOUTIQUE.ITEMS` ajouté dans config.js : 5 items (`repas_simple` 10€ +40 faim, `repas_correct` 25€ +70 faim, `douche` 5€ +50 hygiene, `medecin` 50€ +35 sante, `loisir` 30€ +40 bonheur).
+- `acheterItem(id)` exportée dans engine.js : vérifie argent, déduit prix, clamp jauge, retourne item ou null. Exposée via `window.acheterItem`.
+- ui.js : `acheterItem` importée. Computed `itemsBoutique` (items + flag `disabled`). Handler `acheterItemBoutique(id)` + floating text 800ms. `boutiqueFlottants` ref locale.
+- Template restructuré : contenu existant enveloppé dans `.main-col`, `<aside class="boutique-panel">` toujours visible à droite avec les 5 items. Bouton "Boutique" retiré du menu nav.
+- index.html : `#app` passe de flex-column à CSS grid 2 colonnes (`1fr 200px`). `.main-col` occupe `grid-row: 1/3`. `.debug` span les 2 colonnes. CSS `.boutique-panel`, `.boutique-item`, `.boutique-item__btn`, `.boutique-flottant` ajoutés.
+
 ---
 *Ne jamais lire le GDD pour coder — toutes les infos techniques sont ici.*
 *Mettre à jour la section "Sessions terminées" à chaque fin de ticket.*
