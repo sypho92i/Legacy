@@ -345,6 +345,14 @@ Moteur vide opérationnel : boucle tick 200ms, état global réactif, HUD + jaug
 - `niveauRequis` : u_c1→1, u_c2→2, u_c3→2, u_c4→3, u_c5→4, u_c6→5.
 - Seul config.js modifié — `calculerNiveau` (engine.js) est générique, gère N seuils sans changement.
 
+### Ticket 7 — Afficher les jauges
+- `CONFIG.JAUGE_DEPART: 80` ajouté dans config.js — valeur initiale de toutes les jauges.
+- `JAUGE_DECAY_PAR_TICK` mis à jour : faim −0.008, hygiene −0.004, bonheur −0.005, sante −0.002, reputation 0.
+- Constantes d'interaction ajoutées : `JAUGE_SEUIL_FAIM: 20`, `JAUGE_MALUS_SANTE_PAR_TICK: 0.003`, `JAUGE_SEUIL_HYGIENE: 20`, `JAUGE_MALUS_REPUTATION_PAR_TICK: 0.002`.
+- state.js : toutes les jauges initialisées à `CONFIG.JAUGE_DEPART` (80), reputation passe de 50 → 80.
+- engine.js : `tickJauges()` refactorisée — helper `clampJauge()`, déclin passif en boucle, puis interactions conditionnelles (faim < 20 → malus sante, hygiene < 20 → malus reputation).
+- ui.js / index.html : aucun changement (JaugeBar et CSS déjà opérationnels depuis ticket 6).
+
 ---
 *Ne jamais lire le GDD pour coder — toutes les infos techniques sont ici.*
 *Mettre à jour la section "Sessions terminées" à chaque fin de ticket.*

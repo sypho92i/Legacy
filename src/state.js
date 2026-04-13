@@ -32,11 +32,11 @@ export const state = reactive({
 
   // Jauges personnage (0-100)
   jauges: {
-    faim:       CONFIG.JAUGE_MAX,
-    hygiene:    CONFIG.JAUGE_MAX,
-    sante:      CONFIG.JAUGE_MAX,
-    bonheur:    CONFIG.JAUGE_MAX,
-    reputation: 50,
+    faim:       CONFIG.JAUGE_DEPART,
+    hygiene:    CONFIG.JAUGE_DEPART,
+    sante:      CONFIG.JAUGE_DEPART,
+    bonheur:    CONFIG.JAUGE_DEPART,
+    reputation: CONFIG.JAUGE_DEPART,
   },
 
   // Karma

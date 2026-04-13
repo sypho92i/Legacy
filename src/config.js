@@ -36,16 +36,23 @@ export const CONFIG = {
   ],
 
   // Jauges
-  JAUGE_MIN:  0,
-  JAUGE_MAX: 100,
+  JAUGE_MIN:    0,
+  JAUGE_MAX:  100,
+  JAUGE_DEPART: 80,
 
-  JAUGE_DECAY_PAR_TICK: {   // dégradation par tick (moteur vide — zéro pour l'instant)
-    faim:       0,
-    hygiene:    0,
-    sante:      0,
-    bonheur:    0,
-    reputation: 0,
+  JAUGE_DECAY_PAR_TICK: {   // dégradation passive par tick (200 ms)
+    faim:       0.008,
+    hygiene:    0.004,
+    bonheur:    0.005,
+    sante:      0.002,
+    reputation: 0,          // pas de déclin passif — modifiée uniquement par interactions
   },
+
+  // Interactions soustractives entre jauges
+  JAUGE_SEUIL_FAIM:              20,   // en dessous → malus sante
+  JAUGE_MALUS_SANTE_PAR_TICK:   0.003,
+  JAUGE_SEUIL_HYGIENE:           20,   // en dessous → malus reputation
+  JAUGE_MALUS_REPUTATION_PAR_TICK: 0.002,
 
   // Âge
   AGE_DEPART: 18,

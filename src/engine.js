@@ -111,13 +111,24 @@ function tickPassifs() {
   state.argent += taux * (CONFIG.TICK_MS / 1000)
 }
 
+function clampJauge(val) {
+  return Math.max(CONFIG.JAUGE_MIN, Math.min(CONFIG.JAUGE_MAX, val))
+}
+
 function tickJauges() {
   const decay = CONFIG.JAUGE_DECAY_PAR_TICK
+
+  // Déclin passif de base
   for (const jauge of Object.keys(decay)) {
-    state.jauges[jauge] = Math.max(
-      CONFIG.JAUGE_MIN,
-      Math.min(CONFIG.JAUGE_MAX, state.jauges[jauge] - decay[jauge])
-    )
+    state.jauges[jauge] = clampJauge(state.jauges[jauge] - decay[jauge])
+  }
+
+  // Interactions soustractives
+  if (state.jauges.faim < CONFIG.JAUGE_SEUIL_FAIM) {
+    state.jauges.sante = clampJauge(state.jauges.sante - CONFIG.JAUGE_MALUS_SANTE_PAR_TICK)
+  }
+  if (state.jauges.hygiene < CONFIG.JAUGE_SEUIL_HYGIENE) {
+    state.jauges.reputation = clampJauge(state.jauges.reputation - CONFIG.JAUGE_MALUS_REPUTATION_PAR_TICK)
   }
 }
 
