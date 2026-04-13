@@ -1,7 +1,7 @@
 // ui.js — composants Vue, handlers d'événements, update UI
 // Règle : ne contient que du Vue réactif — zéro querySelector/getElementById
 import { state }            from './state.js'
-import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, getTauxPassifTotal, initialiserNouvelleGeneration } from './engine.js'
+import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration } from './engine.js'
 // calculerCashflowNet est appelé dans tick() — state.cashflowNet est toujours à jour
 import { CONFIG }           from './config.js'
 
@@ -147,7 +147,15 @@ export const AppRoot = {
       tauxParSeconde: p.tauxParSeconde,
     })))
 
-    const financesCharges = computed(() => [])  // Vide — Ticket 11+
+    const financesCharges = computed(() => {
+      const log = CONFIG.LOGEMENTS[state.possessions.logement]
+      if (!log || log.charge === 0) return []
+      return [{ nom: `Loyer — ${log.nom}`, charge: log.charge }]
+    })
+
+    const totalChargesAffiche = computed(() =>
+      financesCharges.value.reduce((acc, ch) => acc + ch.charge, 0)
+    )
 
     // ── Boutique ──────────────────────────────────────────────────────────────
 
@@ -158,6 +166,38 @@ export const AppRoot = {
       }))
     )
 
+    // ── Logement ──────────────────────────────────────────────────────────────
+
+    const logementActuel = computed(() => {
+      const slug = state.possessions.logement
+      return { slug, ...CONFIG.LOGEMENTS[slug] }
+    })
+
+    const logementLocations = computed(() =>
+      Object.entries(CONFIG.LOGEMENTS)
+        .filter(([, l]) => l.type === 'location')
+        .map(([slug, l]) => ({
+          slug, ...l,
+          estActuel: state.possessions.logement === slug,
+          abordable: state.argent >= l.charge,
+        }))
+    )
+
+    const logementAchats = computed(() =>
+      Object.entries(CONFIG.LOGEMENTS)
+        .filter(([, l]) => l.type === 'achat')
+        .map(([slug, l]) => ({
+          slug, ...l,
+          estActuel: state.possessions.logement === slug,
+          abordable: state.argent >= l.cout,
+        }))
+    )
+
+    function actionLouer(slug) { louerLogement(slug) }
+    function actionAcheter(slug) { acheterLogement(slug) }
+
+    // ── Compétences au décès ───────────────────────────────────────────────────
+
     const competencesAuDeces = computed(() =>
       Object.entries(state.xpSecteurs).map(([secteur]) => ({
         secteur,
@@ -165,7 +205,7 @@ export const AppRoot = {
       }))
     )
 
-    return { state, CONFIG, flottants, boutiqueFlottants, verbeBouton, revenuClicAffiche, multiplicateurActuel, niveauCommerce, nomPalierCommerce, xpCommerceInfo, onClic, toggleMenu, toggleEngine, isEngineRunning, renderUpgradesCommerce, acheterUpgrade, acheterItemBoutique, itemsBoutique, mort, heritageAffiche, competencesAuDeces, nouvelleGeneration, mortSimulee, ongletFinances, financesRevenus, financesCharges, getTauxPassifTotal }
+    return { state, CONFIG, flottants, boutiqueFlottants, verbeBouton, revenuClicAffiche, multiplicateurActuel, niveauCommerce, nomPalierCommerce, xpCommerceInfo, onClic, toggleMenu, toggleEngine, isEngineRunning, renderUpgradesCommerce, acheterUpgrade, acheterItemBoutique, itemsBoutique, mort, heritageAffiche, competencesAuDeces, nouvelleGeneration, mortSimulee, ongletFinances, financesRevenus, financesCharges, totalChargesAffiche, getTauxPassifTotal, logementActuel, logementLocations, logementAchats, actionLouer, actionAcheter }
   },
 
   template: `
@@ -229,6 +269,7 @@ export const AppRoot = {
           :class="['menus__btn', { 'menus__btn--pulse-rouge': state.cashflowNet < 0 }]"
         >Finances</button>
         <button class="menus__btn" @click="toggleMenu('upgrades')">Améliorations</button>
+        <button class="menus__btn" @click="toggleMenu('logement')">🏠 Logement</button>
       </nav>
 
       <div v-if="state.menuOuvert" class="panel">
@@ -263,7 +304,13 @@ export const AppRoot = {
 
           <!-- Onglet Charges -->
           <div v-if="ongletFinances === 'charges'" class="finances-contenu">
-            <p class="finances-vide">Aucune charge active</p>
+            <p v-if="financesCharges.length === 0" class="finances-vide">Aucune charge active</p>
+            <ul v-else class="finances-liste">
+              <li v-for="(ch, i) in financesCharges" :key="i" class="finances-ligne">
+                <span class="finances-ligne__label">{{ ch.nom }}</span>
+                <span class="finances-ligne__valeur finances-ligne__valeur--rouge">−{{ ch.charge }} €</span>
+              </li>
+            </ul>
           </div>
 
           <!-- Onglet Bilan -->
@@ -278,7 +325,7 @@ export const AppRoot = {
               </div>
               <div class="finances-bilan__detail">
                 <span>Charges</span>
-                <span>−0.00 €/s</span>
+                <span :class="totalChargesAffiche > 0 ? 'finances-ligne__valeur--rouge' : ''">−{{ totalChargesAffiche.toFixed(0) }} €</span>
               </div>
             </div>
           </div>
@@ -319,6 +366,76 @@ export const AppRoot = {
               </div>
             </li>
           </ul>
+        </template>
+
+        <!-- ── Menu Logement ──────────────────────────────────── -->
+        <template v-else-if="state.menuOuvert === 'logement'">
+          <div class="logement-vue">
+
+            <!-- Logement actuel -->
+            <div class="logement-actuel">
+              <span class="logement-actuel__label">Logement actuel</span>
+              <span class="logement-actuel__nom">{{ logementActuel.nom }}</span>
+              <span v-if="logementActuel.bonheur > 0" class="logement-actuel__bonus">+{{ logementActuel.bonheur }} bonheur</span>
+              <span v-if="logementActuel.charge > 0" class="logement-actuel__charge">
+                {{ logementActuel.type === 'achat' ? 'Charges' : 'Loyer' }} : {{ logementActuel.charge }} € / 6 mois
+              </span>
+            </div>
+
+            <!-- Locations -->
+            <h3 class="logement-section-titre">Locations</h3>
+            <ul class="logement-liste">
+              <li
+                v-for="l in logementLocations"
+                :key="l.slug"
+                class="logement-item"
+                :class="{ 'logement-item--actuel': l.estActuel, 'logement-item--verrouille': !l.abordable && !l.estActuel }"
+              >
+                <div class="logement-item__header">
+                  <span class="logement-item__nom">{{ l.nom }}</span>
+                  <span class="logement-item__prix">{{ l.charge }} € / 6 mois</span>
+                </div>
+                <div class="logement-item__footer">
+                  <span class="logement-item__bonheur" v-if="l.bonheur > 0">+{{ l.bonheur }} bonheur</span>
+                  <span v-if="l.estActuel" class="logement-item__badge">✓ Actuel</span>
+                  <button
+                    v-else
+                    class="logement-item__btn"
+                    :disabled="!l.abordable"
+                    @click="actionLouer(l.slug)"
+                  >Louer</button>
+                </div>
+              </li>
+            </ul>
+
+            <!-- Achats -->
+            <h3 class="logement-section-titre">Achats</h3>
+            <ul class="logement-liste">
+              <li
+                v-for="l in logementAchats"
+                :key="l.slug"
+                class="logement-item"
+                :class="{ 'logement-item--actuel': l.estActuel, 'logement-item--verrouille': !l.abordable && !l.estActuel }"
+              >
+                <div class="logement-item__header">
+                  <span class="logement-item__nom">{{ l.nom }}</span>
+                  <span class="logement-item__prix">{{ l.cout.toLocaleString('fr-FR') }} €</span>
+                </div>
+                <div class="logement-item__footer">
+                  <span class="logement-item__bonheur" v-if="l.bonheur > 0">+{{ l.bonheur }} bonheur</span>
+                  <span class="logement-item__charges" v-if="l.charge > 0">Charges {{ l.charge }} €</span>
+                  <span v-if="l.estActuel" class="logement-item__badge">✓ Actuel</span>
+                  <button
+                    v-else
+                    class="logement-item__btn"
+                    :disabled="!l.abordable"
+                    @click="actionAcheter(l.slug)"
+                  >Acheter</button>
+                </div>
+              </li>
+            </ul>
+
+          </div>
         </template>
 
         <button @click="toggleMenu(state.menuOuvert)">Fermer</button>

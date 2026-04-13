@@ -53,9 +53,21 @@ export const state = reactive({
   coucheIllegalMax: 0,     // 0 | 1 | 2 | 3 — max atteint dans cette vie
   lignee: [],              // [{ nom, age_mort, argent_transmis, karma_final, couche_illegale_max }]
 
-  // UI
-  menuOuvert: null,      // 'finances' | 'boutique' | 'upgrades' | null
+  // Possessions
+  possessions: {
+    logement:       'squat',
+    logementAchete: false,
+    vehicule:       null,
+    ordinateur:     false,
+    tokens:         0,
+    animaux:        [],
+    items:          [],
+  },
 
-  // Compteur interne pour le calcul du vieillissement
+  // UI
+  menuOuvert: null,      // 'finances' | 'logement' | 'upgrades' | null
+
+  // Compteurs internes
   _ticksDepuisDernierAnniversaire: 0,
+  _ticksDepuisLoyer: 0,
 })

@@ -393,6 +393,14 @@ Moteur vide opérationnel : boucle tick 200ms, état global réactif, HUD + jaug
 - index.html : CSS `.multiplicateur-diamant` ajouté (font-size 1.15em, bold, transition color 0.3s).
 - Couleur du bouton de clic rendue dynamique : `:class="'btn-clic--' + state.multiplicateurCouleur"` remplacé par `:style="{ color: multiplicateurActuel.couleur }"`. La bordure suit via `currentColor`. Transition `color 0.3s` ajoutée sur `.btn-clic`. Les anciennes classes CSS `.btn-clic--gris/blanc/jaune/orange/or` ne sont plus utilisées pour le bouton principal.
 
+### Ticket 12 — Boutique logement — 6 niveaux
+- `CONFIG.LOGEMENTS` ajouté dans config.js : 7 entrées (squat/defaut + 3 locations + 3 achats), champs `{ type, nom, cout, charge, bonheur, transmissible }`.
+- `CONFIG.LOGEMENT_TICK_PRELEVEMENT: 25` (= ~6 mois de jeu), `CONFIG.JAUGES_MALUS_SQUAT` (reputation −0.005/tick, hygiene decay bonus −0.008/tick, bonheur plafond 40), `CONFIG.EXPULSION` (choc reputation −15, choc bonheur −20).
+- state.js : `state.possessions` créé (`logement: 'squat'`, `logementAchete: false`, plus vehicule/ordinateur/tokens/animaux/items pour les tickets futurs). `state._ticksDepuisLoyer: 0` ajouté au root.
+- engine.js : `louerLogement(slug)` (vérifie type=location + premier loyer abordable, set logement) et `acheterLogement(slug)` (déduit cout, set logement+logementAchete=true) exportées + exposées via window. `tickLogement()` : malus squat continus (reputation/hygiene/plafond bonheur) si squat, sinon prélèvement loyer tous les 25 ticks avec expulsion si insolvable. `calculerCashflowNet()` : totalCharges = `CONFIG.LOGEMENTS[state.possessions.logement].charge`. `initialiserNouvelleGeneration()` : logement hérité si `logementAchete`, sinon reset squat. `tickLogement()` branché dans `tick()`.
+- ui.js : import `louerLogement`/`acheterLogement`. Computeds `logementActuel`, `logementLocations`, `logementAchats`. Handlers `actionLouer`/`actionAcheter`. `financesCharges` remplacé par computed réel. `totalChargesAffiche` computed. Bouton `🏠 Logement` dans nav. Vue logement dédiée dans le panel. Onglet Charges Finances mis à jour. Bilan : ligne charges dynamique.
+- index.html : CSS `.logement-vue`, `.logement-actuel`, `.logement-section-titre`, `.logement-liste`, `.logement-item`, `.logement-item--actuel`, `.logement-item--verrouille`, `.logement-item__*`.
+
 ---
 *Ne jamais lire le GDD pour coder — toutes les infos techniques sont ici.*
 *Mettre à jour la section "Sessions terminées" à chaque fin de ticket.*

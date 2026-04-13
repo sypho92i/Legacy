@@ -99,6 +99,30 @@ export const CONFIG = {
     FACTEUR_XP: 1.8,
   },
 
+  // Logements
+  LOGEMENTS: {
+    squat:       { type: 'defaut',   nom: 'Squat',       cout: 0,        charge: 0,    bonheur: 0,  transmissible: false },
+    studio:      { type: 'location', nom: 'Studio',      cout: 0,        charge: 300,  bonheur: 5,  transmissible: false },
+    appartement: { type: 'location', nom: 'Appartement', cout: 0,        charge: 700,  bonheur: 12, transmissible: false },
+    loft:        { type: 'location', nom: 'Loft',        cout: 0,        charge: 1500, bonheur: 20, transmissible: false },
+    maison:      { type: 'achat',    nom: 'Maison',      cout: 80000,    charge: 200,  bonheur: 30, transmissible: true  },
+    villa:       { type: 'achat',    nom: 'Villa',       cout: 300000,   charge: 500,  bonheur: 45, transmissible: true  },
+    penthouse:   { type: 'achat',    nom: 'Penthouse',   cout: 1000000,  charge: 1500, bonheur: 60, transmissible: true  },
+  },
+
+  LOGEMENT_TICK_PRELEVEMENT: 25, // toutes les 25 ticks = ~6 mois de jeu
+
+  JAUGES_MALUS_SQUAT: {
+    reputation_par_tick: 0.005,
+    hygiene_decay_bonus: 0.008, // s'ajoute au decay normal
+    bonheur_plafond: 40,
+  },
+
+  EXPULSION: {
+    choc_reputation: -15,
+    choc_bonheur:    -20,
+  },
+
   // Boutique — items consommables
   BOUTIQUE: {
     ITEMS: [

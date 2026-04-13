@@ -100,6 +100,61 @@ export function acheterItem(id) {
 
 window.acheterItem = acheterItem
 
+// ─── Logement ─────────────────────────────────────────────────────────────────
+
+export function louerLogement(slug) {
+  const logement = CONFIG.LOGEMENTS[slug]
+  if (!logement || logement.type !== 'location') return null
+  if (state.argent < logement.charge) return null
+  state.possessions.logement       = slug
+  state.possessions.logementAchete = false
+  state._ticksDepuisLoyer          = 0
+  return logement
+}
+
+export function acheterLogement(slug) {
+  const logement = CONFIG.LOGEMENTS[slug]
+  if (!logement || logement.type !== 'achat') return null
+  if (state.argent < logement.cout) return null
+  state.argent                     -= logement.cout
+  state.possessions.logement       = slug
+  state.possessions.logementAchete = true
+  state._ticksDepuisLoyer          = 0
+  return logement
+}
+
+window.louerLogement   = louerLogement
+window.acheterLogement = acheterLogement
+
+function tickLogement() {
+  if (state.possessions.logement === 'squat') {
+    // Malus continus squat
+    state.jauges.reputation = clampJauge(state.jauges.reputation - CONFIG.JAUGES_MALUS_SQUAT.reputation_par_tick)
+    state.jauges.hygiene    = clampJauge(state.jauges.hygiene    - CONFIG.JAUGES_MALUS_SQUAT.hygiene_decay_bonus)
+    if (state.jauges.bonheur > CONFIG.JAUGES_MALUS_SQUAT.bonheur_plafond) {
+      state.jauges.bonheur = CONFIG.JAUGES_MALUS_SQUAT.bonheur_plafond
+    }
+    return
+  }
+
+  state._ticksDepuisLoyer++
+  if (state._ticksDepuisLoyer >= CONFIG.LOGEMENT_TICK_PRELEVEMENT) {
+    state._ticksDepuisLoyer = 0
+    const logement = CONFIG.LOGEMENTS[state.possessions.logement]
+    if (logement && logement.charge > 0) {
+      if (state.argent >= logement.charge) {
+        state.argent -= logement.charge
+      } else {
+        // Expulsion
+        state.possessions.logement       = 'squat'
+        state.possessions.logementAchete = false
+        state.jauges.reputation = clampJauge(state.jauges.reputation + CONFIG.EXPULSION.choc_reputation)
+        state.jauges.bonheur    = clampJauge(state.jauges.bonheur    + CONFIG.EXPULSION.choc_bonheur)
+      }
+    }
+  }
+}
+
 // ─── Helpers passifs ──────────────────────────────────────────────────────────
 
 function getPlafondPassif(passifId) {
@@ -123,7 +178,7 @@ export function getTauxPassifTotal() {
 
 export function calculerCashflowNet() {
   const totalRevenus = getTauxPassifTotal()
-  const totalCharges = 0  // Aucune charge fixe pour l'instant (Ticket 11+)
+  const totalCharges = CONFIG.LOGEMENTS[state.possessions.logement]?.charge ?? 0
   state.cashflowNet = totalRevenus - totalCharges
 }
 
@@ -216,12 +271,15 @@ function karmaDepart(lignee) {
 }
 
 export function initialiserNouvelleGeneration() {
-  const dernierHeritage = state.lignee[state.lignee.length - 1]
-  const kDepart = karmaDepart(state.lignee)
+  const dernierHeritage     = state.lignee[state.lignee.length - 1]
+  const kDepart             = karmaDepart(state.lignee)
+  const heritageLogementAchete = state.possessions.logementAchete
+  const heritageLogementSlug   = state.possessions.logement
 
   state.generation += 1
   state.age = CONFIG.AGE_DEPART
   state._ticksDepuisDernierAnniversaire = 0
+  state._ticksDepuisLoyer = 0
   state.argent = dernierHeritage ? dernierHeritage.argent_transmis : 0
   state.karma = kDepart
   state.nomPersonnage = ''
@@ -231,6 +289,17 @@ export function initialiserNouvelleGeneration() {
   state.coucheIllegalMax = 0
   state.palierKarma = 'neutre'
   state.xpSecteurs = { commerce: 0, finance: 0, tech: 0, immobilier: 0, btp: 0, influence: 0 }
+
+  // Héritage logement : conservé uniquement si bien acheté
+  state.possessions = {
+    logement:       heritageLogementAchete ? heritageLogementSlug : 'squat',
+    logementAchete: heritageLogementAchete,
+    vehicule:       null,
+    ordinateur:     false,
+    tokens:         0,
+    animaux:        [],
+    items:          [],
+  }
 
   for (const key of Object.keys(state.jauges)) {
     state.jauges[key] = CONFIG.JAUGE_DEPART
@@ -286,6 +355,7 @@ export function isEngineRunning() {
 function tick() {
   tickPassifs()
   tickJauges()
+  tickLogement()
   tickAge()
   tickKarma()
   tickCompetence()

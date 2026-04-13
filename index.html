@@ -187,6 +187,37 @@
     }
     .boutique-item__btn:disabled { cursor: not-allowed; background: #1a1a1a; color: #555; border-color: #333; }
 
+    /* Vue Logement */
+    .logement-vue { display: flex; flex-direction: column; gap: 12px; }
+    .logement-actuel {
+      display: flex; flex-direction: column; gap: 4px;
+      padding: 12px; background: #1a1a1a; border: 1px solid #444; border-radius: 6px;
+    }
+    .logement-actuel__label  { font-size: 0.75em; color: #666; text-transform: uppercase; letter-spacing: 0.08em; }
+    .logement-actuel__nom    { font-size: 1.1em; font-weight: bold; color: #e0e0e0; }
+    .logement-actuel__bonus  { font-size: 0.85em; color: #4caf50; }
+    .logement-actuel__charge { font-size: 0.85em; color: #f44336; }
+    .logement-section-titre  { font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.08em; color: #666; margin-top: 4px; }
+    .logement-liste          { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .logement-item {
+      padding: 10px; border: 1px solid #333; border-radius: 4px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .logement-item--actuel   { border-color: #4caf50; background: #0d1f0d; }
+    .logement-item--verrouille { opacity: 0.45; }
+    .logement-item__header   { display: flex; justify-content: space-between; align-items: center; }
+    .logement-item__nom      { font-weight: bold; color: #e0e0e0; }
+    .logement-item__prix     { color: #aaa; font-size: 0.85em; }
+    .logement-item__footer   { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+    .logement-item__bonheur  { font-size: 0.8em; color: #4caf50; }
+    .logement-item__charges  { font-size: 0.8em; color: #f44336; }
+    .logement-item__badge    { font-size: 0.8em; color: #4caf50; font-weight: bold; }
+    .logement-item__btn {
+      padding: 4px 10px; font-family: monospace; font-size: 0.8em; cursor: pointer;
+      background: #1e3a1e; color: #4caf50; border: 1px solid #4caf50; border-radius: 3px;
+    }
+    .logement-item__btn:disabled { cursor: not-allowed; background: #1a1a1a; color: #555; border-color: #333; }
+
     /* Debug */
     .debug { border-top: 1px solid #222; padding-top: 8px; display: flex; gap: 8px; }
     .debug button { padding: 6px 12px; font-family: monospace; cursor: pointer;
