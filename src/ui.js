@@ -1,7 +1,7 @@
 // ui.js — composants Vue, handlers d'événements, update UI
 // Règle : ne contient que du Vue réactif — zéro querySelector/getElementById
 import { state }            from './state.js'
-import { calculerRevenuClic, calculerXpClic, calculerNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, getTauxPassifTotal } from './engine.js'
+import { calculerRevenuClic, calculerXpClic, calculerNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, getTauxPassifTotal, initialiserNouvelleGeneration } from './engine.js'
 import { CONFIG }           from './config.js'
 
 // ─── Composant racine ─────────────────────────────────────────────────────────
@@ -10,11 +10,35 @@ export const AppRoot = {
   setup() {
     const { ref, computed } = Vue
 
-    // Écouteur mort (dispatché par engine.js)
+    // ── Écran de fin de vie ───────────────────────────────────────────────────
+    const mort          = ref(false)
+    const heritageAffiche = ref(null)
+
     window.addEventListener('legacy:mort', (e) => {
-      console.log('[LEGACY] Mort — génération', e.detail.generation)
-      // TODO ticket héritage : ouvrir écran de transition
+      heritageAffiche.value = e.detail.heritage
+      mort.value = true
     })
+
+    function nouvelleGeneration() {
+      initialiserNouvelleGeneration()
+      mort.value = false
+      startEngine()
+    }
+
+    function mortSimulee() {
+      stopEngine()
+      window.dispatchEvent(new CustomEvent('legacy:mort', {
+        detail: {
+          heritage: {
+            nom:               state.nomPersonnage,
+            age_mort:          state.age,
+            argent_transmis:   Math.floor(state.argent * 0.5),
+            karma_final:       state.karma,
+            couche_illegale_max: state.coucheIllegalMax,
+          }
+        }
+      }))
+    }
 
     // ── Floating texts ────────────────────────────────────────────────────────
     const flottants = ref([])
@@ -95,7 +119,14 @@ export const AppRoot = {
       return { current, max, pct: Math.min(100, (current / max) * 100) }
     })
 
-    return { state, CONFIG, flottants, verbeBouton, revenuClicAffiche, tauxPassifAffiche, niveauCommerce, nomPalierCommerce, xpCommerceInfo, onClic, toggleMenu, toggleEngine, isEngineRunning, renderUpgradesCommerce, acheterUpgrade }
+    const competencesAuDeces = computed(() =>
+      Object.entries(state.xpSecteurs).map(([secteur]) => ({
+        secteur,
+        niveau: calculerNiveau(secteur),
+      }))
+    )
+
+    return { state, CONFIG, flottants, verbeBouton, revenuClicAffiche, tauxPassifAffiche, niveauCommerce, nomPalierCommerce, xpCommerceInfo, onClic, toggleMenu, toggleEngine, isEngineRunning, renderUpgradesCommerce, acheterUpgrade, mort, heritageAffiche, competencesAuDeces, nouvelleGeneration, mortSimulee }
   },
 
   template: `
@@ -206,7 +237,38 @@ export const AppRoot = {
         <button @click="toggleEngine">
           {{ isEngineRunning() ? '⏸ Pause moteur' : '▶ Démarrer moteur' }}
         </button>
+        <button v-if="CONFIG.DEBUG" class="debug__mort" @click="mortSimulee">
+          ☠ Mort simulée
+        </button>
       </footer>
+
+      <!-- ── Écran de fin de vie ────────────────────────────────── -->
+      <div v-if="mort" class="overlay-mort">
+        <div class="ecran-mort">
+          <h1 class="ecran-mort__titre">Fin de vie</h1>
+
+          <div v-if="heritageAffiche" class="ecran-mort__resume">
+            <p class="ecran-mort__nom">{{ heritageAffiche.nom }}</p>
+            <p>Décédé à <strong>{{ heritageAffiche.age_mort }} ans</strong></p>
+            <p>Argent transmis : <strong>{{ heritageAffiche.argent_transmis }} €</strong></p>
+            <p>Karma final : <strong>{{ heritageAffiche.karma_final }}</strong></p>
+          </div>
+
+          <div class="ecran-mort__competences">
+            <h2>Compétences</h2>
+            <ul class="ecran-mort__liste-comp">
+              <li v-for="c in competencesAuDeces" :key="c.secteur" class="ecran-mort__comp-item">
+                <span class="ecran-mort__comp-secteur">{{ c.secteur }}</span>
+                <span class="ecran-mort__comp-niv">Niv.{{ c.niveau }}</span>
+              </li>
+            </ul>
+          </div>
+
+          <button class="ecran-mort__btn" @click="nouvelleGeneration">
+            Nouvelle génération →
+          </button>
+        </div>
+      </div>
 
     </div>
   `,

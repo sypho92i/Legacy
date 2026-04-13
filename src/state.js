@@ -4,6 +4,9 @@ const { reactive } = Vue
 import { CONFIG } from './config.js'
 
 export const state = reactive({
+  // Identité
+  nomPersonnage: 'Héros',
+
   // Finances
   argent: 0,
   revenuParClic: CONFIG.REVENU_BASE_CLIC,
@@ -46,15 +49,8 @@ export const state = reactive({
   // Génération & héritage
   generation: 1,
   age: CONFIG.AGE_DEPART,
-  lignee: {
-    reputation: 0,
-    karmaDepart: CONFIG.KARMA_DEPART_DEFAUT,
-    boostCompetences: {},   // { secteur: pourcentage }
-    logement: null,
-    toucheCouche2: false,
-    toucheCouche3: false,
-    generationsVertueuses: 0,
-  },
+  coucheIllegalMax: 0,     // 0 | 1 | 2 | 3 — max atteint dans cette vie
+  lignee: [],              // [{ nom, age_mort, argent_transmis, karma_final, couche_illegale_max }]
 
   // UI
   menuOuvert: null,      // 'finances' | 'boutique' | 'upgrades' | null

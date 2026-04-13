@@ -137,9 +137,6 @@ function tickAge() {
   if (state._ticksDepuisDernierAnniversaire >= CONFIG.TICKS_PAR_AN) {
     state._ticksDepuisDernierAnniversaire = 0
     state.age++
-    if (state.age >= CONFIG.AGE_MORT) {
-      onMort()
-    }
   }
 }
 
@@ -152,13 +149,91 @@ function tickCompetence() {
   state.multiplicateurCouleur = CONFIG.COULEUR_COMPETENCE[state.competence] ?? 'gris'
 }
 
-// ─── Événement mort ───────────────────────────────────────────────────────────
+// ─── Héritage & mort ─────────────────────────────────────────────────────────
+
+export function calculerHeritage() {
+  return {
+    nom:               state.nomPersonnage,
+    age_mort:          state.age,
+    argent_transmis:   Math.floor(state.argent * 0.5),
+    karma_final:       state.karma,
+    couche_illegale_max: state.coucheIllegalMax,
+  }
+}
+
+function karmaDepart(lignee) {
+  if (!lignee || lignee.length === 0) return CONFIG.KARMA_DEPART_DEFAUT
+  const derniere = lignee[lignee.length - 1]
+  let base = CONFIG.KARMA_DEPART_DEFAUT
+  if (derniere.couche_illegale_max >= 2) base -= 10
+  if (derniere.couche_illegale_max >= 3) base -= 10  // total -20
+
+  // Générations consécutives couche 3
+  let consecCouche3 = 0
+  for (let i = lignee.length - 1; i >= 0; i--) {
+    if (lignee[i].couche_illegale_max >= 3) consecCouche3++
+    else break
+  }
+  if (consecCouche3 >= 2) base -= 15  // total -35
+  if (consecCouche3 >= 3) base -= 15  // total -50
+
+  // Rédemption : +5 par génération vertueuse consécutive (sans couche 2+)
+  let consecVertueux = 0
+  for (let i = lignee.length - 1; i >= 0; i--) {
+    if (lignee[i].couche_illegale_max < 2) consecVertueux++
+    else break
+  }
+  base += consecVertueux * 5
+
+  return Math.max(0, Math.min(100, base))
+}
+
+export function initialiserNouvelleGeneration() {
+  const dernierHeritage = state.lignee[state.lignee.length - 1]
+  const kDepart = karmaDepart(state.lignee)
+
+  state.generation += 1
+  state.age = CONFIG.AGE_DEPART
+  state._ticksDepuisDernierAnniversaire = 0
+  state.argent = dernierHeritage ? dernierHeritage.argent_transmis : 0
+  state.karma = kDepart
+  state.nomPersonnage = ''
+  state.bonusUpgrades = 0
+  state.upgrades = []
+  state.passifs = []
+  state.coucheIllegalMax = 0
+  state.palierKarma = 'neutre'
+  state.xpSecteurs = { commerce: 0, finance: 0, tech: 0, immobilier: 0, btp: 0, influence: 0 }
+
+  for (const key of Object.keys(state.jauges)) {
+    state.jauges[key] = CONFIG.JAUGE_DEPART
+  }
+}
+
+let _mortDeclenchee = false
+
+function verifierMort() {
+  if (_mortDeclenchee) return
+  if (state.jauges.sante <= 0 || state.age >= CONFIG.AGE_MORT) {
+    _mortDeclenchee = true
+    onMort()
+  }
+}
+
+function tickEvenementsKarma() {
+  // ENNEMI_PUBLIC : 2%/tick de subir −15 santé
+  if (state.karma >= 0 && state.karma <= 5) {
+    if (Math.random() < 0.02) {
+      state.jauges.sante = clampJauge(state.jauges.sante - 15)
+    }
+  }
+}
 
 function onMort() {
-  // Arrête la boucle — la logique héritage sera dans un prochain ticket
+  const heritage = calculerHeritage()
+  state.lignee.push(heritage)
   stopEngine()
-  // Signal UI : le composant racine écoute cet événement
-  window.dispatchEvent(new CustomEvent('legacy:mort', { detail: { generation: state.generation } }))
+  window.dispatchEvent(new CustomEvent('legacy:mort', { detail: { heritage } }))
 }
 
 // ─── Boucle principale ────────────────────────────────────────────────────────
@@ -167,6 +242,7 @@ let _intervalId = null
 
 export function startEngine() {
   if (_intervalId !== null) return
+  _mortDeclenchee = false
   _intervalId = setInterval(tick, CONFIG.TICK_MS)
 }
 
@@ -186,4 +262,6 @@ function tick() {
   tickAge()
   tickKarma()
   tickCompetence()
+  tickEvenementsKarma()
+  verifierMort()
 }
