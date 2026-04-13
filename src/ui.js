@@ -1,7 +1,7 @@
 // ui.js — composants Vue, handlers d'événements, update UI
 // Règle : ne contient que du Vue réactif — zéro querySelector/getElementById
 import { state }            from './state.js'
-import { calculerRevenuClic, calculerXpClic, calculerNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, getTauxPassifTotal, initialiserNouvelleGeneration } from './engine.js'
+import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, getTauxPassifTotal, initialiserNouvelleGeneration } from './engine.js'
 // calculerCashflowNet est appelé dans tick() — state.cashflowNet est toujours à jour
 import { CONFIG }           from './config.js'
 
@@ -134,6 +134,10 @@ export const AppRoot = {
       return { current, max, pct: Math.min(100, (current / max) * 100) }
     })
 
+    // ── Multiplicateur coloré ─────────────────────────────────────────────────
+
+    const multiplicateurActuel = computed(() => getMultiplicateurNiveau(state.secteurActif))
+
     // ── Finances ──────────────────────────────────────────────────────────────
 
     const ongletFinances = ref('revenus')
@@ -161,7 +165,7 @@ export const AppRoot = {
       }))
     )
 
-    return { state, CONFIG, flottants, boutiqueFlottants, verbeBouton, revenuClicAffiche, niveauCommerce, nomPalierCommerce, xpCommerceInfo, onClic, toggleMenu, toggleEngine, isEngineRunning, renderUpgradesCommerce, acheterUpgrade, acheterItemBoutique, itemsBoutique, mort, heritageAffiche, competencesAuDeces, nouvelleGeneration, mortSimulee, ongletFinances, financesRevenus, financesCharges, getTauxPassifTotal }
+    return { state, CONFIG, flottants, boutiqueFlottants, verbeBouton, revenuClicAffiche, multiplicateurActuel, niveauCommerce, nomPalierCommerce, xpCommerceInfo, onClic, toggleMenu, toggleEngine, isEngineRunning, renderUpgradesCommerce, acheterUpgrade, acheterItemBoutique, itemsBoutique, mort, heritageAffiche, competencesAuDeces, nouvelleGeneration, mortSimulee, ongletFinances, financesRevenus, financesCharges, getTauxPassifTotal }
   },
 
   template: `
@@ -203,14 +207,15 @@ export const AppRoot = {
           </div>
           <button
             class="btn-clic"
-            :class="'btn-clic--' + state.multiplicateurCouleur"
+            :style="{ color: multiplicateurActuel.couleur }"
             @click="onClic"
           >
             {{ verbeBouton }}
-            <span class="btn-clic__multi">
-              ×{{ CONFIG.MULTIPLICATEUR_COMPETENCE[state.competence] }}
-            </span>
           </button>
+          <span
+            class="multiplicateur-diamant"
+            :style="{ color: multiplicateurActuel.couleur }"
+          >♦ {{ multiplicateurActuel.label }}</span>
         </div>
         <p class="revenu-par-clic">
           Revenu/clic : {{ revenuClicAffiche.toFixed(2) }} €

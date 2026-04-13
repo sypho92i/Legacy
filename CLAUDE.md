@@ -384,6 +384,15 @@ Moteur vide opérationnel : boucle tick 200ms, état global réactif, HUD + jaug
 - ui.js : computed `tauxPassifAffiche` supprimée (orpheline). HUD — ligne `| Passifs : +X.X €/s` retirée. Ref `ongletFinances` + computeds `financesRevenus` / `financesCharges` ajoutés. Bouton Finances : classe `menus__btn--pulse-rouge` si `state.cashflowNet < 0`. Menu Finances : 3 onglets — Revenus (liste passifs + total), Charges (vide), Bilan (cashflowNet en grand, détail revenus/charges). `.menus button` → `.menus__btn` (sélecteur de classe).
 - index.html : CSS `.menus__btn`, `.menus__btn--pulse-rouge`, `@keyframes pulse-rouge`. CSS `.finances-onglets`, `.finances-onglet`, `.finances-contenu`, `.finances-vide`, `.finances-liste`, `.finances-ligne`, `.finances-total`, `.finances-bilan` et variantes couleur.
 
+### Ticket 11 — Multiplicateur coloré du clic
+- `CONFIG.MULTIPLICATEURS_NIVEAU` ajouté dans config.js : tableau de 5 objets `{ niveau, valeur, couleur, label }` — niv.1 ×1.0 gris, niv.2 ×1.5 blanc, niv.3 ×2.2 jaune, niv.4 ×3.2 orange, niv.5 ×5.0 rouge/or.
+- `getMultiplicateurNiveau(secteur)` exportée dans engine.js : appelle `calculerNiveau(secteur)`, cherche l'entrée correspondante dans `CONFIG.MULTIPLICATEURS_NIVEAU`, fallback sur index 0.
+- `calculerRevenuClic()` mis à jour : `getMultiplicateurCompetence(state.competence)` remplacé par `getMultiplicateurNiveau(state.secteurActif).valeur`.
+- ui.js : import `getMultiplicateurNiveau`. Computed `multiplicateurActuel` → `getMultiplicateurNiveau(state.secteurActif)`. Exposé dans `return`.
+- Template : span `btn-clic__multi` (valeur statique) retiré du bouton. `<span class="multiplicateur-diamant" :style="{ color: multiplicateurActuel.couleur }">♦ {{ multiplicateurActuel.label }}</span>` ajouté adjacent au bouton dans `.btn-clic-wrap`.
+- index.html : CSS `.multiplicateur-diamant` ajouté (font-size 1.15em, bold, transition color 0.3s).
+- Couleur du bouton de clic rendue dynamique : `:class="'btn-clic--' + state.multiplicateurCouleur"` remplacé par `:style="{ color: multiplicateurActuel.couleur }"`. La bordure suit via `currentColor`. Transition `color 0.3s` ajoutée sur `.btn-clic`. Les anciennes classes CSS `.btn-clic--gris/blanc/jaune/orange/or` ne sont plus utilisées pour le bouton principal.
+
 ---
 *Ne jamais lire le GDD pour coder — toutes les infos techniques sont ici.*
 *Mettre à jour la section "Sessions terminées" à chaque fin de ticket.*

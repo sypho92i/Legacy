@@ -27,6 +27,15 @@ export const CONFIG = {
     5: 'or',
   },
 
+  // Multiplicateurs par niveau — valeur dynamique du clic
+  MULTIPLICATEURS_NIVEAU: [
+    { niveau: 1, valeur: 1.0,  couleur: '#888888', label: '×1.0' }, // gris
+    { niveau: 2, valeur: 1.5,  couleur: '#ffffff', label: '×1.5' }, // blanc
+    { niveau: 3, valeur: 2.2,  couleur: '#f5c518', label: '×2.2' }, // jaune
+    { niveau: 4, valeur: 3.2,  couleur: '#ff8c00', label: '×3.2' }, // orange
+    { niveau: 5, valeur: 5.0,  couleur: '#ff2200', label: '×5.0' }, // rouge/or
+  ],
+
   // Karma — paliers
   PALIERS_KARMA: [
     { palier: 'vertueux',     min: 80,  max: 100, modifProductivite:  0.20 },

@@ -23,6 +23,12 @@ export function getMultiplicateurCompetence(competence) {
   return CONFIG.MULTIPLICATEUR_COMPETENCE[competence] ?? 1
 }
 
+export function getMultiplicateurNiveau(secteur) {
+  const niveau = calculerNiveau(secteur)
+  return CONFIG.MULTIPLICATEURS_NIVEAU.find(m => m.niveau === niveau)
+    ?? CONFIG.MULTIPLICATEURS_NIVEAU[0]
+}
+
 export function calculerXpClic() {
   return Math.max(0.1,
     1 * getModifKarma(state.karma) * getModifBonheur(state.jauges.bonheur)
@@ -42,7 +48,7 @@ export function calculerNiveau(secteur) {
 export function calculerRevenuClic() {
   return (
     (CONFIG.REVENU_BASE_CLIC + state.bonusUpgrades)
-    * getMultiplicateurCompetence(state.competence)
+    * getMultiplicateurNiveau(state.secteurActif).valeur
     * getModifKarma(state.karma)
     * getModifBonheur(state.jauges.bonheur)
   )

@@ -16,5 +16,13 @@ git commit -m "feat: structure HTML/JS du jeu"
 
 
 
+**RECUPERATION DE MODIF EXT:**
+
+git fetch
+
+git pull
+
+
+
 **npx serve .** dans PowerShell → Chrome sur http://localhost:3000/ = ton seul moyen de tester.
 
