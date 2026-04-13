@@ -9,6 +9,7 @@ export const state = reactive({
 
   // Finances
   argent: 0,
+  cashflowNet: 0,        // revenus passifs - charges (calculé chaque tick)
   revenuParClic: CONFIG.REVENU_BASE_CLIC,
   passifs: [],           // { id, nom, tauxParSeconde }
 

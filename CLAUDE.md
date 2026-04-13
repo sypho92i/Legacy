@@ -378,6 +378,12 @@ Moteur vide opérationnel : boucle tick 200ms, état global réactif, HUD + jaug
 - Template restructuré : contenu existant enveloppé dans `.main-col`, `<aside class="boutique-panel">` toujours visible à droite avec les 5 items. Bouton "Boutique" retiré du menu nav.
 - index.html : `#app` passe de flex-column à CSS grid 2 colonnes (`1fr 200px`). `.main-col` occupe `grid-row: 1/3`. `.debug` span les 2 colonnes. CSS `.boutique-panel`, `.boutique-item`, `.boutique-item__btn`, `.boutique-flottant` ajoutés.
 
+### Ticket 10 — Vue Finances & cashflowNet
+- state.js : `cashflowNet: 0` ajouté dans la section Finances.
+- engine.js : `calculerCashflowNet()` exportée — `state.cashflowNet = getTauxPassifTotal() - 0` (totalCharges = 0, prêt pour Ticket 11). Appelée dans `tick()` avant `verifierMort()`.
+- ui.js : computed `tauxPassifAffiche` supprimée (orpheline). HUD — ligne `| Passifs : +X.X €/s` retirée. Ref `ongletFinances` + computeds `financesRevenus` / `financesCharges` ajoutés. Bouton Finances : classe `menus__btn--pulse-rouge` si `state.cashflowNet < 0`. Menu Finances : 3 onglets — Revenus (liste passifs + total), Charges (vide), Bilan (cashflowNet en grand, détail revenus/charges). `.menus button` → `.menus__btn` (sélecteur de classe).
+- index.html : CSS `.menus__btn`, `.menus__btn--pulse-rouge`, `@keyframes pulse-rouge`. CSS `.finances-onglets`, `.finances-onglet`, `.finances-contenu`, `.finances-vide`, `.finances-liste`, `.finances-ligne`, `.finances-total`, `.finances-bilan` et variantes couleur.
+
 ---
 *Ne jamais lire le GDD pour coder — toutes les infos techniques sont ici.*
 *Mettre à jour la section "Sessions terminées" à chaque fin de ticket.*
