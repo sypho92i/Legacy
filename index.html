@@ -84,14 +84,55 @@
 
     /* Menus */
     .menus   { display: flex; gap: 8px; }
-    .menus button { flex: 1; padding: 8px; font-family: monospace; cursor: pointer;
-                    background: #1a1a1a; color: #ccc; border: 1px solid #333; border-radius: 4px; }
-    .menus button:hover { background: #252525; }
+    .menus__btn { flex: 1; padding: 8px; font-family: monospace; cursor: pointer;
+                  background: #1a1a1a; color: #ccc; border: 1px solid #333; border-radius: 4px; }
+    .menus__btn:hover { background: #252525; }
+    .menus__btn--pulse-rouge {
+      border-color: #f44336;
+      color: #f44336;
+      animation: pulse-rouge 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse-rouge {
+      0%   { box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.5); }
+      60%  { box-shadow: 0 0 0 5px rgba(244, 67, 54, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(244, 67, 54, 0); }
+    }
 
     .panel   { background: #141414; border: 1px solid #333; border-radius: 6px; padding: 16px; }
     .panel h2 { text-transform: capitalize; margin-bottom: 8px; }
     .panel button { margin-top: 12px; padding: 6px 12px; font-family: monospace;
                     cursor: pointer; background: #222; color: #aaa; border: 1px solid #444; border-radius: 4px; }
+
+    /* Menu Finances */
+    .finances-onglets { display: flex; gap: 4px; margin-bottom: 12px; }
+    .finances-onglet {
+      flex: 1; padding: 6px; font-family: monospace; font-size: 0.85em; cursor: pointer;
+      background: #1a1a1a; color: #888; border: 1px solid #333; border-radius: 4px;
+    }
+    .finances-onglet--actif { background: #222; color: #e0e0e0; border-color: #555; }
+    .finances-onglet:hover  { background: #222; }
+    .finances-contenu { display: flex; flex-direction: column; gap: 8px; }
+    .finances-vide    { color: #555; font-style: italic; font-size: 0.9em; }
+    .finances-liste   { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .finances-ligne   { display: flex; justify-content: space-between; align-items: center;
+                        padding: 6px 8px; background: #1a1a1a; border-radius: 4px; }
+    .finances-ligne__label  { color: #ccc; font-size: 0.9em; }
+    .finances-ligne__valeur { font-size: 0.9em; font-family: monospace; }
+    .finances-ligne__valeur--vert  { color: #4caf50; }
+    .finances-ligne__valeur--rouge { color: #f44336; }
+    .finances-total { display: flex; justify-content: space-between; align-items: center;
+                      padding: 8px; border-top: 1px solid #2a2a2a; font-weight: bold; margin-top: 4px; }
+    .finances-bilan { display: flex; flex-direction: column; gap: 10px; }
+    .finances-bilan__cashflow {
+      font-size: 2em; font-weight: bold; text-align: center;
+      padding: 16px; border-radius: 6px; background: #1a1a1a;
+    }
+    .finances-bilan__cashflow--vert  { color: #4caf50; }
+    .finances-bilan__cashflow--rouge { color: #f44336; }
+    .finances-bilan__detail {
+      display: flex; justify-content: space-between;
+      color: #888; font-size: 0.85em; padding: 4px 0; border-top: 1px solid #1e1e1e;
+    }
 
     /* Upgrades list */
     .upgrades-list { list-style: none; display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }

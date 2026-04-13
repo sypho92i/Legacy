@@ -113,6 +113,14 @@ export function getTauxPassifTotal() {
   return state.passifs.reduce((acc, p) => acc + tauxPassifPlafonné(p), 0)
 }
 
+// ─── Cashflow ─────────────────────────────────────────────────────────────────
+
+export function calculerCashflowNet() {
+  const totalRevenus = getTauxPassifTotal()
+  const totalCharges = 0  // Aucune charge fixe pour l'instant (Ticket 11+)
+  state.cashflowNet = totalRevenus - totalCharges
+}
+
 // ─── Étapes du tick ───────────────────────────────────────────────────────────
 
 function tickPassifs() {
@@ -276,5 +284,6 @@ function tick() {
   tickKarma()
   tickCompetence()
   tickEvenementsKarma()
+  calculerCashflowNet()
   verifierMort()
 }

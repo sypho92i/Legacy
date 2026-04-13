@@ -2,6 +2,7 @@
 // Règle : ne contient que du Vue réactif — zéro querySelector/getElementById
 import { state }            from './state.js'
 import { calculerRevenuClic, calculerXpClic, calculerNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, getTauxPassifTotal, initialiserNouvelleGeneration } from './engine.js'
+// calculerCashflowNet est appelé dans tick() — state.cashflowNet est toujours à jour
 import { CONFIG }           from './config.js'
 
 // ─── Composant racine ─────────────────────────────────────────────────────────
@@ -89,7 +90,6 @@ export const AppRoot = {
     )
 
     const revenuClicAffiche = computed(() => calculerRevenuClic())
-    const tauxPassifAffiche = computed(() => getTauxPassifTotal())
 
     // ── Upgrades Commerce ─────────────────────────────────────────────────────
 
@@ -134,6 +134,17 @@ export const AppRoot = {
       return { current, max, pct: Math.min(100, (current / max) * 100) }
     })
 
+    // ── Finances ──────────────────────────────────────────────────────────────
+
+    const ongletFinances = ref('revenus')
+
+    const financesRevenus = computed(() => state.passifs.map(p => ({
+      nom:           p.nom,
+      tauxParSeconde: p.tauxParSeconde,
+    })))
+
+    const financesCharges = computed(() => [])  // Vide — Ticket 11+
+
     // ── Boutique ──────────────────────────────────────────────────────────────
 
     const itemsBoutique = computed(() =>
@@ -150,7 +161,7 @@ export const AppRoot = {
       }))
     )
 
-    return { state, CONFIG, flottants, boutiqueFlottants, verbeBouton, revenuClicAffiche, tauxPassifAffiche, niveauCommerce, nomPalierCommerce, xpCommerceInfo, onClic, toggleMenu, toggleEngine, isEngineRunning, renderUpgradesCommerce, acheterUpgrade, acheterItemBoutique, itemsBoutique, mort, heritageAffiche, competencesAuDeces, nouvelleGeneration, mortSimulee }
+    return { state, CONFIG, flottants, boutiqueFlottants, verbeBouton, revenuClicAffiche, niveauCommerce, nomPalierCommerce, xpCommerceInfo, onClic, toggleMenu, toggleEngine, isEngineRunning, renderUpgradesCommerce, acheterUpgrade, acheterItemBoutique, itemsBoutique, mort, heritageAffiche, competencesAuDeces, nouvelleGeneration, mortSimulee, ongletFinances, financesRevenus, financesCharges, getTauxPassifTotal }
   },
 
   template: `
@@ -168,7 +179,6 @@ export const AppRoot = {
           Génération {{ state.generation }} — Âge {{ state.age }} ans
           | Métier : {{ state.metierActif }}
           | Karma : {{ state.karma }} ({{ state.palierKarma }})
-          | Passifs : +{{ tauxPassifAffiche.toFixed(1) }} €/s
         </div>
       </section>
 
@@ -209,14 +219,68 @@ export const AppRoot = {
 
       <!-- ── Menus ──────────────────────────────────────────────── -->
       <nav class="menus">
-        <button @click="toggleMenu('finances')">Finances</button>
-        <button @click="toggleMenu('upgrades')">Améliorations</button>
+        <button
+          @click="toggleMenu('finances')"
+          :class="['menus__btn', { 'menus__btn--pulse-rouge': state.cashflowNet < 0 }]"
+        >Finances</button>
+        <button class="menus__btn" @click="toggleMenu('upgrades')">Améliorations</button>
       </nav>
 
       <div v-if="state.menuOuvert" class="panel">
         <h2>{{ state.menuOuvert }}</h2>
 
-        <template v-if="state.menuOuvert === 'upgrades'">
+        <!-- ── Menu Finances ─────────────────────────────────── -->
+        <template v-if="state.menuOuvert === 'finances'">
+          <div class="finances-onglets">
+            <button
+              v-for="ong in ['revenus', 'charges', 'bilan']"
+              :key="ong"
+              class="finances-onglet"
+              :class="{ 'finances-onglet--actif': ongletFinances === ong }"
+              @click="ongletFinances = ong"
+            >{{ ong.charAt(0).toUpperCase() + ong.slice(1) }}</button>
+          </div>
+
+          <!-- Onglet Revenus -->
+          <div v-if="ongletFinances === 'revenus'" class="finances-contenu">
+            <p v-if="financesRevenus.length === 0" class="finances-vide">Aucun revenu passif actif</p>
+            <ul v-else class="finances-liste">
+              <li v-for="(rev, i) in financesRevenus" :key="i" class="finances-ligne">
+                <span class="finances-ligne__label">{{ rev.nom }}</span>
+                <span class="finances-ligne__valeur finances-ligne__valeur--vert">+{{ rev.tauxParSeconde.toFixed(2) }} €/s</span>
+              </li>
+            </ul>
+            <div class="finances-total">
+              <span>Total</span>
+              <span class="finances-ligne__valeur--vert">+{{ getTauxPassifTotal().toFixed(2) }} €/s</span>
+            </div>
+          </div>
+
+          <!-- Onglet Charges -->
+          <div v-if="ongletFinances === 'charges'" class="finances-contenu">
+            <p class="finances-vide">Aucune charge active</p>
+          </div>
+
+          <!-- Onglet Bilan -->
+          <div v-if="ongletFinances === 'bilan'" class="finances-contenu">
+            <div class="finances-bilan">
+              <div class="finances-bilan__cashflow" :class="state.cashflowNet >= 0 ? 'finances-bilan__cashflow--vert' : 'finances-bilan__cashflow--rouge'">
+                {{ state.cashflowNet >= 0 ? '+' : '' }}{{ state.cashflowNet.toFixed(2) }} €/s
+              </div>
+              <div class="finances-bilan__detail">
+                <span>Revenus passifs</span>
+                <span>+{{ getTauxPassifTotal().toFixed(2) }} €/s</span>
+              </div>
+              <div class="finances-bilan__detail">
+                <span>Charges</span>
+                <span>−0.00 €/s</span>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- ── Menu Améliorations ─────────────────────────────── -->
+        <template v-else-if="state.menuOuvert === 'upgrades'">
           <div class="niveau-commerce">
             <div class="niveau-commerce__header">
               <span class="niveau-commerce__palier">{{ nomPalierCommerce }}</span>
@@ -250,9 +314,6 @@ export const AppRoot = {
               </div>
             </li>
           </ul>
-        </template>
-        <template v-else>
-          <p><em>Contenu à venir (prochains tickets)</em></p>
         </template>
 
         <button @click="toggleMenu(state.menuOuvert)">Fermer</button>
