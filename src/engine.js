@@ -248,6 +248,30 @@ window.acheterOrdinateur = acheterOrdinateur
 window.acheterTokens     = acheterTokens
 window.executerCommande  = executerCommande
 
+// ─── Carte / Secteurs ─────────────────────────────────────────────────────────
+
+export function calculerCoutChangement(secteurCible) {
+  const cle = state.secteurActif + '->' + secteurCible
+  return CONFIG.MAP.COUTS_CHANGEMENT[cle] ?? CONFIG.MAP.COUTS_CHANGEMENT.defaut
+}
+
+export function changerSecteur(secteurCible) {
+  if (secteurCible === state.secteurActif)
+    return { ok: false, raison: 'same' }
+  if (Date.now() < state._changementSecteurExpiry)
+    return { ok: false, raison: 'cooldown' }
+  const cout = calculerCoutChangement(secteurCible)
+  if (state.argent < cout)
+    return { ok: false, raison: 'argent', cout }
+  state.argent -= cout
+  state.secteurActif = secteurCible
+  state._changementSecteurExpiry = Date.now() + CONFIG.MAP.COOLDOWN_CHANGEMENT * 1000
+  return { ok: true, cout }
+}
+
+window.changerSecteur          = changerSecteur
+window.calculerCoutChangement  = calculerCoutChangement
+
 function tickLogement() {
   if (state.possessions.logement === 'squat') {
     // Malus continus squat
@@ -424,10 +448,12 @@ export function initialiserNouvelleGeneration() {
     items:          [],
   }
 
-  state.abonnes            = 0
-  state.telephoneCooldowns = {}
-  state._bonheurTempExpiry = 0
-  state._boostXpExpiry     = 0
+  state.abonnes                  = 0
+  state.telephoneCooldowns       = {}
+  state._bonheurTempExpiry       = 0
+  state._boostXpExpiry           = 0
+  state._changementSecteurExpiry = 0
+  state.secteurActif             = 'commerce'
 
   for (const key of Object.keys(state.jauges)) {
     state.jauges[key] = CONFIG.JAUGE_DEPART

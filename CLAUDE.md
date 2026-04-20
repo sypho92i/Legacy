@@ -417,6 +417,13 @@ Moteur vide opérationnel : boucle tick 200ms, état global réactif, HUD + jaug
 - ui.js : import 3 nouvelles fonctions + `calculerPrixTokens`. Computeds `prixPacksTokens` (PACKS_TOKENS enrichis de prixReel), `tokensAffiche`, `boostXpActif` (via `now`), `boostXpRestant`. Handlers `actionAcheterOrdinateur`, `actionAcheterTokens`, `actionExecuterCommande` (floating text). Bouton 💻 Ordinateur dans nav avec badge 10k€ si non acheté. Vue 'ordinateur' : écran achat si !ordinateur, sinon section Tokens (solde + 3 packs avec prix réel) + section Commandes (3 items, badge 🔬 ACTIF Xs si boost actif).
 - index.html : CSS `.ordinateur-vue/achat/screen`, `.ordinateur-section-titre`, `.ordinateur-tokens-solde`, `.ordinateur-packs`, `.ordinateur-pack/__btn/--indispo`, `.ordinateur-commandes`, `.ordinateur-commande/--disabled`, `__emoji/__label/__cout/__btn`, `.ordinateur-boost-badge`.
 
+### Ticket 15 — Vue Carte / Map
+- `CONFIG.MAP` ajouté dans config.js : `COOLDOWN_CHANGEMENT: 300s`, `COUTS_CHANGEMENT` (6 clés directionnelles + defaut 5000), `ZONES` (commerce/finance/tech avec x/y% et disponible).
+- state.js : `_changementSecteurExpiry: 0`.
+- engine.js : `calculerCoutChangement(secteurCible)` exportée (lookup cle directionnelle ou defaut). `changerSecteur(secteurCible)` exportée : vérifie same/cooldown/argent → déduit → change secteurActif → enregistre expiry. `initialiserNouvelleGeneration()` : reset _changementSecteurExpiry + secteurActif = 'commerce'.
+- ui.js : `vueActive = ref(null)` + `toggleCarte()`. `toggleMenu()` reset vueActive. Computed `carteZones` (enrichit zones de estActuelle/enCooldown/cdRestant/cout/abordable/disabled via now.value). Computed `cdGlobalRestant` (format mm:ss). Handler `actionChangerSecteur`. Bouton 🗺 Carte dans nav (`.menus__btn--actif` si actif). Template : `v-if="vueActive !== 'carte'"` sur zone-clic, vue carte complète avec 3 zones positionnées en % + panneau info bas. Finance et Tech affichent 🔒 Bientôt (disponible: false).
+- index.html : CSS `.menus__btn--actif`, `.carte-container`, `.carte-map` (grille pixel art CSS), `.carte-zone` + variantes `--active/--locked/--cooldown/--indispo`, `__emoji/__label/__lock/__badge/__cout`, `.carte-info`, `.carte-cooldown-global`.
+
 ---
 *Ne jamais lire le GDD pour coder — toutes les infos techniques sont ici.*
 *Mettre à jour la section "Sessions terminées" à chaque fin de ticket.*

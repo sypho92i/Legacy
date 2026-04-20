@@ -199,6 +199,25 @@ export const CONFIG = {
     },
   },
 
+  // Carte / Map
+  MAP: {
+    COOLDOWN_CHANGEMENT: 300,   // secondes (5 min)
+    COUTS_CHANGEMENT: {
+      'commerce->finance': 5000,
+      'commerce->tech':    5000,
+      'finance->commerce': 5000,
+      'finance->tech':     3000,
+      'tech->commerce':    5000,
+      'tech->finance':     3000,
+      defaut:              5000,
+    },
+    ZONES: {
+      commerce: { label: 'Quartier Commercial', emoji: '🏪', secteur: 'commerce', disponible: true,  x: 20, y: 30 },
+      finance:  { label: 'Quartier Financier',  emoji: '🏦', secteur: 'finance',  disponible: false, x: 60, y: 20 },
+      tech:     { label: 'Quartier Tech',        emoji: '💻', secteur: 'tech',     disponible: false, x: 55, y: 65 },
+    },
+  },
+
   METIERS: {
     commerce: {
       upgrades: [

@@ -1,7 +1,7 @@
 // ui.js — composants Vue, handlers d'événements, update UI
 // Règle : ne contient que du Vue réactif — zéro querySelector/getElementById
 import { state }            from './state.js'
-import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande } from './engine.js'
+import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, calculerCoutChangement } from './engine.js'
 // calculerCashflowNet est appelé dans tick() — state.cashflowNet est toujours à jour
 import { CONFIG }           from './config.js'
 
@@ -49,9 +49,12 @@ export const AppRoot = {
     const boutiqueFlottants = ref([])
     let _nextBoutiqueFlottantId = 0
 
-    // ── Horloge pour cooldowns téléphone ─────────────────────────────────────
+    // ── Horloge pour cooldowns téléphone / carte ──────────────────────────────
     const now = ref(Date.now())
     setInterval(() => { now.value = Date.now() }, 1000)
+
+    // ── Vue principale (carte vs jeu) ─────────────────────────────────────────
+    const vueActive = ref(null) // null | 'carte'
 
     // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -80,7 +83,13 @@ export const AppRoot = {
     }
 
     function toggleMenu(nom) {
+      vueActive.value  = null
       state.menuOuvert = state.menuOuvert === nom ? null : nom
+    }
+
+    function toggleCarte() {
+      state.menuOuvert = null
+      vueActive.value  = vueActive.value === 'carte' ? null : 'carte'
     }
 
     function toggleEngine() {
@@ -301,6 +310,44 @@ export const AppRoot = {
       }, 800)
     }
 
+    // ── Carte — computeds & handler ───────────────────────────────────────────
+
+    function formatMmSs(ms) {
+      const total = Math.max(0, Math.ceil(ms / 1000))
+      const mm = Math.floor(total / 60)
+      const ss = total % 60
+      return `${mm}:${ss.toString().padStart(2, '0')}`
+    }
+
+    const carteZones = computed(() =>
+      Object.entries(CONFIG.MAP.ZONES).map(([id, zone]) => {
+        const estActuelle = zone.secteur === state.secteurActif
+        const enCooldown  = now.value < state._changementSecteurExpiry
+        const cdRestant   = enCooldown ? formatMmSs(state._changementSecteurExpiry - now.value) : ''
+        const cout        = calculerCoutChangement(zone.secteur)
+        const abordable   = state.argent >= cout
+        const disabled    = estActuelle || enCooldown || !zone.disponible
+        return { id, ...zone, estActuelle, enCooldown, cdRestant, cout, abordable, disabled }
+      })
+    )
+
+    const cdGlobalRestant = computed(() => {
+      const diff = state._changementSecteurExpiry - now.value
+      return diff > 0 ? formatMmSs(diff) : ''
+    })
+
+    function actionChangerSecteur(secteur) {
+      const result = changerSecteur(secteur)
+      if (!result.ok) return
+      const zone = Object.values(CONFIG.MAP.ZONES).find(z => z.secteur === secteur)
+      const fid = _nextBoutiqueFlottantId++
+      boutiqueFlottants.value.push({ id: fid, texte: `→ ${zone?.label ?? secteur}` })
+      setTimeout(() => {
+        const idx = boutiqueFlottants.value.findIndex(f => f.id === fid)
+        if (idx !== -1) boutiqueFlottants.value.splice(idx, 1)
+      }, 800)
+    }
+
     // ── Compétences au décès ───────────────────────────────────────────────────
 
     const competencesAuDeces = computed(() =>
@@ -310,7 +357,7 @@ export const AppRoot = {
       }))
     )
 
-    return { state, CONFIG, flottants, boutiqueFlottants, verbeBouton, revenuClicAffiche, multiplicateurActuel, niveauCommerce, nomPalierCommerce, xpCommerceInfo, onClic, toggleMenu, toggleEngine, isEngineRunning, renderUpgradesCommerce, acheterUpgrade, acheterItemBoutique, itemsBoutique, mort, heritageAffiche, competencesAuDeces, nouvelleGeneration, mortSimulee, ongletFinances, financesRevenus, financesCharges, totalChargesAffiche, getTauxPassifTotal, logementActuel, logementLocations, logementAchats, actionLouer, actionAcheter, telephoneActions, abonnesAffiche, actionAcheterTelephone, actionTelephone, prixPacksTokens, tokensAffiche, boostXpActif, boostXpRestant, actionAcheterOrdinateur, actionAcheterTokens, actionExecuterCommande }
+    return { state, CONFIG, flottants, boutiqueFlottants, verbeBouton, revenuClicAffiche, multiplicateurActuel, niveauCommerce, nomPalierCommerce, xpCommerceInfo, onClic, toggleMenu, toggleEngine, isEngineRunning, renderUpgradesCommerce, acheterUpgrade, acheterItemBoutique, itemsBoutique, mort, heritageAffiche, competencesAuDeces, nouvelleGeneration, mortSimulee, ongletFinances, financesRevenus, financesCharges, totalChargesAffiche, getTauxPassifTotal, logementActuel, logementLocations, logementAchats, actionLouer, actionAcheter, telephoneActions, abonnesAffiche, actionAcheterTelephone, actionTelephone, prixPacksTokens, tokensAffiche, boostXpActif, boostXpRestant, actionAcheterOrdinateur, actionAcheterTokens, actionExecuterCommande, vueActive, toggleCarte, carteZones, cdGlobalRestant, actionChangerSecteur }
   },
 
   template: `
@@ -343,7 +390,7 @@ export const AppRoot = {
       </section>
 
       <!-- ── Zone de clic ──────────────────────────────────────── -->
-      <section class="zone-clic">
+      <section v-if="vueActive !== 'carte'" class="zone-clic">
         <div class="btn-clic-wrap">
           <div class="zone-clic__flottants" aria-hidden="true">
             <span v-for="f in flottants" :key="f.id" class="flottant">
@@ -383,7 +430,41 @@ export const AppRoot = {
           💻 Ordinateur
           <span v-if="!state.possessions.ordinateur" class="nav-badge--prix">10k€</span>
         </button>
+        <button
+          class="menus__btn"
+          :class="{ 'menus__btn--actif': vueActive === 'carte' }"
+          @click="toggleCarte"
+        >🗺 Carte</button>
       </nav>
+
+      <!-- ── Vue Carte ─────────────────────────────────────────── -->
+      <div v-if="vueActive === 'carte'" class="carte-container">
+        <div class="carte-map">
+          <div
+            v-for="zone in carteZones"
+            :key="zone.id"
+            class="carte-zone"
+            :class="{
+              'carte-zone--active':   zone.estActuelle,
+              'carte-zone--locked':   !zone.disponible,
+              'carte-zone--cooldown':  zone.enCooldown && !zone.estActuelle,
+              'carte-zone--indispo':  !zone.abordable && !zone.estActuelle && zone.disponible,
+            }"
+            :style="{ left: zone.x + '%', top: zone.y + '%' }"
+            @click="!zone.disabled && actionChangerSecteur(zone.secteur)"
+          >
+            <span class="carte-zone__emoji">{{ zone.emoji }}</span>
+            <span class="carte-zone__label">{{ zone.label }}</span>
+            <span v-if="!zone.disponible" class="carte-zone__lock">🔒 Bientôt</span>
+            <span v-else-if="zone.estActuelle" class="carte-zone__badge">● ICI</span>
+            <span v-else class="carte-zone__cout">{{ zone.cout.toLocaleString('fr-FR') }}€</span>
+          </div>
+        </div>
+        <div class="carte-info">
+          <span>Secteur actif : <strong>{{ state.secteurActif }}</strong></span>
+          <span v-if="cdGlobalRestant" class="carte-cooldown-global">⏳ Rechargement : {{ cdGlobalRestant }}</span>
+        </div>
+      </div>
 
       <div v-if="state.menuOuvert" class="panel">
         <h2>{{ state.menuOuvert }}</h2>

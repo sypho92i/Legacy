@@ -76,5 +76,6 @@ export const state = reactive({
   _ticksDepuisDernierAnniversaire: 0,
   _ticksDepuisLoyer: 0,
   _bonheurTempExpiry: 0,    // timestamp expiry boost bonheur jeux_mobile
-  _boostXpExpiry: 0,        // timestamp expiry boost XP commande recherche
+  _boostXpExpiry: 0,            // timestamp expiry boost XP commande recherche
+  _changementSecteurExpiry: 0,  // timestamp expiry cooldown changement secteur
 })

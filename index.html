@@ -218,6 +218,62 @@
     }
     .logement-item__btn:disabled { cursor: not-allowed; background: #1a1a1a; color: #555; border-color: #333; }
 
+    /* Bouton nav actif */
+    .menus__btn--actif { border-color: #7c3aed; color: #a78bfa; }
+
+    /* Vue Carte */
+    .carte-container { display: flex; flex-direction: column; gap: 8px; }
+
+    .carte-map {
+      position: relative;
+      min-height: 320px;
+      background: #0a0a14;
+      border: 1px solid #1a1a2e;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 16px 16px;
+      overflow: hidden;
+    }
+
+    .carte-zone {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      padding: 8px 12px;
+      background: #111827;
+      border: 1px solid #374151;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      min-width: 110px; text-align: center;
+      font-family: monospace;
+    }
+    .carte-zone:hover:not(.carte-zone--locked):not(.carte-zone--active):not(.carte-zone--cooldown) {
+      border-color: #7c3aed; background: #1a1033;
+    }
+    .carte-zone--active   { border-color: #22c55e; background: #052e16; cursor: default; }
+    .carte-zone--locked   { border-color: #1f2937; opacity: 0.5; cursor: not-allowed; }
+    .carte-zone--cooldown { border-color: #facc15; opacity: 0.7; cursor: not-allowed; }
+    .carte-zone--indispo  { opacity: 0.6; }
+
+    .carte-zone__emoji { font-size: 1.8em; line-height: 1; }
+    .carte-zone__label { font-size: 0.72em; color: #9ca3af; }
+    .carte-zone__lock  { font-size: 0.68em; color: #4b5563; }
+    .carte-zone__badge { font-size: 0.68em; color: #22c55e; font-weight: bold; }
+    .carte-zone__cout  { font-size: 0.68em; color: #facc15; }
+
+    .carte-info {
+      padding: 8px 12px;
+      background: #0f0f1a;
+      border: 1px solid #1a1a2e;
+      border-radius: 4px;
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.85em; color: #9ca3af;
+    }
+    .carte-info strong { color: #e0e0e0; }
+    .carte-cooldown-global { color: #facc15; font-family: monospace; }
+
     /* Vue Ordinateur */
     .ordinateur-vue   { display: flex; flex-direction: column; gap: 12px; }
     .ordinateur-achat {
