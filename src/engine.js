@@ -50,16 +50,20 @@ export function calculerNiveau(secteur) {
 }
 
 export function calculerRevenuClic() {
+  const vehiculeBonus = state.possessions.vehicule
+    ? (CONFIG.VEHICULES[state.possessions.vehicule]?.bonusClic ?? 0)
+    : 0
+
   if (state.secteurActif === 'finance') {
     const cfg  = CONFIG.METIERS.finance
     const base = Math.random() * (cfg.revenuMax - cfg.revenuMin) + cfg.revenuMin
-    const gain = Math.round((base + state.bonusUpgrades) * 100) / 100
+    const gain = Math.round((base + state.bonusUpgrades + vehiculeBonus) * 100) / 100
     state._dernierGainClic = gain
     return gain
   }
   const revenuBase = CONFIG.METIERS[state.secteurActif]?.revenuBase ?? CONFIG.REVENU_BASE_CLIC
   const gain = (
-    (revenuBase + state.bonusUpgrades)
+    (revenuBase + state.bonusUpgrades + vehiculeBonus)
     * getMultiplicateurNiveau(state.secteurActif).valeur
     * getModifKarma(state.karma)
     * getModifBonheur(state.jauges.bonheur)
@@ -262,6 +266,44 @@ window.acheterOrdinateur = acheterOrdinateur
 window.acheterTokens     = acheterTokens
 window.executerCommande  = executerCommande
 
+// ─── Véhicules ────────────────────────────────────────────────────────────────
+
+const ORDRE_VEHICULES = ['velo', 'scooter', 'voiture', 'berline', 'supercar']
+
+export function vehiculePermetSecteur(secteurCible) {
+  const zone = CONFIG.MAP.ZONES[secteurCible]
+  if (!zone || !zone.vehiculeRequis) return true
+  const idxActuel = ORDRE_VEHICULES.indexOf(state.possessions.vehicule ?? '')
+  const idxRequis = ORDRE_VEHICULES.indexOf(zone.vehiculeRequis)
+  return idxActuel >= idxRequis
+}
+
+export function acheterVehicule(id) {
+  const cfg = CONFIG.VEHICULES[id]
+  if (!cfg) return { ok: false, raison: 'unknown' }
+  if (state.argent < cfg.prix) return { ok: false, raison: 'argent' }
+
+  // Annuler effets de l'ancien véhicule
+  if (state.possessions.vehicule) {
+    const ancien = CONFIG.VEHICULES[state.possessions.vehicule]
+    if (ancien) {
+      state.karma            = Math.min(100, Math.max(0, state.karma - ancien.karma))
+      state.jauges.reputation = Math.max(0, state.jauges.reputation - ancien.reputation)
+    }
+  }
+
+  // Appliquer nouveau véhicule
+  state.argent -= cfg.prix
+  state.possessions.vehicule = id
+  state.karma            = Math.max(0,   Math.min(100, state.karma + cfg.karma))
+  state.jauges.reputation = Math.min(100, Math.max(0,   state.jauges.reputation + cfg.reputation))
+
+  return { ok: true }
+}
+
+window.acheterVehicule        = acheterVehicule
+window.vehiculePermetSecteur  = vehiculePermetSecteur
+
 // ─── Carte / Secteurs ─────────────────────────────────────────────────────────
 
 export function calculerCoutChangement(secteurCible) {
@@ -272,6 +314,8 @@ export function calculerCoutChangement(secteurCible) {
 export function changerSecteur(secteurCible) {
   if (secteurCible === state.secteurActif)
     return { ok: false, raison: 'same' }
+  if (!vehiculePermetSecteur(secteurCible))
+    return { ok: false, raison: 'vehicule', message: CONFIG.MAP.MESSAGES_BLOCAGE_VEHICULE[secteurCible] }
   if (Date.now() < state._changementSecteurExpiry)
     return { ok: false, raison: 'cooldown' }
   const cout = calculerCoutChangement(secteurCible)
@@ -337,9 +381,12 @@ export function getTauxPassifTotal() {
 // ─── Cashflow ─────────────────────────────────────────────────────────────────
 
 export function calculerCashflowNet() {
-  const totalRevenus = getTauxPassifTotal()
-  const totalCharges = CONFIG.LOGEMENTS[state.possessions.logement]?.charge ?? 0
-  state.cashflowNet = totalRevenus - totalCharges
+  const totalRevenus   = getTauxPassifTotal()
+  const chargeLogement = CONFIG.LOGEMENTS[state.possessions.logement]?.charge ?? 0
+  const chargeVehicule = state.possessions.vehicule
+    ? (CONFIG.VEHICULES[state.possessions.vehicule]?.chargeMensuelle ?? 0)
+    : 0
+  state.cashflowNet = totalRevenus - chargeLogement - chargeVehicule
 }
 
 // ─── Étapes du tick ───────────────────────────────────────────────────────────

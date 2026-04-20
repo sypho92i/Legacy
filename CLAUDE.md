@@ -437,6 +437,13 @@ Moteur vide opérationnel : boucle tick 200ms, état global réactif, HUD + jaug
 - ui.js : `onClic()` — après calcul du gain, si `secteurActif === 'finance'` : classe `flottant--positif` (>20€), `flottant--negatif` (<10€), `flottant--neutre` (sinon). Stockée dans l'objet flottant. Template : `:class="f.classe"` ajouté sur le span flottant.
 - index.html : `.flottant--positif` (vert vif, bold, 1.1em), `.flottant--negatif` (rouge), `.flottant--neutre` (jaune). Couleur par défaut `.flottant` conservée pour les autres secteurs.
 
+### Ticket 18 — Véhicules
+- config.js : `CONFIG.VEHICULES` (5 véhicules : velo→supercar, champs prix/chargeMensuelle/karma/reputation/bonusClic). `MAP.ZONES.finance.vehiculeRequis: 'voiture'`, `MAP.ZONES.tech.vehiculeRequis: 'berline'`. `MAP.MESSAGES_BLOCAGE_VEHICULE` (messages humoristiques inline pour finance et tech).
+- state.js : `_dernierGainClic` déjà présent. `possessions.vehicule: null` déjà présent. Aucun changement.
+- engine.js : `ORDRE_VEHICULES` constant interne. `vehiculePermetSecteur(secteurCible)` exportée : compare index ORDRE du véhicule actuel vs requis (null = toujours OK). `acheterVehicule(id)` exportée : annule effets ancien véhicule (karma/reputation), applique nouveau. `calculerRevenuClic()` : ajoute `vehiculeBonus` (bonusClic du véhicule actuel) pour tous les secteurs. `calculerCashflowNet()` : inclut `chargeMensuelle` du véhicule dans totalCharges. `changerSecteur()` : vérifie `vehiculePermetSecteur` en premier, retourne `{ raison: 'vehicule', message }` si bloqué.
+- ui.js : import `acheterVehicule`/`vehiculePermetSecteur`. `messageBlocageCarte = ref('')`. `toggleVehicules()`. Computeds `vehiculeActuel`, `boutiqueVehicules` (avec flags estActuel/abordable/estInferieur via `_ORDRE_VEHICULES`). Handler `actionAcheterVehicule`. `actionChangerSecteur` : affiche message inline si `raison === 'vehicule'`. Template : zone-clic `v-if="vueActive === null"` (générique). Bouton 🚗 Véhicules dans nav. Vue vehicules : 5 cards avec prix/charges/effets/badge ACTUEL/Déjà dépassé. `carte-message-blocage` inline sous la carte.
+- index.html : CSS `.vehicule-card` et variantes, `.carte-message-blocage`.
+
 ---
 *Ne jamais lire le GDD pour coder — toutes les infos techniques sont ici.*
 *Mettre à jour la section "Sessions terminées" à chaque fin de ticket.*

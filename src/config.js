@@ -227,10 +227,22 @@ export const CONFIG = {
       defaut:              5000,
     },
     ZONES: {
-      commerce: { label: 'Quartier Commercial', emoji: '🏪', secteur: 'commerce', disponible: true,  x: 20, y: 30 },
-      finance:  { label: 'Quartier Financier',  emoji: '🏦', secteur: 'finance',  disponible: true,  x: 60, y: 20 },
-      tech:     { label: 'Quartier Tech',        emoji: '💻', secteur: 'tech',     disponible: true,  x: 55, y: 65 },
+      commerce: { label: 'Quartier Commercial', emoji: '🏪', secteur: 'commerce', disponible: true, x: 20, y: 30, vehiculeRequis: null      },
+      finance:  { label: 'Quartier Financier',  emoji: '🏦', secteur: 'finance',  disponible: true, x: 60, y: 20, vehiculeRequis: 'voiture'  },
+      tech:     { label: 'Quartier Tech',        emoji: '💻', secteur: 'tech',     disponible: true, x: 55, y: 65, vehiculeRequis: 'berline'  },
     },
+    MESSAGES_BLOCAGE_VEHICULE: {
+      finance: "T'arrives en vélo à Wall Street ? Achète une voiture d'abord.",
+      tech:    "Les VCs financent pas les gens qui prennent le bus. Upgrade ton véhicule.",
+    },
+  },
+
+  VEHICULES: {
+    velo:     { label: 'Vélo',     emoji: '🚲', prix: 200,   chargeMensuelle: 0,    karma:  0,  reputation: 0,  bonusClic: 0,  vehiculeRequis: null },
+    scooter:  { label: 'Scooter',  emoji: '🛵', prix: 1500,  chargeMensuelle: 50,   karma:  0,  reputation: 2,  bonusClic: 0,  vehiculeRequis: null },
+    voiture:  { label: 'Voiture',  emoji: '🚗', prix: 8000,  chargeMensuelle: 200,  karma: -2,  reputation: 5,  bonusClic: 3,  vehiculeRequis: null },
+    berline:  { label: 'Berline',  emoji: '🚘', prix: 25000, chargeMensuelle: 500,  karma: -5,  reputation: 15, bonusClic: 8,  vehiculeRequis: null },
+    supercar: { label: 'Supercar', emoji: '🏎', prix: 80000, chargeMensuelle: 1500, karma: -10, reputation: 25, bonusClic: 20, vehiculeRequis: null },
   },
 
   METIERS: {

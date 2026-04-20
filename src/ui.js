@@ -1,7 +1,7 @@
 // ui.js — composants Vue, handlers d'événements, update UI
 // Règle : ne contient que du Vue réactif — zéro querySelector/getElementById
 import { state }            from './state.js'
-import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, calculerCoutChangement } from './engine.js'
+import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, calculerCoutChangement, acheterVehicule, vehiculePermetSecteur } from './engine.js'
 // calculerCashflowNet est appelé dans tick() — state.cashflowNet est toujours à jour
 import { CONFIG }           from './config.js'
 
@@ -53,8 +53,9 @@ export const AppRoot = {
     const now = ref(Date.now())
     setInterval(() => { now.value = Date.now() }, 1000)
 
-    // ── Vue principale (carte vs jeu) ─────────────────────────────────────────
-    const vueActive = ref(null) // null | 'carte'
+    // ── Vue principale (carte / vehicules / jeu) ─────────────────────────────
+    const vueActive           = ref(null) // null | 'carte' | 'vehicules'
+    const messageBlocageCarte = ref('')
 
     // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -95,8 +96,14 @@ export const AppRoot = {
     }
 
     function toggleCarte() {
+      state.menuOuvert      = null
+      messageBlocageCarte.value = ''
+      vueActive.value       = vueActive.value === 'carte' ? null : 'carte'
+    }
+
+    function toggleVehicules() {
       state.menuOuvert = null
-      vueActive.value  = vueActive.value === 'carte' ? null : 'carte'
+      vueActive.value  = vueActive.value === 'vehicules' ? null : 'vehicules'
     }
 
     function toggleEngine() {
@@ -220,6 +227,35 @@ export const AppRoot = {
 
     function actionLouer(slug) { louerLogement(slug) }
     function actionAcheter(slug) { acheterLogement(slug) }
+
+    // ── Véhicules ─────────────────────────────────────────────────────────────
+
+    const _ORDRE_VEHICULES = ['velo', 'scooter', 'voiture', 'berline', 'supercar']
+
+    const vehiculeActuel = computed(() =>
+      state.possessions.vehicule ? CONFIG.VEHICULES[state.possessions.vehicule] : null
+    )
+
+    const boutiqueVehicules = computed(() =>
+      Object.entries(CONFIG.VEHICULES).map(([id, cfg]) => ({
+        id, ...cfg,
+        estActuel:   state.possessions.vehicule === id,
+        abordable:   state.argent >= cfg.prix,
+        estInferieur: _ORDRE_VEHICULES.indexOf(id) < _ORDRE_VEHICULES.indexOf(state.possessions.vehicule ?? ''),
+      }))
+    )
+
+    function actionAcheterVehicule(id) {
+      const result = acheterVehicule(id)
+      if (!result.ok) return
+      const cfg = CONFIG.VEHICULES[id]
+      const fid = _nextBoutiqueFlottantId++
+      boutiqueFlottants.value.push({ id: fid, texte: `${cfg.emoji} ${cfg.label} acheté !` })
+      setTimeout(() => {
+        const idx = boutiqueFlottants.value.findIndex(f => f.id === fid)
+        if (idx !== -1) boutiqueFlottants.value.splice(idx, 1)
+      }, 800)
+    }
 
     // ── Téléphone ─────────────────────────────────────────────────────────────
 
@@ -350,7 +386,11 @@ export const AppRoot = {
 
     function actionChangerSecteur(secteur) {
       const result = changerSecteur(secteur)
-      if (!result.ok) return
+      if (!result.ok) {
+        if (result.raison === 'vehicule') messageBlocageCarte.value = result.message
+        return
+      }
+      messageBlocageCarte.value = ''
       const zone = Object.values(CONFIG.MAP.ZONES).find(z => z.secteur === secteur)
       const fid = _nextBoutiqueFlottantId++
       boutiqueFlottants.value.push({ id: fid, texte: `→ ${zone?.label ?? secteur}` })
@@ -369,7 +409,7 @@ export const AppRoot = {
       }))
     )
 
-    return { state, CONFIG, flottants, boutiqueFlottants, verbeBouton, revenuClicAffiche, multiplicateurActuel, niveauSecteur, nomPalierSecteur, xpSecteurInfo, onClic, toggleMenu, toggleEngine, isEngineRunning, renderUpgradesSecteur, acheterUpgrade, acheterItemBoutique, itemsBoutique, mort, heritageAffiche, competencesAuDeces, nouvelleGeneration, mortSimulee, ongletFinances, financesRevenus, financesCharges, totalChargesAffiche, getTauxPassifTotal, logementActuel, logementLocations, logementAchats, actionLouer, actionAcheter, telephoneActions, abonnesAffiche, actionAcheterTelephone, actionTelephone, prixPacksTokens, tokensAffiche, boostXpActif, boostXpRestant, actionAcheterOrdinateur, actionAcheterTokens, actionExecuterCommande, vueActive, toggleCarte, carteZones, cdGlobalRestant, actionChangerSecteur }
+    return { state, CONFIG, flottants, boutiqueFlottants, verbeBouton, revenuClicAffiche, multiplicateurActuel, niveauSecteur, nomPalierSecteur, xpSecteurInfo, onClic, toggleMenu, toggleEngine, isEngineRunning, renderUpgradesSecteur, acheterUpgrade, acheterItemBoutique, itemsBoutique, mort, heritageAffiche, competencesAuDeces, nouvelleGeneration, mortSimulee, ongletFinances, financesRevenus, financesCharges, totalChargesAffiche, getTauxPassifTotal, logementActuel, logementLocations, logementAchats, actionLouer, actionAcheter, telephoneActions, abonnesAffiche, actionAcheterTelephone, actionTelephone, prixPacksTokens, tokensAffiche, boostXpActif, boostXpRestant, actionAcheterOrdinateur, actionAcheterTokens, actionExecuterCommande, vueActive, toggleCarte, toggleVehicules, carteZones, cdGlobalRestant, actionChangerSecteur, messageBlocageCarte, vehiculeActuel, boutiqueVehicules, actionAcheterVehicule }
   },
 
   template: `
@@ -402,7 +442,7 @@ export const AppRoot = {
       </section>
 
       <!-- ── Zone de clic ──────────────────────────────────────── -->
-      <section v-if="vueActive !== 'carte'" class="zone-clic">
+      <section v-if="vueActive === null" class="zone-clic">
         <div class="btn-clic-wrap">
           <div class="zone-clic__flottants" aria-hidden="true">
             <span v-for="f in flottants" :key="f.id" class="flottant" :class="f.classe">
@@ -444,6 +484,11 @@ export const AppRoot = {
         </button>
         <button
           class="menus__btn"
+          :class="{ 'menus__btn--actif': vueActive === 'vehicules' }"
+          @click="toggleVehicules"
+        >🚗 Véhicules</button>
+        <button
+          class="menus__btn"
           :class="{ 'menus__btn--actif': vueActive === 'carte' }"
           @click="toggleCarte"
         >🗺 Carte</button>
@@ -475,6 +520,42 @@ export const AppRoot = {
         <div class="carte-info">
           <span>Secteur actif : <strong>{{ state.secteurActif }}</strong></span>
           <span v-if="cdGlobalRestant" class="carte-cooldown-global">⏳ Rechargement : {{ cdGlobalRestant }}</span>
+        </div>
+        <div v-if="messageBlocageCarte" class="carte-message-blocage">
+          {{ messageBlocageCarte }}
+        </div>
+      </div>
+
+      <!-- ── Vue Véhicules ─────────────────────────────────────── -->
+      <div v-if="vueActive === 'vehicules'" class="vehicules-vue">
+        <div
+          v-for="v in boutiqueVehicules"
+          :key="v.id"
+          class="vehicule-card"
+          :class="{
+            'vehicule-card--actuel':  v.estActuel,
+            'vehicule-card--depasse': v.estInferieur,
+          }"
+        >
+          <span class="vehicule-card__emoji">{{ v.emoji }}</span>
+          <div class="vehicule-card__info">
+            <span class="vehicule-card__label">{{ v.label }}</span>
+            <span class="vehicule-card__stats">
+              {{ v.prix.toLocaleString('fr-FR') }} €
+              <template v-if="v.chargeMensuelle > 0"> — {{ v.chargeMensuelle }} €/mois</template>
+              <template v-if="v.karma < 0"> — Karma {{ v.karma }}</template>
+              <template v-if="v.reputation > 0"> — +{{ v.reputation }} rép.</template>
+              <template v-if="v.bonusClic > 0"> — +{{ v.bonusClic }}€/clic</template>
+            </span>
+            <span v-if="v.estActuel" class="vehicule-card__badge">● ACTUEL</span>
+          </div>
+          <span v-if="v.estInferieur" style="font-size:0.7em; color:#666;">Déjà dépassé</span>
+          <button
+            v-else-if="!v.estActuel"
+            class="vehicule-card__btn"
+            :disabled="!v.abordable"
+            @click="actionAcheterVehicule(v.id)"
+          >Acheter</button>
         </div>
       </div>
 
