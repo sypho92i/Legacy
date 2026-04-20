@@ -8,7 +8,7 @@ export const state = reactive({
   nomPersonnage: 'Héros',
 
   // Finances
-  argent: 0,
+  argent: 100000,
   cashflowNet: 0,        // revenus passifs - charges (calculé chaque tick)
   revenuParClic: CONFIG.REVENU_BASE_CLIC,
   passifs: [],           // { id, nom, tauxParSeconde }
@@ -57,6 +57,7 @@ export const state = reactive({
   possessions: {
     logement:       'squat',
     logementAchete: false,
+    telephone:      false,
     vehicule:       null,
     ordinateur:     false,
     tokens:         0,
@@ -64,10 +65,16 @@ export const state = reactive({
     items:          [],
   },
 
+  // Téléphone & réseaux sociaux
+  abonnes: 0,
+  telephoneCooldowns: {},   // { action_id: timestampExpiry ms }
+
   // UI
-  menuOuvert: null,      // 'finances' | 'logement' | 'upgrades' | null
+  menuOuvert: null,      // 'finances' | 'logement' | 'upgrades' | 'telephone' | null
 
   // Compteurs internes
   _ticksDepuisDernierAnniversaire: 0,
   _ticksDepuisLoyer: 0,
+  _bonheurTempExpiry: 0,    // timestamp expiry boost bonheur jeux_mobile
+  _boostXpExpiry: 0,        // timestamp expiry boost XP commande recherche
 })

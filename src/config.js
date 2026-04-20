@@ -125,6 +125,8 @@ export const CONFIG = {
 
   // Boutique — items consommables
   BOUTIQUE: {
+    TELEPHONE:   { prix: 1000 },
+    ORDINATEUR:  { prix: 10000 },
     ITEMS: [
       { id: 'repas_simple',  label: 'Repas simple',         prix: 10, jauge: 'faim',    effet: 40 },
       { id: 'repas_correct', label: 'Repas correct',        prix: 25, jauge: 'faim',    effet: 70 },
@@ -132,6 +134,69 @@ export const CONFIG = {
       { id: 'medecin',       label: 'Consultation médecin', prix: 50, jauge: 'sante',   effet: 35 },
       { id: 'loisir',        label: 'Activité loisir',      prix: 30, jauge: 'bonheur', effet: 40 },
     ],
+  },
+
+  // Ordinateur — tokens, commandes
+  ORDINATEUR: {
+    PACKS_TOKENS: [
+      { quantite: 5,  prixBase: 500  },
+      { quantite: 10, prixBase: 900  },
+      { quantite: 20, prixBase: 1600 },
+    ],
+    MULTIPLICATEURS_GENERATION: { 1: 1.0, 2: 1.5, 3: 2.2, defaut: 3.0 },
+    MULTIPLICATEURS_AGE: [
+      { min: 18, max: 30,  multi: 1.0 },
+      { min: 30, max: 50,  multi: 1.3 },
+      { min: 50, max: 70,  multi: 1.6 },
+      { min: 70, max: 999, multi: 2.0 },
+    ],
+    COMMANDES: {
+      bourse:        { tokens: 1, legal: true, label: 'Jouer en bourse',  emoji: '📈',
+                       effet: { passifId: 'passif_bourse', passifTaux: 2, passifMax: 10 } },
+      don_caritatif: { tokens: 1, legal: true, label: 'Don caritatif',    emoji: '🤝',
+                       effet: { karma: 8, reputation: 10 } },
+      recherche:     { tokens: 1, legal: true, label: 'Recherche',        emoji: '🔬',
+                       effet: { boostXpDuree: 60, boostXpMulti: 1.20 } },
+    },
+  },
+
+  // Téléphone — actions réseau social
+  TELEPHONE: {
+    ACTIONS: {
+      monter_compte: {
+        label: 'Monter le compte',
+        emoji: '📈',
+        cooldown: 45,
+        seuilAbonnes: 0,
+        effetAbonnes: 50,
+      },
+      promouvoir: {
+        label: 'Promouvoir',
+        emoji: '📣',
+        cooldown: 90,
+        seuilAbonnes: 0,
+        effetAbonnes: 200,
+        passifId: 'passif_promo',
+        passifTaux: 0.5,
+      },
+      jeux_mobile: {
+        label: 'Jeux mobile',
+        emoji: '🎮',
+        cooldown: 20,
+        seuilAbonnes: 0,
+        effetBonheur: 15,
+        bonheurDuree: 30000,
+      },
+      placement_produit: {
+        label: 'Placement produit',
+        emoji: '💼',
+        cooldown: 180,
+        seuilAbonnes: 10000,
+        passifId: 'passif_placement',
+        passifTaux: 3,
+        passifMax: 5,
+      },
+    },
   },
 
   METIERS: {

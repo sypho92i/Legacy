@@ -218,6 +218,118 @@
     }
     .logement-item__btn:disabled { cursor: not-allowed; background: #1a1a1a; color: #555; border-color: #333; }
 
+    /* Vue Ordinateur */
+    .ordinateur-vue   { display: flex; flex-direction: column; gap: 12px; }
+    .ordinateur-achat {
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+      padding: 24px 16px; text-align: center;
+    }
+    .ordinateur-mock    { font-size: 3em; line-height: 1; }
+    .ordinateur-achat p { color: #888; font-size: 0.9em; max-width: 280px; }
+    .ordinateur-btn-achat {
+      padding: 8px 20px; font-family: monospace; font-size: 0.95em; cursor: pointer;
+      background: #1a2233; color: #4d9fff; border: 1px solid #4d9fff; border-radius: 4px;
+    }
+    .ordinateur-btn-achat:disabled { cursor: not-allowed; background: #1a1a1a; color: #555; border-color: #333; }
+    .ordinateur-btn-achat:not(:disabled):hover { background: #1e2d44; }
+
+    .ordinateur-screen { display: flex; flex-direction: column; gap: 12px; }
+    .ordinateur-section-titre {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.08em;
+      color: #666; border-bottom: 1px solid #1e1e1e; padding-bottom: 4px;
+    }
+    .ordinateur-tokens-solde { font-size: 1.2em; color: #a78bfa; font-weight: bold; letter-spacing: 0; text-transform: none; }
+
+    .ordinateur-packs { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .ordinateur-pack {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 10px; border: 1px solid #2a2a2a; border-radius: 4px; background: #111;
+    }
+    .ordinateur-pack--indispo { opacity: 0.5; }
+    .ordinateur-pack span:first-child { flex: 1; font-size: 0.88em; color: #ccc; }
+    .ordinateur-pack span:nth-child(2) { font-size: 0.82em; color: #888; white-space: nowrap; }
+    .ordinateur-pack__btn {
+      padding: 3px 10px; font-family: monospace; font-size: 0.8em; cursor: pointer;
+      background: #1a2233; color: #4d9fff; border: 1px solid #4d9fff; border-radius: 3px;
+    }
+    .ordinateur-pack__btn:disabled { cursor: not-allowed; background: #1a1a1a; color: #555; border-color: #333; }
+    .ordinateur-pack__btn:not(:disabled):hover { background: #1e2d44; }
+
+    .ordinateur-commandes { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .ordinateur-commande {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; border: 1px solid #2a2a2a; border-radius: 4px; background: #111;
+    }
+    .ordinateur-commande--disabled { opacity: 0.5; }
+    .ordinateur-commande__emoji  { font-size: 1.1em; flex-shrink: 0; }
+    .ordinateur-commande__label  { flex: 1; font-size: 0.88em; color: #ccc; }
+    .ordinateur-commande__cout   { font-size: 0.8em; color: #a78bfa; white-space: nowrap; }
+    .ordinateur-commande__btn {
+      padding: 3px 10px; font-family: monospace; font-size: 0.85em; cursor: pointer;
+      background: #1a2233; color: #4d9fff; border: 1px solid #4d9fff; border-radius: 3px; flex-shrink: 0;
+    }
+    .ordinateur-commande__btn:disabled { cursor: not-allowed; background: #1a1a1a; color: #555; border-color: #333; }
+    .ordinateur-commande__btn:not(:disabled):hover { background: #1e2d44; }
+    .ordinateur-boost-badge {
+      font-size: 0.75em; color: #4caf50; border: 1px solid #4caf50;
+      border-radius: 3px; padding: 1px 5px; white-space: nowrap;
+    }
+
+    /* Badge prix nav */
+    .nav-badge--prix {
+      display: inline-block; margin-left: 5px;
+      font-size: 0.75em; color: #888;
+      border: 1px solid #444; border-radius: 3px; padding: 1px 4px;
+    }
+
+    /* Vue Téléphone */
+    .telephone-vue { display: flex; flex-direction: column; gap: 12px; }
+
+    .telephone-achat {
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+      padding: 24px 16px; text-align: center;
+    }
+    .telephone-mock { font-size: 3em; line-height: 1; }
+    .telephone-achat p { color: #888; font-size: 0.9em; max-width: 280px; }
+    .telephone-btn-achat {
+      padding: 8px 20px; font-family: monospace; font-size: 0.95em; cursor: pointer;
+      background: #1a2e1a; color: #4caf50; border: 1px solid #4caf50; border-radius: 4px;
+    }
+    .telephone-btn-achat:disabled { cursor: not-allowed; background: #1a1a1a; color: #555; border-color: #333; }
+    .telephone-btn-achat:not(:disabled):hover { background: #223a22; }
+
+    .telephone-screen {
+      display: flex; flex-direction: column; gap: 10px;
+      background: #0d0d0d; border: 1px solid #333; border-radius: 8px; padding: 12px;
+    }
+    .telephone-header {
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid #2a2a2a; padding-bottom: 8px; margin-bottom: 2px;
+      font-size: 0.85em; color: #888;
+    }
+    .telephone-abonnes { color: #4caf50; font-weight: bold; font-size: 1em; }
+
+    .telephone-actions { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .telephone-action {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; border: 1px solid #2a2a2a; border-radius: 5px;
+      background: #111;
+    }
+    .telephone-action--locked  { opacity: 0.45; }
+    .telephone-action--cooldown { opacity: 0.7; }
+    .telephone-action--disabled { opacity: 0.5; }
+    .telephone-action__emoji { font-size: 1.2em; flex-shrink: 0; }
+    .telephone-action__label { flex: 1; font-size: 0.9em; color: #ccc; }
+    .telephone-action__lock  { font-size: 0.75em; color: #666; white-space: nowrap; }
+    .telephone-action__cd    { font-size: 0.8em; color: #888; font-family: monospace; white-space: nowrap; min-width: 32px; text-align: right; }
+    .telephone-action__btn {
+      padding: 4px 10px; font-family: monospace; font-size: 0.85em; cursor: pointer;
+      background: #1e3a1e; color: #4caf50; border: 1px solid #4caf50; border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .telephone-action__btn:hover { background: #223a22; }
+
     /* Debug */
     .debug { border-top: 1px solid #222; padding-top: 8px; display: flex; gap: 8px; }
     .debug button { padding: 6px 12px; font-family: monospace; cursor: pointer;

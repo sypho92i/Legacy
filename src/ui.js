@@ -1,7 +1,7 @@
 // ui.js — composants Vue, handlers d'événements, update UI
 // Règle : ne contient que du Vue réactif — zéro querySelector/getElementById
 import { state }            from './state.js'
-import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration } from './engine.js'
+import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande } from './engine.js'
 // calculerCashflowNet est appelé dans tick() — state.cashflowNet est toujours à jour
 import { CONFIG }           from './config.js'
 
@@ -48,6 +48,10 @@ export const AppRoot = {
     // ── Floating texts boutique ───────────────────────────────────────────────
     const boutiqueFlottants = ref([])
     let _nextBoutiqueFlottantId = 0
+
+    // ── Horloge pour cooldowns téléphone ─────────────────────────────────────
+    const now = ref(Date.now())
+    setInterval(() => { now.value = Date.now() }, 1000)
 
     // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -196,6 +200,107 @@ export const AppRoot = {
     function actionLouer(slug) { louerLogement(slug) }
     function actionAcheter(slug) { acheterLogement(slug) }
 
+    // ── Téléphone ─────────────────────────────────────────────────────────────
+
+    function actionAcheterTelephone() {
+      const ok = acheterTelephone()
+      if (!ok) return
+      const fid = _nextBoutiqueFlottantId++
+      boutiqueFlottants.value.push({ id: fid, texte: '📱 Téléphone acheté !' })
+      setTimeout(() => {
+        const idx = boutiqueFlottants.value.findIndex(f => f.id === fid)
+        if (idx !== -1) boutiqueFlottants.value.splice(idx, 1)
+      }, 800)
+    }
+
+    function actionTelephone(id) {
+      const result = executerActionTelephone(id)
+      if (!result.ok) return
+      const action = CONFIG.TELEPHONE.ACTIONS[id]
+      let texte = '✓'
+      if (action.effetAbonnes) texte = `+${action.effetAbonnes} abonnés`
+      else if (action.effetBonheur) texte = `+${action.effetBonheur} bonheur`
+      else if (action.passifId) texte = `+${action.passifTaux} €/s`
+      const fid = _nextBoutiqueFlottantId++
+      boutiqueFlottants.value.push({ id: fid, texte })
+      setTimeout(() => {
+        const idx = boutiqueFlottants.value.findIndex(f => f.id === fid)
+        if (idx !== -1) boutiqueFlottants.value.splice(idx, 1)
+      }, 800)
+    }
+
+    // ── Téléphone — computeds ─────────────────────────────────────────────────
+
+    const telephoneActions = computed(() =>
+      Object.entries(CONFIG.TELEPHONE.ACTIONS).map(([id, action]) => {
+        const expiry     = state.telephoneCooldowns[id] ?? 0
+        const enCooldown = now.value < expiry
+        const cdRestant  = enCooldown ? Math.ceil((expiry - now.value) / 1000) : 0
+        const seuilOk    = state.abonnes >= (action.seuilAbonnes ?? 0)
+        const plafondOk  = !action.passifMax || state.passifs.filter(p => p.id === action.passifId).length < action.passifMax
+        const disabled   = !seuilOk || enCooldown || !plafondOk
+        return { id, ...action, enCooldown, cdRestant, seuilOk, plafondOk, disabled }
+      })
+    )
+
+    const abonnesAffiche = computed(() => {
+      const n = state.abonnes
+      if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
+      if (n >= 1000)      return (n / 1000).toFixed(1) + 'k'
+      return n.toString()
+    })
+
+    // ── Ordinateur — computeds ────────────────────────────────────────────────
+
+    const prixPacksTokens = computed(() =>
+      CONFIG.ORDINATEUR.PACKS_TOKENS.map(pack => ({
+        ...pack,
+        prixReel: calculerPrixTokens(pack.prixBase),
+      }))
+    )
+
+    const tokensAffiche = computed(() => state.possessions.tokens)
+
+    const boostXpActif = computed(() => now.value < state._boostXpExpiry)
+
+    const boostXpRestant = computed(() =>
+      boostXpActif.value ? Math.ceil((state._boostXpExpiry - now.value) / 1000) : 0
+    )
+
+    function actionAcheterOrdinateur() {
+      const ok = acheterOrdinateur()
+      if (!ok) return
+      const fid = _nextBoutiqueFlottantId++
+      boutiqueFlottants.value.push({ id: fid, texte: '💻 Ordinateur acheté !' })
+      setTimeout(() => {
+        const idx = boutiqueFlottants.value.findIndex(f => f.id === fid)
+        if (idx !== -1) boutiqueFlottants.value.splice(idx, 1)
+      }, 800)
+    }
+
+    function actionAcheterTokens(quantite) {
+      const result = acheterTokens(quantite)
+      if (!result.ok) return
+      const fid = _nextBoutiqueFlottantId++
+      boutiqueFlottants.value.push({ id: fid, texte: `+${quantite} 🔮` })
+      setTimeout(() => {
+        const idx = boutiqueFlottants.value.findIndex(f => f.id === fid)
+        if (idx !== -1) boutiqueFlottants.value.splice(idx, 1)
+      }, 800)
+    }
+
+    function actionExecuterCommande(id) {
+      const result = executerCommande(id)
+      if (!result.ok) return
+      const cmd = CONFIG.ORDINATEUR.COMMANDES[id]
+      const fid = _nextBoutiqueFlottantId++
+      boutiqueFlottants.value.push({ id: fid, texte: `${cmd.emoji} ${cmd.label}` })
+      setTimeout(() => {
+        const idx = boutiqueFlottants.value.findIndex(f => f.id === fid)
+        if (idx !== -1) boutiqueFlottants.value.splice(idx, 1)
+      }, 800)
+    }
+
     // ── Compétences au décès ───────────────────────────────────────────────────
 
     const competencesAuDeces = computed(() =>
@@ -205,7 +310,7 @@ export const AppRoot = {
       }))
     )
 
-    return { state, CONFIG, flottants, boutiqueFlottants, verbeBouton, revenuClicAffiche, multiplicateurActuel, niveauCommerce, nomPalierCommerce, xpCommerceInfo, onClic, toggleMenu, toggleEngine, isEngineRunning, renderUpgradesCommerce, acheterUpgrade, acheterItemBoutique, itemsBoutique, mort, heritageAffiche, competencesAuDeces, nouvelleGeneration, mortSimulee, ongletFinances, financesRevenus, financesCharges, totalChargesAffiche, getTauxPassifTotal, logementActuel, logementLocations, logementAchats, actionLouer, actionAcheter }
+    return { state, CONFIG, flottants, boutiqueFlottants, verbeBouton, revenuClicAffiche, multiplicateurActuel, niveauCommerce, nomPalierCommerce, xpCommerceInfo, onClic, toggleMenu, toggleEngine, isEngineRunning, renderUpgradesCommerce, acheterUpgrade, acheterItemBoutique, itemsBoutique, mort, heritageAffiche, competencesAuDeces, nouvelleGeneration, mortSimulee, ongletFinances, financesRevenus, financesCharges, totalChargesAffiche, getTauxPassifTotal, logementActuel, logementLocations, logementAchats, actionLouer, actionAcheter, telephoneActions, abonnesAffiche, actionAcheterTelephone, actionTelephone, prixPacksTokens, tokensAffiche, boostXpActif, boostXpRestant, actionAcheterOrdinateur, actionAcheterTokens, actionExecuterCommande }
   },
 
   template: `
@@ -270,6 +375,14 @@ export const AppRoot = {
         >Finances</button>
         <button class="menus__btn" @click="toggleMenu('upgrades')">Améliorations</button>
         <button class="menus__btn" @click="toggleMenu('logement')">🏠 Logement</button>
+        <button class="menus__btn" @click="toggleMenu('telephone')">
+          📱 Téléphone
+          <span v-if="!state.possessions.telephone" class="nav-badge--prix">1000€</span>
+        </button>
+        <button class="menus__btn" @click="toggleMenu('ordinateur')">
+          💻 Ordinateur
+          <span v-if="!state.possessions.ordinateur" class="nav-badge--prix">10k€</span>
+        </button>
       </nav>
 
       <div v-if="state.menuOuvert" class="panel">
@@ -434,6 +547,125 @@ export const AppRoot = {
                 </div>
               </li>
             </ul>
+
+          </div>
+        </template>
+
+        <!-- ── Menu Ordinateur ───────────────────────────────────── -->
+        <template v-else-if="state.menuOuvert === 'ordinateur'">
+          <div class="ordinateur-vue">
+
+            <!-- Écran d'achat -->
+            <div v-if="!state.possessions.ordinateur" class="ordinateur-achat">
+              <div class="ordinateur-mock">💻</div>
+              <p>Accédez aux marchés financiers, aux dons caritatifs et aux outils de recherche.</p>
+              <button
+                class="ordinateur-btn-achat"
+                :disabled="state.argent < CONFIG.BOUTIQUE.ORDINATEUR.prix"
+                @click="actionAcheterOrdinateur"
+              >Acheter — {{ CONFIG.BOUTIQUE.ORDINATEUR.prix.toLocaleString('fr-FR') }} €</button>
+            </div>
+
+            <!-- Écran principal -->
+            <div v-else class="ordinateur-screen">
+
+              <!-- Tokens -->
+              <div class="ordinateur-section-titre">
+                Tokens
+                <span class="ordinateur-tokens-solde">{{ tokensAffiche }} 🔮</span>
+              </div>
+              <ul class="ordinateur-packs">
+                <li
+                  v-for="pack in prixPacksTokens"
+                  :key="pack.quantite"
+                  class="ordinateur-pack"
+                  :class="{ 'ordinateur-pack--indispo': state.argent < pack.prixReel }"
+                >
+                  <span>{{ pack.quantite }} tokens</span>
+                  <span>{{ pack.prixReel.toLocaleString('fr-FR') }} €</span>
+                  <button
+                    class="ordinateur-pack__btn"
+                    :disabled="state.argent < pack.prixReel"
+                    @click="actionAcheterTokens(pack.quantite)"
+                  >Acheter</button>
+                </li>
+              </ul>
+
+              <!-- Commandes -->
+              <div class="ordinateur-section-titre">Commandes</div>
+              <ul class="ordinateur-commandes">
+                <li
+                  v-for="(cmd, id) in CONFIG.ORDINATEUR.COMMANDES"
+                  :key="id"
+                  class="ordinateur-commande"
+                  :class="{ 'ordinateur-commande--disabled': state.possessions.tokens < cmd.tokens }"
+                >
+                  <span class="ordinateur-commande__emoji">{{ cmd.emoji }}</span>
+                  <span class="ordinateur-commande__label">{{ cmd.label }}</span>
+                  <span
+                    v-if="id === 'recherche' && boostXpActif"
+                    class="ordinateur-boost-badge"
+                  >🔬 ACTIF {{ boostXpRestant }}s</span>
+                  <span class="ordinateur-commande__cout">{{ cmd.tokens }} 🔮</span>
+                  <button
+                    class="ordinateur-commande__btn"
+                    :disabled="state.possessions.tokens < cmd.tokens"
+                    @click="actionExecuterCommande(id)"
+                  >▶</button>
+                </li>
+              </ul>
+
+            </div>
+          </div>
+        </template>
+
+        <!-- ── Menu Téléphone ─────────────────────────────────── -->
+        <template v-else-if="state.menuOuvert === 'telephone'">
+          <div class="telephone-vue">
+
+            <!-- Écran d'achat -->
+            <div v-if="!state.possessions.telephone" class="telephone-achat">
+              <div class="telephone-mock">📱</div>
+              <p>Achetez un téléphone pour accéder aux réseaux sociaux et faire grandir votre audience.</p>
+              <button
+                class="telephone-btn-achat"
+                :disabled="state.argent < CONFIG.BOUTIQUE.TELEPHONE.prix"
+                @click="actionAcheterTelephone"
+              >Acheter — {{ CONFIG.BOUTIQUE.TELEPHONE.prix }} €</button>
+            </div>
+
+            <!-- Écran principal -->
+            <div v-else class="telephone-screen">
+              <div class="telephone-header">
+                <span>Réseaux sociaux</span>
+                <span class="telephone-abonnes">{{ abonnesAffiche }} abonnés</span>
+              </div>
+              <ul class="telephone-actions">
+                <li
+                  v-for="action in telephoneActions"
+                  :key="action.id"
+                  class="telephone-action"
+                  :class="{
+                    'telephone-action--locked':   !action.seuilOk,
+                    'telephone-action--cooldown':  action.seuilOk && action.enCooldown,
+                    'telephone-action--disabled':  action.seuilOk && !action.enCooldown && !action.plafondOk,
+                  }"
+                >
+                  <span class="telephone-action__emoji">{{ action.emoji }}</span>
+                  <span class="telephone-action__label">{{ action.label }}</span>
+                  <span v-if="!action.seuilOk" class="telephone-action__lock">
+                    🔒 {{ (action.seuilAbonnes / 1000).toFixed(0) }}k abonnés
+                  </span>
+                  <span v-else-if="action.enCooldown" class="telephone-action__cd">{{ action.cdRestant }}s</span>
+                  <span v-else-if="!action.plafondOk" class="telephone-action__cd">Max</span>
+                  <button
+                    v-else
+                    class="telephone-action__btn"
+                    @click="actionTelephone(action.id)"
+                  >▶</button>
+                </li>
+              </ul>
+            </div>
 
           </div>
         </template>

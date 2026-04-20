@@ -401,6 +401,22 @@ Moteur vide opérationnel : boucle tick 200ms, état global réactif, HUD + jaug
 - ui.js : import `louerLogement`/`acheterLogement`. Computeds `logementActuel`, `logementLocations`, `logementAchats`. Handlers `actionLouer`/`actionAcheter`. `financesCharges` remplacé par computed réel. `totalChargesAffiche` computed. Bouton `🏠 Logement` dans nav. Vue logement dédiée dans le panel. Onglet Charges Finances mis à jour. Bilan : ligne charges dynamique.
 - index.html : CSS `.logement-vue`, `.logement-actuel`, `.logement-section-titre`, `.logement-liste`, `.logement-item`, `.logement-item--actuel`, `.logement-item--verrouille`, `.logement-item__*`.
 
+### Ticket 13 — Système Téléphone
+- `CONFIG.BOUTIQUE.TELEPHONE: { prix: 1000 }` ajouté dans config.js.
+- `CONFIG.TELEPHONE.ACTIONS` ajouté : 4 actions — `monter_compte` (cd 45s, +50 abonnés ×2 si vertueux), `promouvoir` (cd 90s, +200 abonnés + passif `passif_promo` 0.5 €/s non cumulable), `jeux_mobile` (cd 20s, +15 bonheur immédiat + `_bonheurTempExpiry` 30s), `placement_produit` (cd 180s, seuil 10k abonnés, passif `passif_placement` 3 €/s cumulable max 5).
+- state.js : `possessions.telephone: false`, `abonnes: 0`, `telephoneCooldowns: {}`, `_bonheurTempExpiry: 0`.
+- engine.js : `acheterTelephone()` exportée (vérifie argent ≥ 1000 + !telephone). `executerActionTelephone(id)` exportée : vérifie possession + seuil abonnés + cooldown → applique effet → enregistre `telephoneCooldowns[id] = Date.now() + cooldown×1000`. Bonus karma vertueux ×2 sur abonnés. Passif non cumulable (promouvoir) vs cumulable avec passifMax (placement_produit). `initialiserNouvelleGeneration()` : reset telephone/abonnes/telephoneCooldowns/_bonheurTempExpiry.
+- ui.js : `ref now` + `setInterval 1s`. Computed `telephoneActions` (enrichit chaque action de enCooldown/cdRestant/seuilOk/plafondOk/disabled via now.value). Computed `abonnesAffiche` (format k/M). Handlers `actionAcheterTelephone` + `actionTelephone` (floating text via boutiqueFlottants). Bouton 📱 Téléphone dans nav avec badge prix si non acheté. Vue 'telephone' : écran d'achat si !telephone, sinon header abonnés + liste 4 actions (locked/cooldown/max/dispo).
+- index.html : CSS `.nav-badge--prix`, `.telephone-vue`, `.telephone-achat`, `.telephone-mock`, `.telephone-btn-achat`, `.telephone-screen`, `.telephone-header`, `.telephone-abonnes`, `.telephone-actions`, `.telephone-action` + variantes `--locked/--cooldown/--disabled`, `__emoji/__label/__lock/__cd/__btn`.
+
+### Ticket 14 — Ordinateur : achat, tokens, 3 commandes légales
+- `CONFIG.BOUTIQUE.ORDINATEUR: { prix: 10000 }` ajouté dans config.js.
+- `CONFIG.ORDINATEUR` ajouté : `PACKS_TOKENS` (3 packs : 5/10/20 tokens, prixBase 500/900/1600), `MULTIPLICATEURS_GENERATION` (gen 1→1.0, 2→1.5, 3→2.2, defaut→3.0), `MULTIPLICATEURS_AGE` (18-30→×1.0, 30-50→×1.3, 50-70→×1.6, 70+→×2.0), `COMMANDES` (3 légales : `bourse` passif cumulable 2€/s max 10, `don_caritatif` +8 karma +10 rep, `recherche` boost XP ×1.20 pendant 60s).
+- state.js : `_boostXpExpiry: 0` ajouté (possessions.ordinateur et tokens existaient déjà).
+- engine.js : `calculerXpClic()` modifiée — si `Date.now() < state._boostXpExpiry`, multiplie par `boostXpMulti`. `calculerPrixTokens(prixBase)` exportée : `Math.round(prixBase × multiGen × multiAge)`. `acheterOrdinateur()`, `acheterTokens(quantite)`, `executerCommande(id)` exportées + exposées via window. `initialiserNouvelleGeneration()` : reset `_boostXpExpiry = 0`.
+- ui.js : import 3 nouvelles fonctions + `calculerPrixTokens`. Computeds `prixPacksTokens` (PACKS_TOKENS enrichis de prixReel), `tokensAffiche`, `boostXpActif` (via `now`), `boostXpRestant`. Handlers `actionAcheterOrdinateur`, `actionAcheterTokens`, `actionExecuterCommande` (floating text). Bouton 💻 Ordinateur dans nav avec badge 10k€ si non acheté. Vue 'ordinateur' : écran achat si !ordinateur, sinon section Tokens (solde + 3 packs avec prix réel) + section Commandes (3 items, badge 🔬 ACTIF Xs si boost actif).
+- index.html : CSS `.ordinateur-vue/achat/screen`, `.ordinateur-section-titre`, `.ordinateur-tokens-solde`, `.ordinateur-packs`, `.ordinateur-pack/__btn/--indispo`, `.ordinateur-commandes`, `.ordinateur-commande/--disabled`, `__emoji/__label/__cout/__btn`, `.ordinateur-boost-badge`.
+
 ---
 *Ne jamais lire le GDD pour coder — toutes les infos techniques sont ici.*
 *Mettre à jour la section "Sessions terminées" à chaque fin de ticket.*

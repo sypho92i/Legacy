@@ -30,9 +30,13 @@ export function getMultiplicateurNiveau(secteur) {
 }
 
 export function calculerXpClic() {
-  return Math.max(0.1,
+  const base = Math.max(0.1,
     1 * getModifKarma(state.karma) * getModifBonheur(state.jauges.bonheur)
   )
+  if (Date.now() < state._boostXpExpiry) {
+    return base * CONFIG.ORDINATEUR.COMMANDES.recherche.effet.boostXpMulti
+  }
+  return base
 }
 
 export function calculerNiveau(secteur) {
@@ -125,6 +129,124 @@ export function acheterLogement(slug) {
 
 window.louerLogement   = louerLogement
 window.acheterLogement = acheterLogement
+
+// ─── Téléphone ────────────────────────────────────────────────────────────────
+
+export function acheterTelephone() {
+  if (state.possessions.telephone) return false
+  if (state.argent < CONFIG.BOUTIQUE.TELEPHONE.prix) return false
+  state.argent -= CONFIG.BOUTIQUE.TELEPHONE.prix
+  state.possessions.telephone = true
+  return true
+}
+
+export function executerActionTelephone(id) {
+  if (!state.possessions.telephone) return { ok: false, raison: 'Pas de téléphone' }
+  const action = CONFIG.TELEPHONE.ACTIONS[id]
+  if (!action) return { ok: false, raison: 'Action inconnue' }
+
+  if (state.abonnes < (action.seuilAbonnes ?? 0)) {
+    return { ok: false, raison: 'Seuil abonnés non atteint' }
+  }
+
+  const now = Date.now()
+  if (now < (state.telephoneCooldowns[id] ?? 0)) {
+    return { ok: false, raison: 'En cooldown' }
+  }
+
+  // Effet abonnés
+  if (action.effetAbonnes) {
+    const palier = getPalierKarma(state.karma)
+    const bonus = palier.palier === 'vertueux' ? 2 : 1
+    state.abonnes += action.effetAbonnes * bonus
+  }
+
+  // Effet bonheur temporaire
+  if (action.effetBonheur) {
+    state.jauges.bonheur = clampJauge(state.jauges.bonheur + action.effetBonheur)
+    state._bonheurTempExpiry = now + action.bonheurDuree
+  }
+
+  // Effet passif
+  if (action.passifId) {
+    if (action.passifMax) {
+      const count = state.passifs.filter(p => p.id === action.passifId).length
+      if (count < action.passifMax) {
+        state.passifs.push({ id: action.passifId, nom: action.label, tauxParSeconde: action.passifTaux })
+      }
+    } else if (!state.passifs.some(p => p.id === action.passifId)) {
+      state.passifs.push({ id: action.passifId, nom: action.label, tauxParSeconde: action.passifTaux })
+    }
+  }
+
+  state.telephoneCooldowns[id] = now + action.cooldown * 1000
+  return { ok: true }
+}
+
+window.acheterTelephone        = acheterTelephone
+window.executerActionTelephone = executerActionTelephone
+
+// ─── Ordinateur ───────────────────────────────────────────────────────────────
+
+export function calculerPrixTokens(prixBase) {
+  const multiGen = CONFIG.ORDINATEUR.MULTIPLICATEURS_GENERATION[state.generation]
+    ?? CONFIG.ORDINATEUR.MULTIPLICATEURS_GENERATION.defaut
+  const entreeAge = CONFIG.ORDINATEUR.MULTIPLICATEURS_AGE.find(
+    e => state.age >= e.min && state.age < e.max
+  )
+  const multiAge = entreeAge?.multi ?? 1.0
+  return Math.round(prixBase * multiGen * multiAge)
+}
+
+export function acheterOrdinateur() {
+  if (state.possessions.ordinateur) return false
+  if (state.argent < CONFIG.BOUTIQUE.ORDINATEUR.prix) return false
+  state.argent -= CONFIG.BOUTIQUE.ORDINATEUR.prix
+  state.possessions.ordinateur = true
+  return true
+}
+
+export function acheterTokens(quantite) {
+  const pack = CONFIG.ORDINATEUR.PACKS_TOKENS.find(p => p.quantite === quantite)
+  if (!pack) return { ok: false }
+  const prix = calculerPrixTokens(pack.prixBase)
+  if (state.argent < prix) return { ok: false }
+  state.argent -= prix
+  state.possessions.tokens += quantite
+  return { ok: true, prix }
+}
+
+export function executerCommande(id) {
+  const cmd = CONFIG.ORDINATEUR.COMMANDES[id]
+  if (!cmd) return { ok: false, raison: 'Commande inconnue' }
+  if (!state.possessions.ordinateur) return { ok: false, raison: 'Pas d\'ordinateur' }
+  if (state.possessions.tokens < cmd.tokens) return { ok: false, raison: 'Tokens insuffisants' }
+
+  state.possessions.tokens -= cmd.tokens
+  const effet = cmd.effet
+
+  if (effet.passifId !== undefined) {
+    const count = state.passifs.filter(p => p.id === effet.passifId).length
+    if (count < effet.passifMax) {
+      state.passifs.push({ id: effet.passifId, nom: cmd.label, tauxParSeconde: effet.passifTaux })
+    }
+  }
+  if (effet.karma !== undefined) {
+    state.karma = Math.max(0, Math.min(100, state.karma + effet.karma))
+  }
+  if (effet.reputation !== undefined) {
+    state.jauges.reputation = clampJauge(state.jauges.reputation + effet.reputation)
+  }
+  if (effet.boostXpDuree !== undefined) {
+    state._boostXpExpiry = Date.now() + effet.boostXpDuree * 1000
+  }
+
+  return { ok: true }
+}
+
+window.acheterOrdinateur = acheterOrdinateur
+window.acheterTokens     = acheterTokens
+window.executerCommande  = executerCommande
 
 function tickLogement() {
   if (state.possessions.logement === 'squat') {
@@ -294,12 +416,18 @@ export function initialiserNouvelleGeneration() {
   state.possessions = {
     logement:       heritageLogementAchete ? heritageLogementSlug : 'squat',
     logementAchete: heritageLogementAchete,
+    telephone:      false,
     vehicule:       null,
     ordinateur:     false,
     tokens:         0,
     animaux:        [],
     items:          [],
   }
+
+  state.abonnes            = 0
+  state.telephoneCooldowns = {}
+  state._bonheurTempExpiry = 0
+  state._boostXpExpiry     = 0
 
   for (const key of Object.keys(state.jauges)) {
     state.jauges[key] = CONFIG.JAUGE_DEPART
