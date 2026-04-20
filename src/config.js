@@ -81,8 +81,9 @@ export const CONFIG = {
 
   // Verbe affiché sur le bouton de clic selon le métier actif
   VERBE_METIER: {
-    vendeur: 'Conclure une vente',
-    tech:    'Livrer une feature',
+    vendeur:  'Conclure une vente',
+    tech:     'Livrer une feature',
+    finance:  'Passer un ordre',
   },
   VERBE_METIER_DEFAUT: 'Travailler',
 
@@ -102,6 +103,13 @@ export const CONFIG = {
       3: 'Tech Lead',
       4: 'CTO',
       5: 'Fondateur',
+    },
+    PALIERS_FINANCE: {
+      1: 'Stagiaire',
+      2: 'Analyste',
+      3: 'Trader',
+      4: 'Gestionnaire de fonds',
+      5: 'Magnat',
     },
     FACTEUR_XP: 1.8,
   },
@@ -220,7 +228,7 @@ export const CONFIG = {
     },
     ZONES: {
       commerce: { label: 'Quartier Commercial', emoji: '🏪', secteur: 'commerce', disponible: true,  x: 20, y: 30 },
-      finance:  { label: 'Quartier Financier',  emoji: '🏦', secteur: 'finance',  disponible: false, x: 60, y: 20 },
+      finance:  { label: 'Quartier Financier',  emoji: '🏦', secteur: 'finance',  disponible: true,  x: 60, y: 20 },
       tech:     { label: 'Quartier Tech',        emoji: '💻', secteur: 'tech',     disponible: true,  x: 55, y: 65 },
     },
   },
@@ -235,6 +243,19 @@ export const CONFIG = {
         { id: 'u_c4', nom: 'Bureau propre',          effet: 'Débloque €8/s passif',  passifId: 'p_c1', passifValeur: 8,  prerequis: 'u_c3', niveauRequis: 3 },
         { id: 'u_c5', nom: 'Équipe de 3',            effet: 'Débloque €25/s passif', passifId: 'p_c2', passifValeur: 25, prerequis: 'u_c4', niveauRequis: 4 },
         { id: 'u_c6', nom: 'E-commerce',             effet: 'Débloque €50/s passif', passifId: 'p_c3', passifValeur: 50, prerequis: 'u_c5', niveauRequis: 5 },
+      ],
+    },
+    finance: {
+      revenuBase: null,   // non utilisé — revenu aléatoire géré dans engine.js
+      revenuMin:  5,
+      revenuMax:  25,
+      upgrades: [
+        { id: 'u_f1', nom: 'Compte courtier',         effet: { bonusClic: 3  }, prerequis: null,   niveauRequis: 1 },
+        { id: 'u_f2', nom: 'Analyse technique',       effet: { bonusClic: 7  }, prerequis: 'u_f1', niveauRequis: 2 },
+        { id: 'u_f3', nom: 'Portefeuille diversifié', effet: { passifId: 'passif_fin_3', passifValeur: 2  }, prerequis: 'u_f2', niveauRequis: 2 },
+        { id: 'u_f4', nom: 'Fonds d\'investissement', effet: { passifId: 'passif_fin_4', passifValeur: 6  }, prerequis: 'u_f3', niveauRequis: 3 },
+        { id: 'u_f5', nom: 'Hedge fund',              effet: { passifId: 'passif_fin_5', passifValeur: 20 }, prerequis: 'u_f4', niveauRequis: 4 },
+        { id: 'u_f6', nom: 'Empire financier',        effet: { passifId: 'passif_fin_6', passifValeur: 50 }, prerequis: 'u_f5', niveauRequis: 5 },
       ],
     },
     tech: {

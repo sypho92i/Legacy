@@ -50,13 +50,22 @@ export function calculerNiveau(secteur) {
 }
 
 export function calculerRevenuClic() {
+  if (state.secteurActif === 'finance') {
+    const cfg  = CONFIG.METIERS.finance
+    const base = Math.random() * (cfg.revenuMax - cfg.revenuMin) + cfg.revenuMin
+    const gain = Math.round((base + state.bonusUpgrades) * 100) / 100
+    state._dernierGainClic = gain
+    return gain
+  }
   const revenuBase = CONFIG.METIERS[state.secteurActif]?.revenuBase ?? CONFIG.REVENU_BASE_CLIC
-  return (
+  const gain = (
     (revenuBase + state.bonusUpgrades)
     * getMultiplicateurNiveau(state.secteurActif).valeur
     * getModifKarma(state.karma)
     * getModifBonheur(state.jauges.bonheur)
   )
+  state._dernierGainClic = gain
+  return gain
 }
 
 // ─── Achat d'upgrade ──────────────────────────────────────────────────────────
@@ -81,12 +90,16 @@ export function acheterUpgrade(id) {
   // Activer l'upgrade
   state.upgrades.push({ id })
 
-  // Appliquer l'effet (additif)
-  if (upgrade.bonusClic) {
-    state.bonusUpgrades += upgrade.bonusClic
+  // Appliquer l'effet — supporte structure plate ET imbriquée { effet: { ... } }
+  const bonusClic   = upgrade.effet?.bonusClic   ?? upgrade.bonusClic
+  const passifId    = upgrade.effet?.passifId    ?? upgrade.passifId
+  const passifValeur = upgrade.effet?.passifValeur ?? upgrade.passifValeur
+
+  if (bonusClic) {
+    state.bonusUpgrades += bonusClic
   }
-  if (upgrade.passifId) {
-    state.passifs.push({ id: upgrade.passifId, nom: upgrade.nom, tauxParSeconde: upgrade.passifValeur })
+  if (passifId) {
+    state.passifs.push({ id: passifId, nom: upgrade.nom, tauxParSeconde: passifValeur })
   }
 }
 

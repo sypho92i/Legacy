@@ -63,8 +63,15 @@ export const AppRoot = {
       state.argent += gain
       state.xpSecteurs[state.secteurActif] += calculerXpClic()
 
+      let classe = ''
+      if (state.secteurActif === 'finance') {
+        if      (state._dernierGainClic > 20) classe = 'flottant--positif'
+        else if (state._dernierGainClic < 10) classe = 'flottant--negatif'
+        else                                  classe = 'flottant--neutre'
+      }
+
       const id = _nextFlottantId++
-      flottants.value.push({ id, gain })
+      flottants.value.push({ id, gain, classe })
       setTimeout(() => {
         const idx = flottants.value.findIndex(f => f.id === id)
         if (idx !== -1) flottants.value.splice(idx, 1)
@@ -398,7 +405,7 @@ export const AppRoot = {
       <section v-if="vueActive !== 'carte'" class="zone-clic">
         <div class="btn-clic-wrap">
           <div class="zone-clic__flottants" aria-hidden="true">
-            <span v-for="f in flottants" :key="f.id" class="flottant">
+            <span v-for="f in flottants" :key="f.id" class="flottant" :class="f.classe">
               +{{ f.gain.toFixed(2) }} €
             </span>
           </div>

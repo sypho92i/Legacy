@@ -430,6 +430,13 @@ Moteur vide opérationnel : boucle tick 200ms, état global réactif, HUD + jaug
 - ui.js : 4 computeds généralisés — `renderUpgradesCommerce→renderUpgradesSecteur` (lit `CONFIG.METIERS[state.secteurActif]`), `niveauCommerce→niveauSecteur`, `nomPalierCommerce→nomPalierSecteur` (lookup `CONFIG.NIVEAUX['PALIERS_' + secteur.toUpperCase()]`), `xpCommerceInfo→xpSecteurInfo`. `verbeBouton` : cherche `secteurActif` en premier, puis `metierActif`, puis DEFAUT. Template : toutes les refs commerce-spécifiques remplacées par les génériques. Ajout `<p v-if="renderUpgradesSecteur.length === 0">` pour les secteurs sans upgrades. Return mis à jour.
 - index.html : aucun changement CSS nécessaire (styles upgrades/niveaux déjà génériques).
 
+### Ticket 17 — Secteur Finance
+- config.js : `VERBE_METIER.finance: 'Passer un ordre'`. `CONFIG.METIERS.finance` : `revenuBase: null`, `revenuMin: 5`, `revenuMax: 25`, 6 upgrades à structure `effet` imbriquée (u_f1→u_f6 : Compte courtier/Analyse technique/Portefeuille diversifié/Fonds d'investissement/Hedge fund/Empire financier). `CONFIG.NIVEAUX.PALIERS_FINANCE` (Stagiaire→Magnat). `MAP.ZONES.finance.disponible: true`.
+- state.js : `_dernierGainClic: 0` ajouté (dernier revenu brut pour feedback couleur).
+- engine.js : `calculerRevenuClic()` — branche finance : base aléatoire `[5–25]` + `bonusUpgrades`, arrondi à 2 décimales, stocké dans `_dernierGainClic`, retourné sans modif karma/bonheur. Autres secteurs : comportement inchangé, stockent aussi dans `_dernierGainClic`. `acheterUpgrade()` : supporte les deux structures — plate (`upgrade.bonusClic`) ET imbriquée (`upgrade.effet.bonusClic`) — via `upgrade.effet?.bonusClic ?? upgrade.bonusClic`.
+- ui.js : `onClic()` — après calcul du gain, si `secteurActif === 'finance'` : classe `flottant--positif` (>20€), `flottant--negatif` (<10€), `flottant--neutre` (sinon). Stockée dans l'objet flottant. Template : `:class="f.classe"` ajouté sur le span flottant.
+- index.html : `.flottant--positif` (vert vif, bold, 1.1em), `.flottant--negatif` (rouge), `.flottant--neutre` (jaune). Couleur par défaut `.flottant` conservée pour les autres secteurs.
+
 ---
 *Ne jamais lire le GDD pour coder — toutes les infos techniques sont ici.*
 *Mettre à jour la section "Sessions terminées" à chaque fin de ticket.*
