@@ -424,6 +424,12 @@ Moteur vide opérationnel : boucle tick 200ms, état global réactif, HUD + jaug
 - ui.js : `vueActive = ref(null)` + `toggleCarte()`. `toggleMenu()` reset vueActive. Computed `carteZones` (enrichit zones de estActuelle/enCooldown/cdRestant/cout/abordable/disabled via now.value). Computed `cdGlobalRestant` (format mm:ss). Handler `actionChangerSecteur`. Bouton 🗺 Carte dans nav (`.menus__btn--actif` si actif). Template : `v-if="vueActive !== 'carte'"` sur zone-clic, vue carte complète avec 3 zones positionnées en % + panneau info bas. Finance et Tech affichent 🔒 Bientôt (disponible: false).
 - index.html : CSS `.menus__btn--actif`, `.carte-container`, `.carte-map` (grille pixel art CSS), `.carte-zone` + variantes `--active/--locked/--cooldown/--indispo`, `__emoji/__label/__lock/__badge/__cout`, `.carte-info`, `.carte-cooldown-global`.
 
+### Ticket 16 — Secteur Tech
+- config.js : `CONFIG.NIVEAUX.PALIERS_TECH` ajouté (`1:Développeur junior` → `5:Fondateur`). `CONFIG.METIERS.tech` ajouté : `revenuBase: 12`, 6 upgrades à structure plate (u_t1→u_t6 : Laptop pro/IDE premium/Framework maison/Open source repo/Équipe tech/SaaS produit). `CONFIG.METIERS.commerce.revenuBase: 1` explicité. `CONFIG.MAP.ZONES.tech.disponible: true`.
+- engine.js : `calculerRevenuClic()` utilise `CONFIG.METIERS[state.secteurActif]?.revenuBase ?? CONFIG.REVENU_BASE_CLIC` — chaque secteur a son propre revenu de base.
+- ui.js : 4 computeds généralisés — `renderUpgradesCommerce→renderUpgradesSecteur` (lit `CONFIG.METIERS[state.secteurActif]`), `niveauCommerce→niveauSecteur`, `nomPalierCommerce→nomPalierSecteur` (lookup `CONFIG.NIVEAUX['PALIERS_' + secteur.toUpperCase()]`), `xpCommerceInfo→xpSecteurInfo`. `verbeBouton` : cherche `secteurActif` en premier, puis `metierActif`, puis DEFAUT. Template : toutes les refs commerce-spécifiques remplacées par les génériques. Ajout `<p v-if="renderUpgradesSecteur.length === 0">` pour les secteurs sans upgrades. Return mis à jour.
+- index.html : aucun changement CSS nécessaire (styles upgrades/niveaux déjà génériques).
+
 ---
 *Ne jamais lire le GDD pour coder — toutes les infos techniques sont ici.*
 *Mettre à jour la section "Sessions terminées" à chaque fin de ticket.*

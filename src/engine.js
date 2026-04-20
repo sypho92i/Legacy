@@ -50,8 +50,9 @@ export function calculerNiveau(secteur) {
 }
 
 export function calculerRevenuClic() {
+  const revenuBase = CONFIG.METIERS[state.secteurActif]?.revenuBase ?? CONFIG.REVENU_BASE_CLIC
   return (
-    (CONFIG.REVENU_BASE_CLIC + state.bonusUpgrades)
+    (revenuBase + state.bonusUpgrades)
     * getMultiplicateurNiveau(state.secteurActif).valeur
     * getModifKarma(state.karma)
     * getModifBonheur(state.jauges.bonheur)

@@ -99,16 +99,20 @@ export const AppRoot = {
     // ── Computed ──────────────────────────────────────────────────────────────
 
     const verbeBouton = computed(() =>
-      CONFIG.VERBE_METIER[state.metierActif] ?? CONFIG.VERBE_METIER_DEFAUT
+      CONFIG.VERBE_METIER[state.secteurActif]
+      ?? CONFIG.VERBE_METIER[state.metierActif]
+      ?? CONFIG.VERBE_METIER_DEFAUT
     )
 
     const revenuClicAffiche = computed(() => calculerRevenuClic())
 
-    // ── Upgrades Commerce ─────────────────────────────────────────────────────
+    // ── Upgrades secteur actif ────────────────────────────────────────────────
 
-    const renderUpgradesCommerce = computed(() => {
-      const niveauAtteint = calculerNiveau('commerce')
-      return CONFIG.METIERS.commerce.upgrades.map((upg, idx) => {
+    const renderUpgradesSecteur = computed(() => {
+      const metier = CONFIG.METIERS[state.secteurActif]
+      if (!metier?.upgrades) return []
+      const niveauAtteint = calculerNiveau(state.secteurActif)
+      return metier.upgrades.map((upg, idx) => {
         const n    = idx + 1
         const cout = Math.round(100 * Math.pow(2.8, n - 1))
         const estAchete       = state.upgrades.some(u => u.id === upg.id)
@@ -125,17 +129,18 @@ export const AppRoot = {
       })
     })
 
-    // ── Niveau Commerce ───────────────────────────────────────────────────────
+    // ── Niveau secteur actif ──────────────────────────────────────────────────
 
-    const niveauCommerce = computed(() => calculerNiveau('commerce'))
+    const niveauSecteur = computed(() => calculerNiveau(state.secteurActif))
 
-    const nomPalierCommerce = computed(() =>
-      CONFIG.NIVEAUX.PALIERS_COMMERCE[niveauCommerce.value] ?? 'Inconnu'
-    )
+    const nomPalierSecteur = computed(() => {
+      const cle = 'PALIERS_' + state.secteurActif.toUpperCase()
+      return (CONFIG.NIVEAUX[cle] ?? {})[niveauSecteur.value] ?? state.secteurActif
+    })
 
-    const xpCommerceInfo = computed(() => {
-      const xp     = state.xpSecteurs.commerce
-      const niveau = niveauCommerce.value
+    const xpSecteurInfo = computed(() => {
+      const xp     = state.xpSecteurs[state.secteurActif] ?? 0
+      const niveau = niveauSecteur.value
       const seuils = CONFIG.NIVEAUX.SEUILS
       if (niveau >= seuils.length) {
         return { current: Math.round(xp), max: Math.round(xp), pct: 100 }
@@ -357,7 +362,7 @@ export const AppRoot = {
       }))
     )
 
-    return { state, CONFIG, flottants, boutiqueFlottants, verbeBouton, revenuClicAffiche, multiplicateurActuel, niveauCommerce, nomPalierCommerce, xpCommerceInfo, onClic, toggleMenu, toggleEngine, isEngineRunning, renderUpgradesCommerce, acheterUpgrade, acheterItemBoutique, itemsBoutique, mort, heritageAffiche, competencesAuDeces, nouvelleGeneration, mortSimulee, ongletFinances, financesRevenus, financesCharges, totalChargesAffiche, getTauxPassifTotal, logementActuel, logementLocations, logementAchats, actionLouer, actionAcheter, telephoneActions, abonnesAffiche, actionAcheterTelephone, actionTelephone, prixPacksTokens, tokensAffiche, boostXpActif, boostXpRestant, actionAcheterOrdinateur, actionAcheterTokens, actionExecuterCommande, vueActive, toggleCarte, carteZones, cdGlobalRestant, actionChangerSecteur }
+    return { state, CONFIG, flottants, boutiqueFlottants, verbeBouton, revenuClicAffiche, multiplicateurActuel, niveauSecteur, nomPalierSecteur, xpSecteurInfo, onClic, toggleMenu, toggleEngine, isEngineRunning, renderUpgradesSecteur, acheterUpgrade, acheterItemBoutique, itemsBoutique, mort, heritageAffiche, competencesAuDeces, nouvelleGeneration, mortSimulee, ongletFinances, financesRevenus, financesCharges, totalChargesAffiche, getTauxPassifTotal, logementActuel, logementLocations, logementAchats, actionLouer, actionAcheter, telephoneActions, abonnesAffiche, actionAcheterTelephone, actionTelephone, prixPacksTokens, tokensAffiche, boostXpActif, boostXpRestant, actionAcheterOrdinateur, actionAcheterTokens, actionExecuterCommande, vueActive, toggleCarte, carteZones, cdGlobalRestant, actionChangerSecteur }
   },
 
   template: `
@@ -529,17 +534,18 @@ export const AppRoot = {
         <template v-else-if="state.menuOuvert === 'upgrades'">
           <div class="niveau-commerce">
             <div class="niveau-commerce__header">
-              <span class="niveau-commerce__palier">{{ nomPalierCommerce }}</span>
-              <span class="niveau-commerce__niv">Niv.{{ niveauCommerce }}</span>
+              <span class="niveau-commerce__palier">{{ nomPalierSecteur }}</span>
+              <span class="niveau-commerce__niv">Niv.{{ niveauSecteur }}</span>
             </div>
             <div class="xp-piste">
-              <div class="xp-barre" :style="{ width: xpCommerceInfo.pct + '%' }"></div>
+              <div class="xp-barre" :style="{ width: xpSecteurInfo.pct + '%' }"></div>
             </div>
-            <div class="xp-label">{{ xpCommerceInfo.current }} / {{ xpCommerceInfo.max }} XP</div>
+            <div class="xp-label">{{ xpSecteurInfo.current }} / {{ xpSecteurInfo.max }} XP</div>
           </div>
-          <ul class="upgrades-list">
+          <p v-if="renderUpgradesSecteur.length === 0" class="finances-vide">Aucune amélioration disponible dans ce secteur.</p>
+          <ul v-else class="upgrades-list">
             <li
-              v-for="upg in renderUpgradesCommerce"
+              v-for="upg in renderUpgradesSecteur"
               :key="upg.id"
               :class="['upgrade-item', 'upgrade-item--' + upg.etat]"
             >

@@ -81,8 +81,8 @@ export const CONFIG = {
 
   // Verbe affiché sur le bouton de clic selon le métier actif
   VERBE_METIER: {
-    vendeur:     'Conclure une vente',
-    // Phase 3+ : tech, finance, BTP, immobilier, influence…
+    vendeur: 'Conclure une vente',
+    tech:    'Livrer une feature',
   },
   VERBE_METIER_DEFAUT: 'Travailler',
 
@@ -95,6 +95,13 @@ export const CONFIG = {
       3: 'Franchisé',
       4: 'Directeur régional',
       5: 'Magnat',
+    },
+    PALIERS_TECH: {
+      1: 'Développeur junior',
+      2: 'Développeur senior',
+      3: 'Tech Lead',
+      4: 'CTO',
+      5: 'Fondateur',
     },
     FACTEUR_XP: 1.8,
   },
@@ -214,12 +221,13 @@ export const CONFIG = {
     ZONES: {
       commerce: { label: 'Quartier Commercial', emoji: '🏪', secteur: 'commerce', disponible: true,  x: 20, y: 30 },
       finance:  { label: 'Quartier Financier',  emoji: '🏦', secteur: 'finance',  disponible: false, x: 60, y: 20 },
-      tech:     { label: 'Quartier Tech',        emoji: '💻', secteur: 'tech',     disponible: false, x: 55, y: 65 },
+      tech:     { label: 'Quartier Tech',        emoji: '💻', secteur: 'tech',     disponible: true,  x: 55, y: 65 },
     },
   },
 
   METIERS: {
     commerce: {
+      revenuBase: 1,
       upgrades: [
         { id: 'u_c1', nom: 'Costume pro',          effet: '+€5 / clic',            bonusClic: 5,  prerequis: null,   niveauRequis: 1 },
         { id: 'u_c2', nom: 'CRM basique',           effet: '+€12 / clic',           bonusClic: 12, prerequis: 'u_c1', niveauRequis: 2 },
@@ -227,6 +235,17 @@ export const CONFIG = {
         { id: 'u_c4', nom: 'Bureau propre',          effet: 'Débloque €8/s passif',  passifId: 'p_c1', passifValeur: 8,  prerequis: 'u_c3', niveauRequis: 3 },
         { id: 'u_c5', nom: 'Équipe de 3',            effet: 'Débloque €25/s passif', passifId: 'p_c2', passifValeur: 25, prerequis: 'u_c4', niveauRequis: 4 },
         { id: 'u_c6', nom: 'E-commerce',             effet: 'Débloque €50/s passif', passifId: 'p_c3', passifValeur: 50, prerequis: 'u_c5', niveauRequis: 5 },
+      ],
+    },
+    tech: {
+      revenuBase: 12,
+      upgrades: [
+        { id: 'u_t1', nom: 'Laptop pro',          effet: '+€10 / clic',              bonusClic: 10,  prerequis: null,   niveauRequis: 1 },
+        { id: 'u_t2', nom: 'IDE premium',         effet: '+€25 / clic',              bonusClic: 25,  prerequis: 'u_t1', niveauRequis: 2 },
+        { id: 'u_t3', nom: 'Framework maison',    effet: '+€60 / clic',              bonusClic: 60,  prerequis: 'u_t2', niveauRequis: 2 },
+        { id: 'u_t4', nom: 'Open source repo',    effet: 'Débloque €15/s passif',    passifId: 'p_t1', passifValeur: 15,  prerequis: 'u_t3', niveauRequis: 3 },
+        { id: 'u_t5', nom: 'Équipe tech',         effet: 'Débloque €40/s passif',    passifId: 'p_t2', passifValeur: 40,  prerequis: 'u_t4', niveauRequis: 4 },
+        { id: 'u_t6', nom: 'SaaS produit',        effet: 'Débloque €100/s passif',   passifId: 'p_t3', passifValeur: 100, prerequis: 'u_t5', niveauRequis: 5 },
       ],
     },
   },
