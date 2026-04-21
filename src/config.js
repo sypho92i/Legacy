@@ -240,6 +240,8 @@ export const CONFIG = {
     },
   },
 
+  ORDRE_VEHICULES: ['velo', 'scooter', 'voiture', 'berline', 'supercar'],
+
   VEHICULES: {
     velo:     { label: 'Vélo',     emoji: '🚲', prix: 200,   chargeMensuelle: 0,    karma:  0,  reputation: 0,  bonusClic: 0,  vehiculeRequis: null },
     scooter:  { label: 'Scooter',  emoji: '🛵', prix: 1500,  chargeMensuelle: 50,   karma:  0,  reputation: 2,  bonusClic: 0,  vehiculeRequis: null },

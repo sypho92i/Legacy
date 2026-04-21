@@ -48,11 +48,6 @@ export const AppRoot = {
       setTimeout(() => { derniereNotifImmo.value = null }, 4000)
     })
 
-    // ── Notif achèvement chantier BTP ─────────────────────────────────────────
-    window.addEventListener('legacy:btp-complete', (e) => {
-      ajouterFlottant(`🏗 +${e.detail.gain.toLocaleString('fr-FR')} €`, 2000)
-    })
-
     // ── Floating texts ────────────────────────────────────────────────────────
     const flottants = ref([])
     let _nextFlottantId = 0
@@ -69,6 +64,11 @@ export const AppRoot = {
         if (idx !== -1) boutiqueFlottants.value.splice(idx, 1)
       }, duree)
     }
+
+    // ── Notif achèvement chantier BTP ─────────────────────────────────────────
+    window.addEventListener('legacy:btp-complete', (e) => {
+      ajouterFlottant(`🏗 +${e.detail.gain.toLocaleString('fr-FR')} €`, 2000)
+    })
 
     // ── Horloge pour cooldowns téléphone / carte ──────────────────────────────
     const now = ref(Date.now())
@@ -273,8 +273,6 @@ export const AppRoot = {
 
     // ── Véhicules ─────────────────────────────────────────────────────────────
 
-    const _ORDRE_VEHICULES = ['velo', 'scooter', 'voiture', 'berline', 'supercar']
-
     const vehiculeActuel = computed(() =>
       state.possessions.vehicule ? CONFIG.VEHICULES[state.possessions.vehicule] : null
     )
@@ -282,9 +280,9 @@ export const AppRoot = {
     const boutiqueVehicules = computed(() =>
       Object.entries(CONFIG.VEHICULES).map(([id, cfg]) => ({
         id, ...cfg,
-        estActuel:   state.possessions.vehicule === id,
-        abordable:   state.argent >= cfg.prix,
-        estInferieur: _ORDRE_VEHICULES.indexOf(id) < _ORDRE_VEHICULES.indexOf(state.possessions.vehicule ?? ''),
+        estActuel:    state.possessions.vehicule === id,
+        abordable:    state.argent >= cfg.prix,
+        estInferieur: CONFIG.ORDRE_VEHICULES.indexOf(id) < CONFIG.ORDRE_VEHICULES.indexOf(state.possessions.vehicule ?? ''),
       }))
     )
 

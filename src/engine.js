@@ -262,13 +262,12 @@ export function executerCommande(id) {
 
 // ─── Véhicules ────────────────────────────────────────────────────────────────
 
-const ORDRE_VEHICULES = ['velo', 'scooter', 'voiture', 'berline', 'supercar']
-
 export function vehiculePermetSecteur(secteurCible) {
   const zone = CONFIG.MAP.ZONES[secteurCible]
   if (!zone || !zone.vehiculeRequis) return true
-  const idxActuel = ORDRE_VEHICULES.indexOf(state.possessions.vehicule ?? '')
-  const idxRequis = ORDRE_VEHICULES.indexOf(zone.vehiculeRequis)
+  const ordre    = CONFIG.ORDRE_VEHICULES
+  const idxActuel = ordre.indexOf(state.possessions.vehicule ?? '')
+  const idxRequis = ordre.indexOf(zone.vehiculeRequis)
   return idxActuel >= idxRequis
 }
 
