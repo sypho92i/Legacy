@@ -246,7 +246,7 @@ export const CONFIG = {
       tech:       "Pour bosser dans la tech, faut au moins avoir la voiture qui va avec. Fais un effort.",
       immobilier: "Pour visiter des biens, faut au moins arriver en Berline.",
       btp:        null,
-      influence:  null,
+      influence:  "Pour créer du contenu pro, faut au moins arriver en voiture.",
     },
   },
 
