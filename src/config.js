@@ -69,6 +69,7 @@ export const CONFIG = {
     finance:     'Passer un ordre',
     immobilier:  'Signer un bail',
     btp:         'Donner un coup de main',
+    influence:   'Créer du contenu',
   },
   VERBE_METIER_DEFAUT: 'Travailler',
 
@@ -109,6 +110,13 @@ export const CONFIG = {
       3: 'Conducteur de travaux',
       4: 'Entrepreneur',
       5: 'Groupe BTP',
+    },
+    PALIERS_INFLUENCE: {
+      1: 'Créateur débutant',
+      2: 'Influenceur',
+      3: 'Macro-influenceur',
+      4: 'Célébrité web',
+      5: 'Phénomène viral',
     },
     FACTEUR_XP: 1.8,
   },
@@ -230,17 +238,27 @@ export const CONFIG = {
       finance:    { label: 'Quartier Financier',   emoji: '🏦', secteur: 'finance',    disponible: true, x: 60, y: 20, vehiculeRequis: 'supercar'  },
       tech:       { label: 'Quartier Tech',         emoji: '💻', secteur: 'tech',       disponible: true, x: 55, y: 65, vehiculeRequis: 'voiture'   },
       immobilier: { label: 'Quartier Immobilier',  emoji: '🏢', secteur: 'immobilier', disponible: true, x: 25, y: 65, vehiculeRequis: 'berline'   },
-      btp:        { label: 'Zone BTP',              emoji: '🏗', secteur: 'btp',        disponible: true, x: 80, y: 50, vehiculeRequis: 'velo'      },
+      btp:        { label: 'Zone BTP',              emoji: '🏗', secteur: 'btp',        disponible: true, x: 80, y: 50, vehiculeRequis: 'velo'     },
+      influence:  { label: 'Studio Influence',      emoji: '🎙', secteur: 'influence',  disponible: true, x: 45, y: 35, vehiculeRequis: 'voiture'  },
     },
     MESSAGES_BLOCAGE_VEHICULE: {
       finance:    "T'as pas une Supercar ? Retourne au bureau.",
       tech:       "Pour bosser dans la tech, faut au moins avoir la voiture qui va avec. Fais un effort.",
       immobilier: "Pour visiter des biens, faut au moins arriver en Berline.",
       btp:        null,
+      influence:  null,
     },
   },
 
   ORDRE_VEHICULES: ['velo', 'scooter', 'voiture', 'berline', 'supercar'],
+
+  // Influence — mécanique hold-to-release
+  INFLUENCE: {
+    CIBLE_SECONDES: 5,
+    SIGMA: 2,
+    APPUI_MIN: 0.3,
+    ACCES_REQUIS: ['telephone', 'ordinateur'],
+  },
 
   VEHICULES: {
     velo:     { label: 'Vélo',     emoji: '🚲', prix: 200,   chargeMensuelle: 0,    karma:  0,  reputation: 0,  bonusClic: 0,  vehiculeRequis: null },
@@ -311,6 +329,18 @@ export const CONFIG = {
         { id: 'u_b5', label: 'Pont',                  prerequis: 'u_b4', niveauRequis: 3, duree: 360, recompense: 15000  },
         { id: 'u_b6', label: 'Stade',                 prerequis: 'u_b5', niveauRequis: 4, duree: 600, recompense: 35000  },
         { id: 'u_b7', label: 'Méga-complexe',         prerequis: 'u_b6', niveauRequis: 5, duree: 900, recompense: 100000 },
+      ],
+    },
+    influence: {
+      revenuBase: 0,
+      tauxMonetisation: 0.001, // € par abonné par clic réussi
+      upgrades: [
+        { id: 'u_inf1', nom: 'Microphone USB',      effet: { bonusAbonnes: 0.10 }, prerequis: null,     niveauRequis: 1 },
+        { id: 'u_inf2', nom: 'Éclairage studio',    effet: { bonusAbonnes: 0.15 }, prerequis: 'u_inf1', niveauRequis: 2 },
+        { id: 'u_inf3', nom: 'Caméra HD',           effet: { bonusAbonnes: 0.25 }, prerequis: 'u_inf2', niveauRequis: 2 },
+        { id: 'u_inf4', nom: 'Monteur freelance',   effet: { passifId: 'passif_inf4', passifValeur: 5  }, prerequis: 'u_inf3', niveauRequis: 3 },
+        { id: 'u_inf5', nom: 'Équipe créative',     effet: { bonusAbonnes: 0.50 }, prerequis: 'u_inf4', niveauRequis: 4 },
+        { id: 'u_inf6', nom: 'Studio professionnel',effet: { passifId: 'passif_inf6', passifValeur: 30 }, prerequis: 'u_inf5', niveauRequis: 5 },
       ],
     },
     tech: {

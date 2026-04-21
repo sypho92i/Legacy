@@ -84,4 +84,7 @@ export const state = reactive({
   // BTP — chantiers
   chantierActif: null,          // { id, label, dureeRestante, dureeInitiale, recompense } | null
   btpCompletes: [],             // ids des chantiers terminés au moins une fois (déblocage chaîne)
+
+  // Influence — hold-to-release
+  _influenceAppuiDebut: 0,      // timestamp ms du début d'appui (0 = pas d'appui)
 })

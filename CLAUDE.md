@@ -465,6 +465,13 @@ Moteur vide opérationnel : boucle tick 200ms, état global réactif, HUD + jaug
 - state.js : suppression de `competence: 1` et `multiplicateurCouleur` (−3 lignes, plus utilisés).
 - Bilan net : −75 lignes sans aucun changement de comportement.
 
+### Ticket 21 — Secteur Influence
+- config.js : `VERBE_METIER.influence: 'Créer du contenu'`. `NIVEAUX.PALIERS_INFLUENCE` (Créateur débutant→Phénomène viral). `METIERS.influence` : `revenuBase: 0`, `tauxMonetisation: 0.001`, 6 upgrades u_inf1→u_inf6 (3 bonusAbonnes : 10%/15%/25%/50%, 2 passifs : passif_inf4 5€/s, passif_inf6 30€/s). `MAP.ZONES.influence` (x:45, y:35, voiture requise). `CONFIG.INFLUENCE` : `CIBLE_SECONDES:5`, `SIGMA:2`, `APPUI_MIN:0.3`. Accès : téléphone + ordinateur requis.
+- state.js : `_influenceAppuiDebut: 0` ajouté. Reset dans `initialiserNouvelleGeneration`.
+- engine.js : `calculerGainInfluence(dureeSeconde)` exportée — Gaussienne centrée sur 5s (σ=2), gainAbonnés = base × (1+bonusUpgrades) × exp, gainArgent = abonnés × tauxMonetisation. `changerSecteur` : check possession téléphone+ordinateur avant véhicule pour secteur influence (`raison: 'possessions'`). Exposée via `Object.assign`.
+- ui.js : import `calculerGainInfluence`. Refs `influenceAppuiMs`, `influenceEnAppui`, variable `_influenceRafId`. Handlers `onInfluenceDebut` (lance RAF loop) / `onInfluenceFin` (cancel RAF, calcule gain, ajouterFlottant). Computeds `influenceBarrePct` (0→100% sur 10s), `influencePrecisionLabel` (🎯 Parfait/⬆/⬇ selon delta). `effetTexte` dans `renderUpgradesSecteur` : supporte `e.bonusAbonnes`. `actionChangerSecteur` : gère `raison === 'possessions'`. Template : zone-clic conditionnée `secteurActif !== 'influence'` ; section `.zone-influence` avec @mouseleave guard, barre de progression, label précision, bouton hold (mousedown/mouseup/touch).
+- index.html : CSS `.zone-influence`, `.influence-abonnes`, `.influence-barre-wrap`, `.influence-barre-cible`, `.influence-barre-fill` + `--actif`, `.influence-precision`, `.btn-influence`, `.influence-hint`.
+
 ---
 *Ne jamais lire le GDD pour coder — toutes les infos techniques sont ici.*
 *Mettre à jour la section "Sessions terminées" à chaque fin de ticket.*

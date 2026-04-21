@@ -1,7 +1,7 @@
 // ui.js — composants Vue, handlers d'événements, update UI
 // Règle : ne contient que du Vue réactif — zéro querySelector/getElementById
 import { state }            from './state.js'
-import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, calculerCoutChangement, acheterVehicule, vehiculePermetSecteur, declencherEvenementImmo, lancerChantier } from './engine.js'
+import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, calculerCoutChangement, acheterVehicule, vehiculePermetSecteur, declencherEvenementImmo, lancerChantier, calculerGainInfluence } from './engine.js'
 // calculerCashflowNet est appelé dans tick() — state.cashflowNet est toujours à jour
 import { CONFIG }           from './config.js'
 
@@ -177,8 +177,9 @@ export const AppRoot = {
           const e = upg.effet
           if (typeof e === 'string') return e
           if (!e) return ''
-          if (e.bonusClic)  return `+€${e.bonusClic} / clic`
-          if (e.passifId)   return `+${e.passifValeur} €/s passif`
+          if (e.bonusClic)    return `+€${e.bonusClic} / clic`
+          if (e.bonusAbonnes) return `+${Math.round(e.bonusAbonnes * 100)}% abonnés`
+          if (e.passifId)     return `+${e.passifValeur} €/s passif`
           return ''
         })()
 
@@ -398,7 +399,8 @@ export const AppRoot = {
     function actionChangerSecteur(secteur) {
       const result = changerSecteur(secteur)
       if (!result.ok) {
-        if (result.raison === 'vehicule') messageBlocageCarte.value = result.message
+        if (result.raison === 'vehicule' || result.raison === 'possessions')
+          messageBlocageCarte.value = result.message
         return
       }
       messageBlocageCarte.value = ''
@@ -414,6 +416,58 @@ export const AppRoot = {
         niveau: calculerNiveau(secteur),
       }))
     )
+
+    // ── Influence — hold-to-release ───────────────────────────────────────────
+
+    const influenceAppuiMs  = ref(0)
+    const influenceEnAppui  = ref(false)
+    let _influenceRafId = null
+
+    function onInfluenceDebut() {
+      if (!state.possessions.telephone || !state.possessions.ordinateur) {
+        ajouterFlottant('📱💻 Requis'); return
+      }
+      state._influenceAppuiDebut = Date.now()
+      influenceEnAppui.value     = true
+      influenceAppuiMs.value     = 0
+      const loop = () => {
+        influenceAppuiMs.value = Date.now() - state._influenceAppuiDebut
+        _influenceRafId = requestAnimationFrame(loop)
+      }
+      _influenceRafId = requestAnimationFrame(loop)
+    }
+
+    function onInfluenceFin() {
+      if (!influenceEnAppui.value) return
+      if (_influenceRafId !== null) { cancelAnimationFrame(_influenceRafId); _influenceRafId = null }
+      influenceEnAppui.value = false
+      const duree = (Date.now() - state._influenceAppuiDebut) / 1000
+      state._influenceAppuiDebut = 0
+      const { abonnes, argent } = calculerGainInfluence(duree)
+      if (abonnes > 0) {
+        state.abonnes += abonnes
+        state.argent  += argent
+        state.xpSecteurs.influence += calculerXpClic()
+      }
+      ajouterFlottant(abonnes > 0 ? `+${abonnes} abonnés` : '❌ Trop court')
+    }
+
+    const influenceBarrePct = computed(() => {
+      if (!influenceEnAppui.value) return 0
+      const s    = influenceAppuiMs.value / 1000
+      const cible = CONFIG.INFLUENCE.CIBLE_SECONDES
+      return Math.min(100, Math.round((s / (cible * 2)) * 100))
+    })
+
+    const influencePrecisionLabel = computed(() => {
+      if (!influenceEnAppui.value) return ''
+      const s     = influenceAppuiMs.value / 1000
+      const cible = CONFIG.INFLUENCE.CIBLE_SECONDES
+      const delta = s - cible
+      if (Math.abs(delta) < 0.5) return '🎯 Parfait !'
+      if (delta < 0) return `⬆ ${Math.abs(delta).toFixed(1)}s de plus`
+      return `⬇ Relâche !`
+    })
 
     // ── BTP — chantier ────────────────────────────────────────────────────────
 
@@ -446,7 +500,7 @@ export const AppRoot = {
       return pct >= 0 ? `+${pct}% loyers` : `${pct}% loyers`
     })
 
-    return { state, CONFIG, flottants, boutiqueFlottants, verbeBouton, revenuClicAffiche, multiplicateurActuel, niveauSecteur, nomPalierSecteur, xpSecteurInfo, onClic, toggleMenu, toggleEngine, isEngineRunning, renderUpgradesSecteur, acheterUpgrade, acheterItemBoutique, itemsBoutique, mort, heritageAffiche, competencesAuDeces, nouvelleGeneration, mortSimulee, ongletFinances, financesRevenus, financesCharges, totalChargesAffiche, getTauxPassifTotal, logementActuel, logementLocations, logementAchats, actionLouer, actionAcheter, telephoneActions, abonnesAffiche, actionAcheterTelephone, actionTelephone, prixPacksTokens, tokensAffiche, boostXpActif, boostXpRestant, actionAcheterOrdinateur, actionAcheterTokens, actionExecuterCommande, vueActive, toggleCarte, toggleVehicules, carteZones, cdGlobalRestant, actionChangerSecteur, messageBlocageCarte, vehiculeActuel, boutiqueVehicules, actionAcheterVehicule, derniereNotifImmo, immoPassifBadge, chantierProgression, actionLancerChantier }
+    return { state, CONFIG, flottants, boutiqueFlottants, verbeBouton, revenuClicAffiche, multiplicateurActuel, niveauSecteur, nomPalierSecteur, xpSecteurInfo, onClic, toggleMenu, toggleEngine, isEngineRunning, renderUpgradesSecteur, acheterUpgrade, acheterItemBoutique, itemsBoutique, mort, heritageAffiche, competencesAuDeces, nouvelleGeneration, mortSimulee, ongletFinances, financesRevenus, financesCharges, totalChargesAffiche, getTauxPassifTotal, logementActuel, logementLocations, logementAchats, actionLouer, actionAcheter, telephoneActions, abonnesAffiche, actionAcheterTelephone, actionTelephone, prixPacksTokens, tokensAffiche, boostXpActif, boostXpRestant, actionAcheterOrdinateur, actionAcheterTokens, actionExecuterCommande, vueActive, toggleCarte, toggleVehicules, carteZones, cdGlobalRestant, actionChangerSecteur, messageBlocageCarte, vehiculeActuel, boutiqueVehicules, actionAcheterVehicule, derniereNotifImmo, immoPassifBadge, chantierProgression, actionLancerChantier, influenceAppuiMs, influenceEnAppui, influenceBarrePct, influencePrecisionLabel, onInfluenceDebut, onInfluenceFin }
   },
 
   template: `
@@ -478,8 +532,8 @@ export const AppRoot = {
         />
       </section>
 
-      <!-- ── Zone de clic ──────────────────────────────────────── -->
-      <section v-if="vueActive === null" class="zone-clic">
+      <!-- ── Zone de clic (tous secteurs sauf Influence) ─────────────────────── -->
+      <section v-if="vueActive === null && state.secteurActif !== 'influence'" class="zone-clic">
         <div class="btn-clic-wrap">
           <div class="zone-clic__flottants" aria-hidden="true">
             <span v-for="f in flottants" :key="f.id" class="flottant" :class="f.classe">
@@ -514,6 +568,37 @@ export const AppRoot = {
           </div>
           <div class="btp-clic-hint">Clique pour accélérer ⚡</div>
         </div>
+      </section>
+
+      <!-- ── Zone Influence (hold-to-release) ─────────────────────────────── -->
+      <section
+        v-else-if="vueActive === null && state.secteurActif === 'influence'"
+        class="zone-influence"
+        @mouseleave="influenceEnAppui && onInfluenceFin()"
+      >
+        <div class="zone-clic__flottants" aria-hidden="true">
+          <span v-for="f in flottants" :key="f.id" class="flottant">
+            {{ f.gain }}
+          </span>
+        </div>
+        <p class="influence-abonnes">🎙 {{ abonnesAffiche }} abonnés</p>
+        <div class="influence-barre-wrap">
+          <div class="influence-barre-cible"></div>
+          <div
+            class="influence-barre-fill"
+            :class="{ 'influence-barre-fill--actif': influenceEnAppui }"
+            :style="{ width: influenceBarrePct + '%' }"
+          ></div>
+        </div>
+        <p class="influence-precision">{{ influencePrecisionLabel || 'Maintiens 5 secondes' }}</p>
+        <button
+          class="btn-influence"
+          @mousedown="onInfluenceDebut"
+          @mouseup="onInfluenceFin"
+          @touchstart.prevent="onInfluenceDebut"
+          @touchend.prevent="onInfluenceFin"
+        >🎙 {{ verbeBouton }}</button>
+        <p class="influence-hint">Maintiens ~5s pour maximiser les abonnés</p>
       </section>
 
       <!-- ── Menus ──────────────────────────────────────────────── -->

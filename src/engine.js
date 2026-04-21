@@ -301,9 +301,28 @@ export function calculerCoutChangement(secteurCible) {
   return CONFIG.MAP.COUTS_CHANGEMENT[cle] ?? CONFIG.MAP.COUTS_CHANGEMENT.defaut
 }
 
+export function calculerGainInfluence(dureeSeconde) {
+  if (dureeSeconde < CONFIG.INFLUENCE.APPUI_MIN) return { abonnes: 0, argent: 0 }
+  const bonusUpgradesInfluence = (CONFIG.METIERS.influence.upgrades ?? [])
+    .filter(u => state.upgrades.some(up => up.id === u.id) && u.effet.bonusAbonnes)
+    .reduce((acc, u) => acc + u.effet.bonusAbonnes, 0)
+  const gainAbonnesBase = Math.round(50 + state.abonnes * 0.01)
+  const gainAbonnes = Math.round(
+    gainAbonnesBase * (1 + bonusUpgradesInfluence)
+    * Math.exp(-((dureeSeconde - CONFIG.INFLUENCE.CIBLE_SECONDES) ** 2)
+      / (2 * CONFIG.INFLUENCE.SIGMA ** 2))
+  )
+  const gainArgent = Math.round(state.abonnes * CONFIG.METIERS.influence.tauxMonetisation)
+  return { abonnes: gainAbonnes, argent: gainArgent }
+}
+
 export function changerSecteur(secteurCible) {
   if (secteurCible === state.secteurActif)
     return { ok: false, raison: 'same' }
+  if (secteurCible === 'influence' &&
+      (!state.possessions.telephone || !state.possessions.ordinateur))
+    return { ok: false, raison: 'possessions',
+      message: "Pour influencer, faut d'abord avoir un téléphone et un ordi." }
   if (!vehiculePermetSecteur(secteurCible))
     return { ok: false, raison: 'vehicule', message: CONFIG.MAP.MESSAGES_BLOCAGE_VEHICULE[secteurCible] }
   if (Date.now() < state._changementSecteurExpiry)
@@ -506,6 +525,7 @@ export function initialiserNouvelleGeneration() {
   state._immoPassifMultiExpiry   = 0
   state.chantierActif            = null
   state.btpCompletes             = []
+  state._influenceAppuiDebut     = 0
   state.secteurActif             = 'commerce'
 
   for (const key of Object.keys(state.jauges)) {
@@ -694,4 +714,5 @@ Object.assign(window, {
   lancerChantier,
   terminerChantier,
   declencherEvenementImmo,
+  calculerGainInfluence,
 })
