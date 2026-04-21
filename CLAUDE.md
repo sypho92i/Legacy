@@ -451,6 +451,20 @@ Moteur vide opérationnel : boucle tick 200ms, état global réactif, HUD + jaug
 - ui.js : `derniereNotifImmo = ref(null)` + listener `legacy:immo-event` (clear 4s). `immoPassifBadge` computed. `renderUpgradesSecteur` : coût via `upgrade.prix ?? formule`, `effetTexte` généré (string, bonusClic, passifId) — corrige [object Object] pour finance/immo. Template : notif `.immo-notif` fixée, badge `.immo-passif-badge` si multi ≠ 1, `.upgrade-prix` affiché si prix explicite.
 - index.html : CSS `.immo-notif`, `@keyframes fadeInOut`, `.immo-passif-badge`, `.upgrade-prix`.
 
+### Ticket 20 — Secteur BTP : chantiers avec timer
+- config.js : `VERBE_METIER.btp: 'Donner un coup de main'`. `NIVEAUX.PALIERS_BTP` (Ouvrier→Groupe BTP). `METIERS.btp` : `revenuBase: 5`, `clicAccelere: 1`, 7 upgrades chaînés (u_b1→u_b7, 30s/500€ → 900s/100 000€, sans prix d'achat). `MAP.ZONES.btp` : disponible, vehiculeRequis 'velo'. `MAP.MESSAGES_BLOCAGE_VEHICULE.btp: null`.
+- state.js : `chantierActif: null` (`{ id, label, dureeRestante, dureeInitiale, recompense }`) et `btpCompletes: []` (ids complétés, sert de prérequis pour la chaîne).
+- engine.js : `lancerChantier(id)` vérifie secteur/chantier actif/niveau/prérequis btpCompletes. `terminerChantier()` crédite argent, push btpCompletes, null chantierActif, dispatch `legacy:btp-complete`. `tickBtp()` décrémente `dureeRestante` de TICK_MS/1000 à chaque tick. `calculerRevenuClic()` : en BTP avec chantier actif, réduit dureeRestante de clicAccelere par clic (+ complétion immédiate si 0) — revenu de base 5€ toujours retourné. Tout exposé via `Object.assign(window, {...})`.
+- ui.js : `renderUpgradesSecteur` branché BTP (estBtp/enCours, cout=0, prerequis via btpCompletes, etat sans achete). Computed `chantierProgression` (timer formaté, pourcent barre). Handler `actionLancerChantier`. Listener `legacy:btp-complete` → floating text 2s. Template : bouton "Lancer" (BTP) vs "Acheter" (autres), bloc `.btp-chantier-actif` avec progress bar verte + hint.
+- index.html : CSS `.btp-chantier-actif`, `.btp-progress-bar`, `.btp-progress-fill`, `.btp-chantier-timer`, `.btp-chantier-recompense`, `.btp-clic-hint`.
+
+### Simplification — Ticket S1
+- ui.js : helper `ajouterFlottant(texte, duree=800)` créé juste après `boutiqueFlottants` — encapsule le pattern push+setTimeout. Remplace 10 occurrences identiques (−53 lignes).
+- engine.js : tous les `window.xxx = xxx` éparpillés (16 lignes) remplacés par un unique `Object.assign(window, {...})` en fin de fichier. Suppression de `tickCompetence()` et `getMultiplicateurCompetence()` (dead code).
+- config.js : suppression de `MULTIPLICATEUR_COMPETENCE` et `COULEUR_COMPETENCE` (−15 lignes, remplacés par `MULTIPLICATEURS_NIVEAU`).
+- state.js : suppression de `competence: 1` et `multiplicateurCouleur` (−3 lignes, plus utilisés).
+- Bilan net : −75 lignes sans aucun changement de comportement.
+
 ---
 *Ne jamais lire le GDD pour coder — toutes les infos techniques sont ici.*
 *Mettre à jour la section "Sessions terminées" à chaque fin de ticket.*
