@@ -157,6 +157,7 @@
     .upgrade-btn { padding: 4px 10px; font-family: monospace; cursor: pointer;
                    background: #1e3a1e; color: #4caf50; border: 1px solid #4caf50; border-radius: 3px; }
     .upgrade-btn:disabled { cursor: not-allowed; background: #1a1a1a; color: #555; border-color: #333; }
+    .upgrade-prix { font-size: 0.75em; color: #facc15; margin-left: 6px; }
 
     /* Niveau Commerce */
     .niveau-commerce { margin-bottom: 12px; }
@@ -279,6 +280,20 @@
     .carte-message-blocage { margin-top: 8px; padding: 8px 12px; background: #1a0a0a;
                              border: 1px solid #7f1d1d; color: #fca5a5;
                              font-size: 0.85em; text-align: center; }
+
+    /* Immobilier — notif événements */
+    .immo-notif { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+                  padding: 8px 16px; background: #1a1a2e; border: 1px solid #7c3aed;
+                  color: #e9d5ff; font-size: 0.85em; z-index: 100; pointer-events: none;
+                  animation: fadeInOut 4s ease forwards; }
+    @keyframes fadeInOut {
+      0%   { opacity: 0; transform: translateX(-50%) translateY(8px); }
+      15%  { opacity: 1; transform: translateX(-50%) translateY(0); }
+      75%  { opacity: 1; }
+      100% { opacity: 0; }
+    }
+    .immo-passif-badge { font-size: 0.8em; padding: 2px 8px;
+                         background: #0f172a; border: 1px solid #334155; color: #94a3b8; }
 
     /* Vue Véhicules */
     .vehicules-vue          { padding: 12px; display: flex; flex-direction: column; gap: 10px; }

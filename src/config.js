@@ -81,9 +81,10 @@ export const CONFIG = {
 
   // Verbe affiché sur le bouton de clic selon le métier actif
   VERBE_METIER: {
-    vendeur:  'Conclure une vente',
-    tech:     'Livrer une feature',
-    finance:  'Passer un ordre',
+    vendeur:     'Conclure une vente',
+    tech:        'Livrer une feature',
+    finance:     'Passer un ordre',
+    immobilier:  'Signer un bail',
   },
   VERBE_METIER_DEFAUT: 'Travailler',
 
@@ -110,6 +111,13 @@ export const CONFIG = {
       3: 'Trader',
       4: 'Gestionnaire de fonds',
       5: 'Magnat',
+    },
+    PALIERS_IMMOBILIER: {
+      1: 'Propriétaire débutant',
+      2: 'Bailleur',
+      3: 'Investisseur',
+      4: 'Promoteur',
+      5: 'Magnat de l\'Immo',
     },
     FACTEUR_XP: 1.8,
   },
@@ -227,13 +235,15 @@ export const CONFIG = {
       defaut:              5000,
     },
     ZONES: {
-      commerce: { label: 'Quartier Commercial', emoji: '🏪', secteur: 'commerce', disponible: true, x: 20, y: 30, vehiculeRequis: null      },
-      finance:  { label: 'Quartier Financier',  emoji: '🏦', secteur: 'finance',  disponible: true, x: 60, y: 20, vehiculeRequis: 'voiture'  },
-      tech:     { label: 'Quartier Tech',        emoji: '💻', secteur: 'tech',     disponible: true, x: 55, y: 65, vehiculeRequis: 'berline'  },
+      commerce:   { label: 'Quartier Commercial',  emoji: '🏪', secteur: 'commerce',   disponible: true, x: 20, y: 30, vehiculeRequis: null       },
+      finance:    { label: 'Quartier Financier',   emoji: '🏦', secteur: 'finance',    disponible: true, x: 60, y: 20, vehiculeRequis: 'supercar'  },
+      tech:       { label: 'Quartier Tech',         emoji: '💻', secteur: 'tech',       disponible: true, x: 55, y: 65, vehiculeRequis: 'voiture'   },
+      immobilier: { label: 'Quartier Immobilier',  emoji: '🏢', secteur: 'immobilier', disponible: true, x: 25, y: 65, vehiculeRequis: 'berline'   },
     },
     MESSAGES_BLOCAGE_VEHICULE: {
-      finance: "T'arrives en vélo à Wall Street ? Achète une voiture d'abord.",
-      tech:    "Les VCs financent pas les gens qui prennent le bus. Upgrade ton véhicule.",
+      finance:    "T'as pas une Supercar ? Retourne au bureau.",
+      tech:       "Pour bosser dans la tech, faut au moins avoir la voiture qui va avec. Fais un effort.",
+      immobilier: "Pour visiter des biens, faut au moins arriver en Berline.",
     },
   },
 
@@ -243,6 +253,18 @@ export const CONFIG = {
     voiture:  { label: 'Voiture',  emoji: '🚗', prix: 8000,  chargeMensuelle: 200,  karma: -2,  reputation: 5,  bonusClic: 3,  vehiculeRequis: null },
     berline:  { label: 'Berline',  emoji: '🚘', prix: 25000, chargeMensuelle: 500,  karma: -5,  reputation: 15, bonusClic: 8,  vehiculeRequis: null },
     supercar: { label: 'Supercar', emoji: '🏎', prix: 80000, chargeMensuelle: 1500, karma: -10, reputation: 25, bonusClic: 20, vehiculeRequis: null },
+  },
+
+  // Immobilier — événements aléatoires
+  IMMOBILIER: {
+    EVENEMENTS: {
+      travaux:           { label: 'Travaux urgents',           emoji: '🔧', proba: 0.30, effet: { argentMin: -2000, argentMax: -500  } },
+      locataire_fuite:   { label: 'Locataire défaillant',      emoji: '🏃', proba: 0.25, effet: { passifMulti: 0.80, duree: 60       } },
+      hausse_marche:     { label: 'Hausse du marché',          emoji: '📈', proba: 0.25, effet: { passifMulti: 1.10, duree: 90       } },
+      locataire_premium: { label: 'Nouveau locataire premium', emoji: '🔑', proba: 0.20, effet: { argentFlat: 500                   } },
+      INTERVALLE_MIN: 110,
+      INTERVALLE_MAX: 130,
+    },
   },
 
   METIERS: {
@@ -260,7 +282,7 @@ export const CONFIG = {
     finance: {
       revenuBase: null,   // non utilisé — revenu aléatoire géré dans engine.js
       revenuMin:  5,
-      revenuMax:  25,
+      revenuMax:  40,
       upgrades: [
         { id: 'u_f1', nom: 'Compte courtier',         effet: { bonusClic: 3  }, prerequis: null,   niveauRequis: 1 },
         { id: 'u_f2', nom: 'Analyse technique',       effet: { bonusClic: 7  }, prerequis: 'u_f1', niveauRequis: 2 },
@@ -268,6 +290,19 @@ export const CONFIG = {
         { id: 'u_f4', nom: 'Fonds d\'investissement', effet: { passifId: 'passif_fin_4', passifValeur: 6  }, prerequis: 'u_f3', niveauRequis: 3 },
         { id: 'u_f5', nom: 'Hedge fund',              effet: { passifId: 'passif_fin_5', passifValeur: 20 }, prerequis: 'u_f4', niveauRequis: 4 },
         { id: 'u_f6', nom: 'Empire financier',        effet: { passifId: 'passif_fin_6', passifValeur: 50 }, prerequis: 'u_f5', niveauRequis: 5 },
+      ],
+    },
+    immobilier: {
+      revenuBase: 20,
+      upgrades: [
+        { id: 'u_i1', nom: 'Studio',               prix: 15000,   effet: { passifId: 'passif_immo_1', passifValeur: 3    }, prerequis: null,   niveauRequis: 1 },
+        { id: 'u_i2', nom: 'Appartement T2',        prix: 35000,   effet: { passifId: 'passif_immo_2', passifValeur: 7    }, prerequis: null,   niveauRequis: 1 },
+        { id: 'u_i3', nom: 'Appartement T4',        prix: 70000,   effet: { passifId: 'passif_immo_3', passifValeur: 14   }, prerequis: 'u_i2', niveauRequis: 2 },
+        { id: 'u_i4', nom: 'Maison',                prix: 120000,  effet: { passifId: 'passif_immo_4', passifValeur: 25   }, prerequis: 'u_i3', niveauRequis: 2 },
+        { id: 'u_i5', nom: 'Immeuble locatif',      prix: 300000,  effet: { passifId: 'passif_immo_5', passifValeur: 60   }, prerequis: 'u_i4', niveauRequis: 3 },
+        { id: 'u_i6', nom: 'Centre commercial',     prix: 800000,  effet: { passifId: 'passif_immo_6', passifValeur: 150  }, prerequis: 'u_i5', niveauRequis: 4 },
+        { id: 'u_i7', nom: 'Tour de bureaux',       prix: 2000000, effet: { passifId: 'passif_immo_7', passifValeur: 400  }, prerequis: 'u_i6', niveauRequis: 4 },
+        { id: 'u_i8', nom: 'Complexe résidentiel',  prix: 5000000, effet: { passifId: 'passif_immo_8', passifValeur: 1000 }, prerequis: 'u_i7', niveauRequis: 5 },
       ],
     },
     tech: {

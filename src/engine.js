@@ -80,7 +80,8 @@ export function acheterUpgrade(id) {
   if (idx === -1) return
 
   const upgrade = upgrades[idx]
-  const cout    = Math.round(100 * Math.pow(2.8, idx))
+  // Prix explicite (immobilier) ou formule générique (commerce / tech / finance)
+  const cout = upgrade.prix !== undefined ? upgrade.prix : Math.round(100 * Math.pow(2.8, idx))
 
   // Vérifications
   if (state.argent < cout) return
@@ -375,7 +376,11 @@ function tauxPassifPlafonné(p) {
 }
 
 export function getTauxPassifTotal() {
-  return state.passifs.reduce((acc, p) => acc + tauxPassifPlafonné(p), 0)
+  return state.passifs.reduce((acc, p) => {
+    let taux = tauxPassifPlafonné(p)
+    if (p.id.startsWith('passif_immo_')) taux *= (state._immoPassifMulti ?? 1.0)
+    return acc + taux
+  }, 0)
 }
 
 // ─── Cashflow ─────────────────────────────────────────────────────────────────
@@ -514,10 +519,77 @@ export function initialiserNouvelleGeneration() {
   state._bonheurTempExpiry       = 0
   state._boostXpExpiry           = 0
   state._changementSecteurExpiry = 0
+  state._immoEvenementExpiry     = 0
+  state._immoPassifMulti         = 1.0
+  state._immoPassifMultiExpiry   = 0
   state.secteurActif             = 'commerce'
 
   for (const key of Object.keys(state.jauges)) {
     state.jauges[key] = CONFIG.JAUGE_DEPART
+  }
+}
+
+// ─── Immobilier — événements ──────────────────────────────────────────────────
+
+export function declencherEvenementImmo() {
+  const evts = CONFIG.IMMOBILIER.EVENEMENTS
+  const ids  = Object.keys(evts).filter(k => k !== 'INTERVALLE_MIN' && k !== 'INTERVALLE_MAX')
+
+  // Tirage pondéré
+  const total = ids.reduce((s, k) => s + evts[k].proba, 0)
+  let r = Math.random() * total
+  let choisi = ids[0]
+  for (const id of ids) {
+    r -= evts[id].proba
+    if (r <= 0) { choisi = id; break }
+  }
+
+  const evt   = evts[choisi]
+  const effet = evt.effet
+
+  if (effet.argentMin !== undefined) {
+    const montant = Math.round(Math.random() * (effet.argentMax - effet.argentMin) + effet.argentMin)
+    state.argent += montant
+  }
+  if (effet.argentFlat !== undefined) {
+    state.argent += effet.argentFlat
+  }
+  if (effet.passifMulti !== undefined) {
+    state._immoPassifMulti       = effet.passifMulti
+    state._immoPassifMultiExpiry = Date.now() + effet.duree * 1000
+  }
+
+  // Planifier prochain événement
+  const intervalle = evts.INTERVALLE_MIN +
+    Math.random() * (evts.INTERVALLE_MAX - evts.INTERVALLE_MIN)
+  state._immoEvenementExpiry = Date.now() + intervalle * 1000
+
+  window.dispatchEvent(new CustomEvent('legacy:immo-event', {
+    detail: { id: choisi, label: evt.label, emoji: evt.emoji }
+  }))
+
+  return { id: choisi, label: evt.label, emoji: evt.emoji }
+}
+
+window.declencherEvenementImmo = declencherEvenementImmo
+
+function tickImmo() {
+  // Reset passif multi expiré (indépendant du secteur actif)
+  if (state._immoPassifMultiExpiry > 0 && Date.now() >= state._immoPassifMultiExpiry) {
+    state._immoPassifMulti       = 1.0
+    state._immoPassifMultiExpiry = 0
+  }
+
+  if (state.secteurActif !== 'immobilier') return
+
+  if (state._immoEvenementExpiry === 0) {
+    state._immoEvenementExpiry = Date.now() +
+      CONFIG.IMMOBILIER.EVENEMENTS.INTERVALLE_MIN * 1000
+    return
+  }
+
+  if (Date.now() >= state._immoEvenementExpiry) {
+    declencherEvenementImmo()
   }
 }
 
@@ -571,6 +643,7 @@ function tick() {
   tickPassifs()
   tickJauges()
   tickLogement()
+  tickImmo()
   tickAge()
   tickKarma()
   tickCompetence()

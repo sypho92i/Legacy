@@ -444,6 +444,13 @@ Moteur vide opérationnel : boucle tick 200ms, état global réactif, HUD + jaug
 - ui.js : import `acheterVehicule`/`vehiculePermetSecteur`. `messageBlocageCarte = ref('')`. `toggleVehicules()`. Computeds `vehiculeActuel`, `boutiqueVehicules` (avec flags estActuel/abordable/estInferieur via `_ORDRE_VEHICULES`). Handler `actionAcheterVehicule`. `actionChangerSecteur` : affiche message inline si `raison === 'vehicule'`. Template : zone-clic `v-if="vueActive === null"` (générique). Bouton 🚗 Véhicules dans nav. Vue vehicules : 5 cards avec prix/charges/effets/badge ACTUEL/Déjà dépassé. `carte-message-blocage` inline sous la carte.
 - index.html : CSS `.vehicule-card` et variantes, `.carte-message-blocage`.
 
+### Ticket 19 — Secteur Immobilier + patches
+- config.js : `VERBE_METIER.immobilier: 'Signer un bail'`. `NIVEAUX.PALIERS_IMMOBILIER` (Propriétaire débutant→Magnat de l'Immo). `METIERS.immobilier` : revenuBase 20, 8 upgrades avec prix explicite et passifs passif_immo_1→8. `CONFIG.IMMOBILIER.EVENEMENTS` : 4 événements pondérés (travaux/locataire_fuite/hausse_marche/locataire_premium) + INTERVALLE_MIN/MAX 110–130s. Zone `immobilier` dans MAP.ZONES (berline requise). Messages blocage mis à jour pour finance/tech/immobilier. Patch : finance vehiculeRequis→supercar, tech→voiture, finance revenuMax→40.
+- state.js : `_immoEvenementExpiry: 0`, `_immoPassifMulti: 1.0`, `_immoPassifMultiExpiry: 0`.
+- engine.js : `acheterUpgrade` utilise `upgrade.prix` quand défini (sinon formule générique). `getTauxPassifTotal` applique `_immoPassifMulti` aux passifs `passif_immo_*`. `declencherEvenementImmo()` exportée : tirage pondéré, applique effets, planifie prochain événement, dispatch `legacy:immo-event`. `tickImmo()` : reset passifMulti expiré (global), init/déclenchement événements si secteur immo. Branchée dans `tick()`. Reset immo dans `initialiserNouvelleGeneration`.
+- ui.js : `derniereNotifImmo = ref(null)` + listener `legacy:immo-event` (clear 4s). `immoPassifBadge` computed. `renderUpgradesSecteur` : coût via `upgrade.prix ?? formule`, `effetTexte` généré (string, bonusClic, passifId) — corrige [object Object] pour finance/immo. Template : notif `.immo-notif` fixée, badge `.immo-passif-badge` si multi ≠ 1, `.upgrade-prix` affiché si prix explicite.
+- index.html : CSS `.immo-notif`, `@keyframes fadeInOut`, `.immo-passif-badge`, `.upgrade-prix`.
+
 ---
 *Ne jamais lire le GDD pour coder — toutes les infos techniques sont ici.*
 *Mettre à jour la section "Sessions terminées" à chaque fin de ticket.*
