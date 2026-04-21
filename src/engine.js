@@ -19,10 +19,6 @@ export function getModifBonheur(bonheur) {
   return 0.5 + (bonheur / CONFIG.JAUGE_MAX)
 }
 
-export function getMultiplicateurCompetence(competence) {
-  return CONFIG.MULTIPLICATEUR_COMPETENCE[competence] ?? 1
-}
-
 export function getMultiplicateurNiveau(secteur) {
   const niveau = calculerNiveau(secteur)
   return CONFIG.MULTIPLICATEURS_NIVEAU.find(m => m.niveau === niveau)
@@ -119,8 +115,6 @@ export function acheterUpgrade(id) {
   }
 }
 
-window.acheterUpgrade = acheterUpgrade
-
 // ─── Achat d'item boutique ────────────────────────────────────────────────────
 
 export function acheterItem(id) {
@@ -131,8 +125,6 @@ export function acheterItem(id) {
   state.jauges[item.jauge] = clampJauge(state.jauges[item.jauge] + item.effet)
   return item
 }
-
-window.acheterItem = acheterItem
 
 // ─── Logement ─────────────────────────────────────────────────────────────────
 
@@ -156,9 +148,6 @@ export function acheterLogement(slug) {
   state._ticksDepuisLoyer          = 0
   return logement
 }
-
-window.louerLogement   = louerLogement
-window.acheterLogement = acheterLogement
 
 // ─── Téléphone ────────────────────────────────────────────────────────────────
 
@@ -212,9 +201,6 @@ export function executerActionTelephone(id) {
   state.telephoneCooldowns[id] = now + action.cooldown * 1000
   return { ok: true }
 }
-
-window.acheterTelephone        = acheterTelephone
-window.executerActionTelephone = executerActionTelephone
 
 // ─── Ordinateur ───────────────────────────────────────────────────────────────
 
@@ -274,10 +260,6 @@ export function executerCommande(id) {
   return { ok: true }
 }
 
-window.acheterOrdinateur = acheterOrdinateur
-window.acheterTokens     = acheterTokens
-window.executerCommande  = executerCommande
-
 // ─── Véhicules ────────────────────────────────────────────────────────────────
 
 const ORDRE_VEHICULES = ['velo', 'scooter', 'voiture', 'berline', 'supercar']
@@ -313,9 +295,6 @@ export function acheterVehicule(id) {
   return { ok: true }
 }
 
-window.acheterVehicule        = acheterVehicule
-window.vehiculePermetSecteur  = vehiculePermetSecteur
-
 // ─── Carte / Secteurs ─────────────────────────────────────────────────────────
 
 export function calculerCoutChangement(secteurCible) {
@@ -338,9 +317,6 @@ export function changerSecteur(secteurCible) {
   state._changementSecteurExpiry = Date.now() + CONFIG.MAP.COOLDOWN_CHANGEMENT * 1000
   return { ok: true, cout }
 }
-
-window.changerSecteur          = changerSecteur
-window.calculerCoutChangement  = calculerCoutChangement
 
 function tickLogement() {
   if (state.possessions.logement === 'squat') {
@@ -448,10 +424,6 @@ function tickAge() {
 function tickKarma() {
   const palier = getPalierKarma(state.karma)
   state.palierKarma = palier.palier
-}
-
-function tickCompetence() {
-  state.multiplicateurCouleur = CONFIG.COULEUR_COMPETENCE[state.competence] ?? 'gris'
 }
 
 // ─── Héritage & mort ─────────────────────────────────────────────────────────
@@ -584,9 +556,6 @@ function tickBtp() {
   }
 }
 
-window.lancerChantier   = lancerChantier
-window.terminerChantier = terminerChantier
-
 // ─── Immobilier — événements ──────────────────────────────────────────────────
 
 export function declencherEvenementImmo() {
@@ -628,8 +597,6 @@ export function declencherEvenementImmo() {
 
   return { id: choisi, label: evt.label, emoji: evt.emoji }
 }
-
-window.declencherEvenementImmo = declencherEvenementImmo
 
 function tickImmo() {
   // Reset passif multi expiré (indépendant du secteur actif)
@@ -705,8 +672,27 @@ function tick() {
   tickBtp()
   tickAge()
   tickKarma()
-  tickCompetence()
   tickEvenementsKarma()
   calculerCashflowNet()
   verifierMort()
 }
+
+// ─── Exposition globale (debug console + appels cross-module) ─────────────────
+Object.assign(window, {
+  acheterUpgrade,
+  acheterItem,
+  louerLogement,
+  acheterLogement,
+  acheterTelephone,
+  executerActionTelephone,
+  acheterOrdinateur,
+  acheterTokens,
+  executerCommande,
+  acheterVehicule,
+  vehiculePermetSecteur,
+  changerSecteur,
+  calculerCoutChangement,
+  lancerChantier,
+  terminerChantier,
+  declencherEvenementImmo,
+})

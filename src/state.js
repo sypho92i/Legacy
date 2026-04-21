@@ -13,11 +13,9 @@ export const state = reactive({
   revenuParClic: CONFIG.REVENU_BASE_CLIC,
   passifs: [],           // { id, nom, tauxParSeconde }
 
-  // Compétence & métier
-  competence: 1,         // 1 à 5
+  // Métier
   metierActif: 'vendeur',
   modeIllegal: false,
-  multiplicateurCouleur: CONFIG.COULEUR_COMPETENCE[1],
 
   // Upgrades
   upgrades: [],          // { id }

@@ -50,13 +50,7 @@ export const AppRoot = {
 
     // ── Notif achèvement chantier BTP ─────────────────────────────────────────
     window.addEventListener('legacy:btp-complete', (e) => {
-      const { gain } = e.detail
-      const fid = _nextBoutiqueFlottantId++
-      boutiqueFlottants.value.push({ id: fid, texte: `🏗 +${gain.toLocaleString('fr-FR')} €` })
-      setTimeout(() => {
-        const idx = boutiqueFlottants.value.findIndex(f => f.id === fid)
-        if (idx !== -1) boutiqueFlottants.value.splice(idx, 1)
-      }, 2000)
+      ajouterFlottant(`🏗 +${e.detail.gain.toLocaleString('fr-FR')} €`, 2000)
     })
 
     // ── Floating texts ────────────────────────────────────────────────────────
@@ -66,6 +60,15 @@ export const AppRoot = {
     // ── Floating texts boutique ───────────────────────────────────────────────
     const boutiqueFlottants = ref([])
     let _nextBoutiqueFlottantId = 0
+
+    function ajouterFlottant(texte, duree = 800) {
+      const fid = _nextBoutiqueFlottantId++
+      boutiqueFlottants.value.push({ id: fid, texte })
+      setTimeout(() => {
+        const idx = boutiqueFlottants.value.findIndex(f => f.id === fid)
+        if (idx !== -1) boutiqueFlottants.value.splice(idx, 1)
+      }, duree)
+    }
 
     // ── Horloge pour cooldowns téléphone / carte ──────────────────────────────
     const now = ref(Date.now())
@@ -100,12 +103,7 @@ export const AppRoot = {
     function acheterItemBoutique(id) {
       const item = acheterItem(id)
       if (!item) return
-      const fid = _nextBoutiqueFlottantId++
-      boutiqueFlottants.value.push({ id: fid, texte: `+${item.effet} ${item.jauge}` })
-      setTimeout(() => {
-        const idx = boutiqueFlottants.value.findIndex(f => f.id === fid)
-        if (idx !== -1) boutiqueFlottants.value.splice(idx, 1)
-      }, 800)
+      ajouterFlottant(`+${item.effet} ${item.jauge}`)
     }
 
     function toggleMenu(nom) {
@@ -294,12 +292,7 @@ export const AppRoot = {
       const result = acheterVehicule(id)
       if (!result.ok) return
       const cfg = CONFIG.VEHICULES[id]
-      const fid = _nextBoutiqueFlottantId++
-      boutiqueFlottants.value.push({ id: fid, texte: `${cfg.emoji} ${cfg.label} acheté !` })
-      setTimeout(() => {
-        const idx = boutiqueFlottants.value.findIndex(f => f.id === fid)
-        if (idx !== -1) boutiqueFlottants.value.splice(idx, 1)
-      }, 800)
+      ajouterFlottant(`${cfg.emoji} ${cfg.label} acheté !`)
     }
 
     // ── Téléphone ─────────────────────────────────────────────────────────────
@@ -307,12 +300,7 @@ export const AppRoot = {
     function actionAcheterTelephone() {
       const ok = acheterTelephone()
       if (!ok) return
-      const fid = _nextBoutiqueFlottantId++
-      boutiqueFlottants.value.push({ id: fid, texte: '📱 Téléphone acheté !' })
-      setTimeout(() => {
-        const idx = boutiqueFlottants.value.findIndex(f => f.id === fid)
-        if (idx !== -1) boutiqueFlottants.value.splice(idx, 1)
-      }, 800)
+      ajouterFlottant('📱 Téléphone acheté !')
     }
 
     function actionTelephone(id) {
@@ -320,15 +308,10 @@ export const AppRoot = {
       if (!result.ok) return
       const action = CONFIG.TELEPHONE.ACTIONS[id]
       let texte = '✓'
-      if (action.effetAbonnes) texte = `+${action.effetAbonnes} abonnés`
+      if (action.effetAbonnes)  texte = `+${action.effetAbonnes} abonnés`
       else if (action.effetBonheur) texte = `+${action.effetBonheur} bonheur`
       else if (action.passifId) texte = `+${action.passifTaux} €/s`
-      const fid = _nextBoutiqueFlottantId++
-      boutiqueFlottants.value.push({ id: fid, texte })
-      setTimeout(() => {
-        const idx = boutiqueFlottants.value.findIndex(f => f.id === fid)
-        if (idx !== -1) boutiqueFlottants.value.splice(idx, 1)
-      }, 800)
+      ajouterFlottant(texte)
     }
 
     // ── Téléphone — computeds ─────────────────────────────────────────────────
@@ -372,35 +355,20 @@ export const AppRoot = {
     function actionAcheterOrdinateur() {
       const ok = acheterOrdinateur()
       if (!ok) return
-      const fid = _nextBoutiqueFlottantId++
-      boutiqueFlottants.value.push({ id: fid, texte: '💻 Ordinateur acheté !' })
-      setTimeout(() => {
-        const idx = boutiqueFlottants.value.findIndex(f => f.id === fid)
-        if (idx !== -1) boutiqueFlottants.value.splice(idx, 1)
-      }, 800)
+      ajouterFlottant('💻 Ordinateur acheté !')
     }
 
     function actionAcheterTokens(quantite) {
       const result = acheterTokens(quantite)
       if (!result.ok) return
-      const fid = _nextBoutiqueFlottantId++
-      boutiqueFlottants.value.push({ id: fid, texte: `+${quantite} 🔮` })
-      setTimeout(() => {
-        const idx = boutiqueFlottants.value.findIndex(f => f.id === fid)
-        if (idx !== -1) boutiqueFlottants.value.splice(idx, 1)
-      }, 800)
+      ajouterFlottant(`+${quantite} 🔮`)
     }
 
     function actionExecuterCommande(id) {
       const result = executerCommande(id)
       if (!result.ok) return
       const cmd = CONFIG.ORDINATEUR.COMMANDES[id]
-      const fid = _nextBoutiqueFlottantId++
-      boutiqueFlottants.value.push({ id: fid, texte: `${cmd.emoji} ${cmd.label}` })
-      setTimeout(() => {
-        const idx = boutiqueFlottants.value.findIndex(f => f.id === fid)
-        if (idx !== -1) boutiqueFlottants.value.splice(idx, 1)
-      }, 800)
+      ajouterFlottant(`${cmd.emoji} ${cmd.label}`)
     }
 
     // ── Carte — computeds & handler ───────────────────────────────────────────
@@ -437,12 +405,7 @@ export const AppRoot = {
       }
       messageBlocageCarte.value = ''
       const zone = Object.values(CONFIG.MAP.ZONES).find(z => z.secteur === secteur)
-      const fid = _nextBoutiqueFlottantId++
-      boutiqueFlottants.value.push({ id: fid, texte: `→ ${zone?.label ?? secteur}` })
-      setTimeout(() => {
-        const idx = boutiqueFlottants.value.findIndex(f => f.id === fid)
-        if (idx !== -1) boutiqueFlottants.value.splice(idx, 1)
-      }, 800)
+      ajouterFlottant(`→ ${zone?.label ?? secteur}`)
     }
 
     // ── Compétences au décès ───────────────────────────────────────────────────
@@ -475,12 +438,7 @@ export const AppRoot = {
       const result = lancerChantier(id)
       if (!result.ok) return
       const cfg = CONFIG.METIERS.btp.upgrades.find(u => u.id === id)
-      const fid = _nextBoutiqueFlottantId++
-      boutiqueFlottants.value.push({ id: fid, texte: `🏗 ${cfg?.label ?? id} lancé !` })
-      setTimeout(() => {
-        const idx = boutiqueFlottants.value.findIndex(f => f.id === fid)
-        if (idx !== -1) boutiqueFlottants.value.splice(idx, 1)
-      }, 800)
+      ajouterFlottant(`🏗 ${cfg?.label ?? id} lancé !`)
     }
 
     // ── Immobilier — badge passif multi ──────────────────────────────────────

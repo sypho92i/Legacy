@@ -10,23 +10,6 @@ export const CONFIG = {
   REVENU_BASE_CLIC: 1,
   MALUS_PASSIF_TICK: 5,            // €/s déduits des passifs si bonheur < 20
 
-  // Compétence → multiplicateur de clic
-  MULTIPLICATEUR_COMPETENCE: {
-    1: 1,
-    2: 2,
-    3: 4,
-    4: 8,
-    5: 16,
-  },
-
-  COULEUR_COMPETENCE: {
-    1: 'gris',
-    2: 'blanc',
-    3: 'jaune',
-    4: 'orange',
-    5: 'or',
-  },
-
   // Multiplicateurs par niveau — valeur dynamique du clic
   MULTIPLICATEURS_NIVEAU: [
     { niveau: 1, valeur: 1.0,  couleur: '#888888', label: '×1.0' }, // gris
