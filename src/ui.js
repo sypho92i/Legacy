@@ -1,7 +1,7 @@
 // ui.js — composants Vue, handlers d'événements, update UI
 // Règle : ne contient que du Vue réactif — zéro querySelector/getElementById
 import { state }            from './state.js'
-import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, calculerCoutChangement, acheterVehicule, vehiculePermetSecteur, declencherEvenementImmo } from './engine.js'
+import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, calculerCoutChangement, acheterVehicule, vehiculePermetSecteur, declencherEvenementImmo, lancerChantier } from './engine.js'
 // calculerCashflowNet est appelé dans tick() — state.cashflowNet est toujours à jour
 import { CONFIG }           from './config.js'
 
@@ -46,6 +46,17 @@ export const AppRoot = {
     window.addEventListener('legacy:immo-event', (e) => {
       derniereNotifImmo.value = e.detail
       setTimeout(() => { derniereNotifImmo.value = null }, 4000)
+    })
+
+    // ── Notif achèvement chantier BTP ─────────────────────────────────────────
+    window.addEventListener('legacy:btp-complete', (e) => {
+      const { gain } = e.detail
+      const fid = _nextBoutiqueFlottantId++
+      boutiqueFlottants.value.push({ id: fid, texte: `🏗 +${gain.toLocaleString('fr-FR')} €` })
+      setTimeout(() => {
+        const idx = boutiqueFlottants.value.findIndex(f => f.id === fid)
+        if (idx !== -1) boutiqueFlottants.value.splice(idx, 1)
+      }, 2000)
     })
 
     // ── Floating texts ────────────────────────────────────────────────────────
@@ -133,22 +144,38 @@ export const AppRoot = {
       const metier = CONFIG.METIERS[state.secteurActif]
       if (!metier?.upgrades) return []
       const niveauAtteint = calculerNiveau(state.secteurActif)
+      const estBtp        = state.secteurActif === 'btp'
       return metier.upgrades.map((upg, idx) => {
-        // Prix explicite (immobilier) ou formule générique
-        const cout = upg.prix !== undefined ? upg.prix : Math.round(100 * Math.pow(2.8, idx))
+        // BTP : pas de coût d'achat | autres : prix explicite ou formule
+        const cout = estBtp
+          ? 0
+          : (upg.prix !== undefined ? upg.prix : Math.round(100 * Math.pow(2.8, idx)))
 
-        const estAchete       = state.upgrades.some(u => u.id === upg.id)
-        const prerequisRempli = upg.prerequis === null || state.upgrades.some(u => u.id === upg.prerequis)
-        const niveauOk        = !upg.niveauRequis || niveauAtteint >= upg.niveauRequis
+        // BTP : prérequis via btpCompletes | autres : via state.upgrades
+        const estAchete = estBtp
+          ? false
+          : state.upgrades.some(u => u.id === upg.id)
+        const prerequisRempli = estBtp
+          ? (upg.prerequis === null || state.btpCompletes.includes(upg.prerequis))
+          : (upg.prerequis === null || state.upgrades.some(u => u.id === upg.prerequis))
+        const niveauOk  = !upg.niveauRequis || niveauAtteint >= upg.niveauRequis
+        const enCours   = estBtp && state.chantierActif?.id === upg.id
 
         let etat
-        if (estAchete)                          etat = 'achete'
-        else if (!prerequisRempli || !niveauOk) etat = 'verrouille'
-        else if (state.argent < cout)           etat = 'trop-cher'
-        else                                    etat = 'disponible'
+        if (estBtp) {
+          if (!prerequisRempli || !niveauOk) etat = 'verrouille'
+          else if (state.chantierActif)      etat = 'trop-cher'   // un autre chantier tourne
+          else                               etat = 'disponible'
+        } else {
+          if (estAchete)                          etat = 'achete'
+          else if (!prerequisRempli || !niveauOk) etat = 'verrouille'
+          else if (state.argent < cout)           etat = 'trop-cher'
+          else                                    etat = 'disponible'
+        }
 
         // Libellé d'effet lisible pour tous types de structure
         const effetTexte = (() => {
+          if (estBtp) return `⏱ ${upg.duree}s → +${upg.recompense.toLocaleString('fr-FR')} €`
           const e = upg.effet
           if (typeof e === 'string') return e
           if (!e) return ''
@@ -157,7 +184,7 @@ export const AppRoot = {
           return ''
         })()
 
-        return { ...upg, cout, etat, effetTexte }
+        return { ...upg, cout, etat, effetTexte, estBtp, enCours }
       })
     })
 
@@ -427,6 +454,35 @@ export const AppRoot = {
       }))
     )
 
+    // ── BTP — chantier ────────────────────────────────────────────────────────
+
+    const chantierProgression = computed(() => {
+      const _ = now.value   // force le recalcul chaque seconde
+      const c = state.chantierActif
+      if (!c) return null
+      const duree = Math.max(0, c.dureeRestante)
+      return {
+        label:         c.label,
+        recompense:    c.recompense,
+        dureeRestante: duree,
+        dureeInitiale: c.dureeInitiale,
+        pourcent:      Math.min(100, Math.round((1 - duree / c.dureeInitiale) * 100)),
+        tempsAffiche:  formatMmSs(duree * 1000),
+      }
+    })
+
+    function actionLancerChantier(id) {
+      const result = lancerChantier(id)
+      if (!result.ok) return
+      const cfg = CONFIG.METIERS.btp.upgrades.find(u => u.id === id)
+      const fid = _nextBoutiqueFlottantId++
+      boutiqueFlottants.value.push({ id: fid, texte: `🏗 ${cfg?.label ?? id} lancé !` })
+      setTimeout(() => {
+        const idx = boutiqueFlottants.value.findIndex(f => f.id === fid)
+        if (idx !== -1) boutiqueFlottants.value.splice(idx, 1)
+      }, 800)
+    }
+
     // ── Immobilier — badge passif multi ──────────────────────────────────────
     const immoPassifBadge = computed(() => {
       if (state._immoPassifMulti === 1.0) return null
@@ -434,7 +490,7 @@ export const AppRoot = {
       return pct >= 0 ? `+${pct}% loyers` : `${pct}% loyers`
     })
 
-    return { state, CONFIG, flottants, boutiqueFlottants, verbeBouton, revenuClicAffiche, multiplicateurActuel, niveauSecteur, nomPalierSecteur, xpSecteurInfo, onClic, toggleMenu, toggleEngine, isEngineRunning, renderUpgradesSecteur, acheterUpgrade, acheterItemBoutique, itemsBoutique, mort, heritageAffiche, competencesAuDeces, nouvelleGeneration, mortSimulee, ongletFinances, financesRevenus, financesCharges, totalChargesAffiche, getTauxPassifTotal, logementActuel, logementLocations, logementAchats, actionLouer, actionAcheter, telephoneActions, abonnesAffiche, actionAcheterTelephone, actionTelephone, prixPacksTokens, tokensAffiche, boostXpActif, boostXpRestant, actionAcheterOrdinateur, actionAcheterTokens, actionExecuterCommande, vueActive, toggleCarte, toggleVehicules, carteZones, cdGlobalRestant, actionChangerSecteur, messageBlocageCarte, vehiculeActuel, boutiqueVehicules, actionAcheterVehicule, derniereNotifImmo, immoPassifBadge }
+    return { state, CONFIG, flottants, boutiqueFlottants, verbeBouton, revenuClicAffiche, multiplicateurActuel, niveauSecteur, nomPalierSecteur, xpSecteurInfo, onClic, toggleMenu, toggleEngine, isEngineRunning, renderUpgradesSecteur, acheterUpgrade, acheterItemBoutique, itemsBoutique, mort, heritageAffiche, competencesAuDeces, nouvelleGeneration, mortSimulee, ongletFinances, financesRevenus, financesCharges, totalChargesAffiche, getTauxPassifTotal, logementActuel, logementLocations, logementAchats, actionLouer, actionAcheter, telephoneActions, abonnesAffiche, actionAcheterTelephone, actionTelephone, prixPacksTokens, tokensAffiche, boostXpActif, boostXpRestant, actionAcheterOrdinateur, actionAcheterTokens, actionExecuterCommande, vueActive, toggleCarte, toggleVehicules, carteZones, cdGlobalRestant, actionChangerSecteur, messageBlocageCarte, vehiculeActuel, boutiqueVehicules, actionAcheterVehicule, derniereNotifImmo, immoPassifBadge, chantierProgression, actionLancerChantier }
   },
 
   template: `
@@ -489,6 +545,19 @@ export const AppRoot = {
         <p class="revenu-par-clic">
           Revenu/clic : {{ revenuClicAffiche.toFixed(2) }} €
         </p>
+
+        <!-- ── BTP Chantier actif ─────────────────────────────── -->
+        <div v-if="state.secteurActif === 'btp' && chantierProgression" class="btp-chantier-actif">
+          <div class="btp-chantier-header">
+            🏗 {{ chantierProgression.label }}
+            <span class="btp-chantier-timer">{{ chantierProgression.tempsAffiche }}</span>
+            <span class="btp-chantier-recompense">+{{ chantierProgression.recompense.toLocaleString('fr-FR') }}€</span>
+          </div>
+          <div class="btp-progress-bar">
+            <div class="btp-progress-fill" :style="{ width: chantierProgression.pourcent + '%' }"></div>
+          </div>
+          <div class="btp-clic-hint">Clique pour accélérer ⚡</div>
+        </div>
       </section>
 
       <!-- ── Menus ──────────────────────────────────────────────── -->
@@ -666,22 +735,38 @@ export const AppRoot = {
               :class="['upgrade-item', 'upgrade-item--' + upg.etat]"
             >
               <div class="upgrade-header">
-                <span class="upgrade-nom">{{ upg.nom }}</span>
-                <span class="upgrade-cout" :class="{ 'upgrade-cout--rouge': upg.etat === 'trop-cher' }">{{ upg.cout }} €</span>
+                <span class="upgrade-nom">{{ upg.nom ?? upg.label }}</span>
+                <span v-if="!upg.estBtp" class="upgrade-cout" :class="{ 'upgrade-cout--rouge': upg.etat === 'trop-cher' }">{{ upg.cout }} €</span>
               </div>
               <div class="upgrade-footer">
                 <span class="upgrade-effet">
                   {{ upg.effetTexte }}
-                  <span v-if="upg.prix !== undefined" class="upgrade-prix">{{ upg.prix.toLocaleString('fr-FR') }} €</span>
+                  <span v-if="upg.prix !== undefined && !upg.estBtp" class="upgrade-prix">{{ upg.prix.toLocaleString('fr-FR') }} €</span>
                 </span>
-                <span v-if="upg.etat === 'verrouille'" class="upgrade-cadenas" aria-label="verrouillé">🔒</span>
-                <span v-else-if="upg.etat === 'achete'" class="upgrade-check">✓</span>
-                <button
-                  v-else
-                  class="upgrade-btn"
-                  :disabled="upg.etat !== 'disponible'"
-                  @click="acheterUpgrade(upg.id)"
-                >Acheter</button>
+                <!-- BTP : bouton Lancer -->
+                <template v-if="upg.estBtp">
+                  <span v-if="upg.etat === 'verrouille'" class="upgrade-cadenas" aria-label="verrouillé">🔒</span>
+                  <template v-else>
+                    <span v-if="upg.enCours" class="upgrade-check" style="color:#facc15;">⚡ En cours</span>
+                    <button
+                      v-else
+                      class="upgrade-btn"
+                      :disabled="upg.etat !== 'disponible'"
+                      @click="actionLancerChantier(upg.id)"
+                    >Lancer</button>
+                  </template>
+                </template>
+                <!-- Autres secteurs : bouton Acheter -->
+                <template v-else>
+                  <span v-if="upg.etat === 'verrouille'" class="upgrade-cadenas" aria-label="verrouillé">🔒</span>
+                  <span v-else-if="upg.etat === 'achete'" class="upgrade-check">✓</span>
+                  <button
+                    v-else
+                    class="upgrade-btn"
+                    :disabled="upg.etat !== 'disponible'"
+                    @click="acheterUpgrade(upg.id)"
+                  >Acheter</button>
+                </template>
               </div>
             </li>
           </ul>

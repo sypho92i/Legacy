@@ -456,6 +456,26 @@
       align-self: flex-end;
     }
     .ecran-mort__btn:hover { background: #223a22; }
+    /* BTP — chantier actif */
+    .btp-chantier-actif {
+      margin: 8px 0; padding: 10px 12px;
+      background: #0f1a0f; border: 1px solid #166534;
+    }
+    .btp-chantier-header {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.9em; margin-bottom: 8px;
+    }
+    .btp-chantier-timer      { color: #facc15; font-size: 0.85em; margin-left: auto; }
+    .btp-chantier-recompense { color: #22c55e; font-size: 0.85em; }
+    .btp-progress-bar {
+      height: 8px; background: #1a2e1a; border: 1px solid #166534; overflow: hidden;
+    }
+    .btp-progress-fill {
+      height: 100%; background: #22c55e;
+      transition: width 1s linear;
+    }
+    .btp-clic-hint { font-size: 0.7em; color: #4b5563; margin-top: 4px; text-align: center; }
+
   </style>
 </head>
 <body>

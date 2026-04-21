@@ -85,6 +85,7 @@ export const CONFIG = {
     tech:        'Livrer une feature',
     finance:     'Passer un ordre',
     immobilier:  'Signer un bail',
+    btp:         'Donner un coup de main',
   },
   VERBE_METIER_DEFAUT: 'Travailler',
 
@@ -118,6 +119,13 @@ export const CONFIG = {
       3: 'Investisseur',
       4: 'Promoteur',
       5: 'Magnat de l\'Immo',
+    },
+    PALIERS_BTP: {
+      1: 'Ouvrier',
+      2: 'Chef de chantier',
+      3: 'Conducteur de travaux',
+      4: 'Entrepreneur',
+      5: 'Groupe BTP',
     },
     FACTEUR_XP: 1.8,
   },
@@ -239,11 +247,13 @@ export const CONFIG = {
       finance:    { label: 'Quartier Financier',   emoji: '🏦', secteur: 'finance',    disponible: true, x: 60, y: 20, vehiculeRequis: 'supercar'  },
       tech:       { label: 'Quartier Tech',         emoji: '💻', secteur: 'tech',       disponible: true, x: 55, y: 65, vehiculeRequis: 'voiture'   },
       immobilier: { label: 'Quartier Immobilier',  emoji: '🏢', secteur: 'immobilier', disponible: true, x: 25, y: 65, vehiculeRequis: 'berline'   },
+      btp:        { label: 'Zone BTP',              emoji: '🏗', secteur: 'btp',        disponible: true, x: 80, y: 50, vehiculeRequis: 'velo'      },
     },
     MESSAGES_BLOCAGE_VEHICULE: {
       finance:    "T'as pas une Supercar ? Retourne au bureau.",
       tech:       "Pour bosser dans la tech, faut au moins avoir la voiture qui va avec. Fais un effort.",
       immobilier: "Pour visiter des biens, faut au moins arriver en Berline.",
+      btp:        null,
     },
   },
 
@@ -303,6 +313,19 @@ export const CONFIG = {
         { id: 'u_i6', nom: 'Centre commercial',     prix: 800000,  effet: { passifId: 'passif_immo_6', passifValeur: 150  }, prerequis: 'u_i5', niveauRequis: 4 },
         { id: 'u_i7', nom: 'Tour de bureaux',       prix: 2000000, effet: { passifId: 'passif_immo_7', passifValeur: 400  }, prerequis: 'u_i6', niveauRequis: 4 },
         { id: 'u_i8', nom: 'Complexe résidentiel',  prix: 5000000, effet: { passifId: 'passif_immo_8', passifValeur: 1000 }, prerequis: 'u_i7', niveauRequis: 5 },
+      ],
+    },
+    btp: {
+      revenuBase: 5,
+      clicAccelere: 1, // secondes retirées du chantier actif par clic
+      upgrades: [
+        { id: 'u_b1', label: 'Rénovation',           prerequis: null,   niveauRequis: 1, duree: 30,  recompense: 500    },
+        { id: 'u_b2', label: 'Pavillon',              prerequis: 'u_b1', niveauRequis: 1, duree: 60,  recompense: 1200   },
+        { id: 'u_b3', label: 'Immeuble résidentiel',  prerequis: 'u_b2', niveauRequis: 2, duree: 120, recompense: 3000   },
+        { id: 'u_b4', label: 'Centre commercial',     prerequis: 'u_b3', niveauRequis: 3, duree: 240, recompense: 8000   },
+        { id: 'u_b5', label: 'Pont',                  prerequis: 'u_b4', niveauRequis: 3, duree: 360, recompense: 15000  },
+        { id: 'u_b6', label: 'Stade',                 prerequis: 'u_b5', niveauRequis: 4, duree: 600, recompense: 35000  },
+        { id: 'u_b7', label: 'Méga-complexe',         prerequis: 'u_b6', niveauRequis: 5, duree: 900, recompense: 100000 },
       ],
     },
     tech: {

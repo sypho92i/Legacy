@@ -69,6 +69,17 @@ export function calculerRevenuClic() {
     * getModifBonheur(state.jauges.bonheur)
   )
   state._dernierGainClic = gain
+
+  // BTP : chaque clic accélère le chantier actif
+  if (state.secteurActif === 'btp' && state.chantierActif) {
+    state.chantierActif.dureeRestante = Math.max(0,
+      state.chantierActif.dureeRestante - CONFIG.METIERS.btp.clicAccelere
+    )
+    if (state.chantierActif.dureeRestante === 0) {
+      terminerChantier()
+    }
+  }
+
   return gain
 }
 
@@ -522,12 +533,59 @@ export function initialiserNouvelleGeneration() {
   state._immoEvenementExpiry     = 0
   state._immoPassifMulti         = 1.0
   state._immoPassifMultiExpiry   = 0
+  state.chantierActif            = null
+  state.btpCompletes             = []
   state.secteurActif             = 'commerce'
 
   for (const key of Object.keys(state.jauges)) {
     state.jauges[key] = CONFIG.JAUGE_DEPART
   }
 }
+
+// ─── BTP — chantiers ─────────────────────────────────────────────────────────
+
+export function lancerChantier(id) {
+  if (state.secteurActif !== 'btp')      return { ok: false, raison: 'mauvais_secteur' }
+  if (state.chantierActif !== null)       return { ok: false, raison: 'chantier_en_cours' }
+  const cfg = CONFIG.METIERS.btp.upgrades.find(u => u.id === id)
+  if (!cfg)                               return { ok: false, raison: 'unknown' }
+  if (calculerNiveau('btp') < cfg.niveauRequis)  return { ok: false, raison: 'locked' }
+  if (cfg.prerequis !== null && !state.btpCompletes.includes(cfg.prerequis))
+    return { ok: false, raison: 'locked' }
+
+  state.chantierActif = {
+    id,
+    label:         cfg.label,
+    dureeRestante: cfg.duree,
+    dureeInitiale: cfg.duree,
+    recompense:    cfg.recompense,
+  }
+  return { ok: true }
+}
+
+export function terminerChantier() {
+  if (!state.chantierActif) return 0
+  const { recompense, id } = state.chantierActif
+  state.argent += recompense
+  if (!state.btpCompletes.includes(id)) {
+    state.btpCompletes.push(id)
+  }
+  state.chantierActif = null
+  window.dispatchEvent(new CustomEvent('legacy:btp-complete', { detail: { gain: recompense } }))
+  return recompense
+}
+
+function tickBtp() {
+  if (!state.chantierActif) return
+  state.chantierActif.dureeRestante -= CONFIG.TICK_MS / 1000
+  if (state.chantierActif.dureeRestante <= 0) {
+    state.chantierActif.dureeRestante = 0
+    terminerChantier()
+  }
+}
+
+window.lancerChantier   = lancerChantier
+window.terminerChantier = terminerChantier
 
 // ─── Immobilier — événements ──────────────────────────────────────────────────
 
@@ -644,6 +702,7 @@ function tick() {
   tickJauges()
   tickLogement()
   tickImmo()
+  tickBtp()
   tickAge()
   tickKarma()
   tickCompetence()

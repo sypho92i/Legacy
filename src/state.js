@@ -82,4 +82,8 @@ export const state = reactive({
   _immoEvenementExpiry: 0,      // timestamp prochain événement immo
   _immoPassifMulti: 1.0,        // multiplicateur temporaire passifs immo
   _immoPassifMultiExpiry: 0,    // timestamp fin du multiplicateur immo
+
+  // BTP — chantiers
+  chantierActif: null,          // { id, label, dureeRestante, dureeInitiale, recompense } | null
+  btpCompletes: [],             // ids des chantiers terminés au moins une fois (déblocage chaîne)
 })
