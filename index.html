@@ -12,55 +12,130 @@
       color: #e0e0e0;
       font-family: monospace;
       font-size: 14px;
-      padding: 16px;
+      height: 100vh;
+      overflow: hidden;
     }
 
     #app {
-      max-width: 880px; margin: 0 auto;
       display: grid;
-      grid-template-columns: 1fr 200px;
-      grid-template-rows: auto 1fr auto;
-      gap: 16px;
-      align-items: start;
+      grid-template-columns: 220px 1fr;
+      height: 100vh;
+      overflow: hidden;
     }
-    .main-col { display: flex; flex-direction: column; gap: 16px; grid-row: 1 / 3; }
-    .debug    { grid-column: 1 / -1; }
+
+    /* ── Sidebar gauche ─────────────────────────────────────────── */
+    .sidebar {
+      display: flex; flex-direction: column;
+      height: 100vh; overflow-y: auto;
+      background: #111; border-right: 1px solid #222;
+      padding: 12px; gap: 10px;
+    }
+
+    /* Sprite personnage — 48×64 px CSS pur */
+    #sprite-perso {
+      width: 48px; height: 64px;
+      position: relative;
+      margin: 0 auto;
+      flex-shrink: 0;
+    }
+    #sprite-perso::before { /* tête */
+      content: '';
+      position: absolute;
+      top: 0; left: 12px;
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      background: #fbbf24; border: 2px solid #d97706;
+    }
+    #sprite-perso::after { /* corps */
+      content: '';
+      position: absolute;
+      bottom: 0; left: 8px;
+      width: 32px; height: 34px;
+      border-radius: 4px 4px 0 0;
+    }
+    /* Variantes par tranche d'âge */
+    #sprite-perso.sprite--jeune::after  { background: #3b82f6; border: 2px solid #1d4ed8; }
+    #sprite-perso.sprite--adulte::after { background: #8b5cf6; border: 2px solid #6d28d9; }
+    #sprite-perso.sprite--senior::after { background: #d97706; border: 2px solid #b45309; }
+    #sprite-perso.sprite--vieux::after  { background: #6b7280; border: 2px solid #4b5563; }
+    #sprite-perso.sprite--vieux::before { background: #d1d5db; border-color: #9ca3af; }
+
+    .sidebar-identite { display: flex; flex-direction: column; gap: 2px; }
+    .sidebar-identite__nom  { font-size: 0.95em; font-weight: bold; color: #e0e0e0; }
+    .sidebar-identite__meta { font-size: 0.78em; color: #888; }
+
+    .sidebar-karma { font-size: 0.78em; color: #888; }
+
+    .sidebar-finances {
+      display: flex; flex-direction: column; gap: 2px;
+      padding: 8px; background: #0f0f0f; border: 1px solid #222; border-radius: 4px;
+    }
+    .sidebar-argent    { font-size: 1.05em; font-weight: bold; }
+    .cashflow-positif  { font-size: 0.85em; color: #4caf50; }
+    .cashflow-negatif  { font-size: 0.85em; color: #f44336; animation: pulse-rouge 1.2s ease-in-out infinite; }
+
+    .sidebar-nav { display: flex; flex-direction: column; gap: 4px; }
+    .sidebar-nav__btn {
+      width: 100%; padding: 6px 8px; font-family: monospace; font-size: 0.82em;
+      text-align: left; cursor: pointer;
+      background: #1a1a1a; color: #ccc; border: 1px solid #2a2a2a; border-radius: 4px;
+    }
+    .sidebar-nav__btn:hover { background: #222; }
+    .sidebar-nav__btn--actif { border-color: #7c3aed; color: #a78bfa; background: #1a1033; }
+    .sidebar-nav__btn--pulse-rouge {
+      border-color: #f44336; color: #f44336;
+      animation: pulse-rouge 1.2s ease-in-out infinite;
+    }
+
+    /* Bouton Travailler — ancré en bas de zone-centrale */
+    .btn-travailler-wrap {
+      margin-top: auto; position: relative; flex-shrink: 0;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      padding: 12px; width: 100%; max-width: 580px;
+    }
+    .btn-travailler {
+      min-width: 200px; max-width: 320px; padding: 14px 32px;
+      font-family: monospace; font-size: 1em; font-weight: bold;
+      cursor: pointer;
+      background: #052e16; color: #22c55e;
+      border: 2px solid #22c55e; border-radius: 6px;
+      transition: background 0.1s, border-color 0.3s;
+    }
+    .btn-travailler:active { background: #0a3d1f; }
+
+    /* Zone centrale ─────────────────────────────────────────────── */
+    .zone-centrale {
+      display: flex; flex-direction: column;
+      overflow: hidden; position: relative;
+      align-items: center;
+    }
+    .debug { border-top: 1px solid #222; padding: 8px; display: flex; gap: 8px; flex-shrink: 0; }
 
     /* HUD */
     .hud__argent   { font-size: 1.4em; font-weight: bold; }
     .hud__meta     { color: #888; font-size: 0.85em; margin-top: 4px; }
 
-    /* Jauges */
-    .jauges        { display: flex; flex-direction: column; gap: 6px; }
-    .jauge         { display: flex; align-items: center; gap: 8px; }
-    .jauge__nom    { width: 80px; text-transform: capitalize; color: #aaa; }
-    .jauge__piste  { flex: 1; height: 10px; background: #2a2a2a; border-radius: 5px; overflow: hidden; }
-    .jauge__barre  { height: 100%; border-radius: 5px; transition: width 0.2s; }
+    /* Jauges — dans la sidebar, compactes */
+    .jauges        { display: flex; flex-direction: column; gap: 4px; }
+    .jauge         { display: flex; align-items: center; gap: 6px; }
+    .jauge__nom    { width: 62px; font-size: 0.78em; text-transform: capitalize; color: #888; flex-shrink: 0; }
+    .jauge__piste  { flex: 1; height: 7px; background: #2a2a2a; border-radius: 4px; overflow: hidden; }
+    .jauge__barre  { height: 100%; border-radius: 4px; transition: width 0.2s; }
     .jauge__barre--vert   { background: #4caf50; }
     .jauge__barre--orange { background: #ff9800; }
     .jauge__barre--rouge  { background: #f44336; }
-    .jauge__valeur { width: 32px; text-align: right; color: #888; }
+    .jauge__valeur { width: 26px; text-align: right; font-size: 0.78em; color: #666; }
 
-    /* Bouton clic */
-    .zone-clic     { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    /* Bouton clic (conservé pour compatibilité BTP/anciens usages) */
     .btn-clic      { padding: 16px 32px; font-size: 1.1em; font-family: monospace; cursor: pointer;
                      border: 2px solid currentColor; background: transparent; border-radius: 6px;
                      transition: transform 0.05s, color 0.3s; }
     .btn-clic:active { transform: scale(0.97); }
-    .btn-clic__multi { margin-left: 8px; font-size: 0.8em; opacity: 0.7; }
+    .multiplicateur-diamant { font-size: 0.85em; font-weight: bold; transition: color 0.3s; color: #888; }
+    .revenu-par-clic { color: #555; font-size: 0.75em; }
 
-    .btn-clic--gris   { color: #9e9e9e; }
-    .btn-clic--blanc  { color: #ffffff; }
-    .btn-clic--jaune  { color: #ffeb3b; }
-    .btn-clic--orange { color: #ff9800; }
-    .btn-clic--or     { color: #ffd700; }
-
-    .multiplicateur-diamant { font-size: 1.15em; font-weight: bold; letter-spacing: 0.03em; transition: color 0.3s; }
-
-    .revenu-par-clic { color: #666; font-size: 0.85em; }
-
-    /* Floating text au clic */
-    .btn-clic-wrap { position: relative; display: inline-block; }
+    /* Floating texts — positionnés par rapport au btn-travailler-wrap */
+    .btn-travailler-wrap { position: relative; }
     .zone-clic__flottants {
       position: absolute;
       bottom: 100%;
@@ -71,11 +146,8 @@
     }
     .flottant {
       position: absolute;
-      bottom: 4px;
-      left: 50%;
-      color: #4caf50;
-      font-weight: bold;
-      font-size: 1em;
+      bottom: 4px; left: 50%;
+      color: #4caf50; font-weight: bold; font-size: 1em;
       white-space: nowrap;
       animation: flotter 0.8s ease-out forwards;
     }
@@ -168,12 +240,46 @@
     .xp-barre  { height: 100%; background: #2196f3; border-radius: 4px; transition: width 0.3s; }
     .xp-label  { color: #666; font-size: 0.8em; text-align: right; }
 
-    /* Boutique latérale */
-    .boutique-panel {
-      background: #141414; border: 1px solid #333; border-radius: 6px;
-      padding: 12px; position: sticky; top: 16px;
+    /* Ville — carte toujours visible, remplit la zone centrale */
+    .ville-container { display: flex; flex-direction: column; flex: 0 0 auto; width: 100%; max-width: 580px; }
+    /* Panneau plein — remplace la carte pour les vues non-travail */
+    .panneau-plein { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 580px; }
+
+    /* Sprite personnage CSS pur */
+    .sprite-perso {
+      position: absolute;
+      z-index: 5;
+      width: 14px; height: 22px;
+      pointer-events: none;
+      transition: left 0.6s ease, top 0.6s ease;
+      transform: translate(-50%, -130%);
     }
-    .boutique-panel__titre { font-size: 1em; font-weight: bold; margin-bottom: 10px; color: #ccc; border-bottom: 1px solid #2a2a2a; padding-bottom: 6px; }
+    .sprite-perso::before { /* tête */
+      content: '';
+      position: absolute;
+      top: 0; left: 1px;
+      width: 12px; height: 12px;
+      background: #fbbf24;
+      border-radius: 50%;
+      border: 1px solid #d97706;
+    }
+    .sprite-perso::after { /* corps */
+      content: '';
+      position: absolute;
+      bottom: 0; left: 2px;
+      width: 10px; height: 10px;
+      background: #3b82f6;
+      border-radius: 2px 2px 0 0;
+      border: 1px solid #1d4ed8;
+    }
+
+    /* Bâtiment boutique sur la carte */
+    .batiment-boutique { cursor: pointer; }
+
+    .panneau-titre { font-size: 1em; font-weight: bold; margin-bottom: 12px; color: #ccc; }
+
+    /* Boutique vue (panneau actif) */
+    .boutique-vue { padding: 12px; }
     .boutique-flottants { position: relative; height: 24px; }
     .boutique-flottant  {
       position: absolute; left: 0; top: 0;
@@ -181,7 +287,8 @@
       animation: flotter 0.8s ease-out forwards;
     }
     .boutique-liste { list-style: none; display: flex; flex-direction: column; gap: 8px; }
-    .boutique-item  { display: flex; flex-direction: column; gap: 4px; padding: 8px; border: 1px solid #2a2a2a; border-radius: 4px; }
+    .boutique-liste--inline { flex-direction: row; flex-wrap: wrap; gap: 10px; }
+    .boutique-item  { display: flex; flex-direction: column; gap: 4px; padding: 8px; border: 1px solid #2a2a2a; border-radius: 4px; min-width: 110px; }
     .boutique-item--disabled { opacity: 0.5; }
     .boutique-item__label { font-size: 0.85em; color: #ddd; }
     .boutique-item__prix  { font-size: 0.8em; color: #888; }
@@ -230,7 +337,7 @@
 
     .carte-map {
       position: relative;
-      min-height: 320px;
+      min-height: 260px;
       background: #0a0a14;
       border: 1px solid #1a1a2e;
       background-image:
@@ -475,6 +582,91 @@
       transition: width 1s linear;
     }
     .btp-clic-hint { font-size: 0.7em; color: #4b5563; margin-top: 4px; text-align: center; }
+
+    /* Panneau fermer */
+    .panel-fermer {
+      margin-top: auto; padding: 6px 14px; font-family: monospace; font-size: 0.8em;
+      cursor: pointer; background: #1a1a1a; color: #666;
+      border: 1px solid #333; border-radius: 4px; align-self: flex-start;
+    }
+    .panel-fermer:hover { color: #aaa; border-color: #555; }
+
+    /* Panneau upgrades — prend l'espace restant dans zone-centrale */
+    .panneau-upgrades {
+      background: #141414; border: 1px solid #2a2a2a; border-radius: 6px; padding: 12px;
+      flex: 1; overflow-y: auto; width: 100%; max-width: 580px;
+    }
+
+    /* Influence zone centrale (barre + label sous la carte) */
+    .influence-zone-centrale {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      padding: 10px 16px; background: #0d0d1a; border-bottom: 1px solid #1e1e2e;
+      flex-shrink: 0; width: 100%; max-width: 580px;
+    }
+
+    /* Overlay panneau latéral (position absolute dans zone-centrale) */
+    .panneau-overlay {
+      position: absolute; top: 0; right: 0;
+      width: 340px; max-width: 100%; height: 100%;
+      background: #131313; border-left: 1px solid #2a2a2a;
+      display: flex; flex-direction: column;
+      z-index: 10; overflow-y: auto; padding: 16px;
+      box-shadow: -4px 0 20px rgba(0,0,0,0.5);
+    }
+    .panneau-overlay__header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #222;
+      flex-shrink: 0;
+    }
+    .panneau-overlay__titre { font-size: 1em; font-weight: bold; color: #e0e0e0; }
+    .panneau-overlay__fermer {
+      background: none; border: none; color: #666; font-size: 1.2em;
+      cursor: pointer; padding: 2px 6px; border-radius: 3px;
+    }
+    .panneau-overlay__fermer:hover { color: #ccc; background: #222; }
+
+    /* Vue Quartier — façade RPG */
+    .quartier-vue {
+      display: flex; flex-direction: column;
+      width: 100%; max-width: 580px;
+      padding: 12px; gap: 16px; flex: 1; overflow-y: auto;
+    }
+    .quartier-breadcrumb {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 0.85em; color: #888;
+    }
+    .quartier-retour {
+      background: none; border: 1px solid #333; color: #aaa;
+      padding: 3px 10px; border-radius: 3px; cursor: pointer; font-family: monospace;
+    }
+    .quartier-retour:hover { background: #1a1a1a; color: #e0e0e0; }
+    .quartier-facade {
+      display: flex; gap: 16px; align-items: flex-end;
+      padding: 24px 0 0; border-bottom: 3px solid #2a2a2a;
+      min-height: 160px; flex-wrap: wrap;
+    }
+    .batiment-card {
+      display: flex; flex-direction: column; align-items: center; cursor: pointer;
+    }
+    .batiment-card__toit {
+      width: 72px; height: 28px; background: #7c3aed;
+      clip-path: polygon(0% 100%, 50% 0%, 100% 100%);
+    }
+    .batiment-card__corps {
+      width: 72px; min-height: 80px; background: #1e1e2e;
+      border: 1px solid #333; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 4px; padding: 8px 4px;
+    }
+    .batiment-card__emoji { font-size: 1.6em; }
+    .batiment-card__label { font-size: 0.72em; color: #aaa; text-align: center; }
+    .batiment-card:hover .batiment-card__corps { background: #252535; border-color: #555; }
+    .btn-entrer-secteur {
+      align-self: center; padding: 10px 28px;
+      font-family: monospace; font-size: 0.95em; cursor: pointer;
+      background: #052e16; color: #22c55e;
+      border: 1px solid #22c55e; border-radius: 5px;
+    }
+    .btn-entrer-secteur:hover { background: #0a3d1f; }
 
     /* Influence */
     .zone-influence {

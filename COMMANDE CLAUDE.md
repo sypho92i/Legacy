@@ -1,28 +1,1 @@
-**Le script d'ouverture que tu réutilises à chaque fois :**
-
-Projet LEGACY, dossier legacycode. GDD dans docs/LEGACY\_game\_design\_3.md. Lis-le. Ticket du jour : "\[nom du ticket]". Description : \[colle la description].
-
-
-
-Lis CONTEXT.md. Ticket : "nom". Description : \[description du ticket].
-
-
-
-**COMMANDE GIT:**
-
-git add .
-
-git commit -m "feat: structure HTML/JS du jeu"
-
-
-
-**RECUPERATION DE MODIF EXT:**
-
-git fetch
-
-git pull
-
-
-
-**npx serve .** dans PowerShell → Chrome sur http://localhost:3000/ = ton seul moyen de tester.
-
+**Le script d'ouverture que tu réutilises à chaque fois :**Projet LEGACY, dossier legacycode. GDD dans docs/LEGACY\_game\_design\_3.md. Lis-le. Ticket du jour : "\[nom du ticket]". Description : \[colle la description].Lis CONTEXT.md. Ticket : "nom". Description : \[description du ticket].**COMMANDE GIT:**git add .git commit -m "feat: structure HTML/JS du jeu"**RECUPERATION DE MODIF EXT:**git fetchgit pull**npx serve .** dans PowerShell → Chrome sur http://localhost:3000/ = ton seul moyen de tester.Récuperer \&git pull origin master

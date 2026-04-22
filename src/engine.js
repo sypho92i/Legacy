@@ -296,11 +296,6 @@ export function acheterVehicule(id) {
 
 // ─── Carte / Secteurs ─────────────────────────────────────────────────────────
 
-export function calculerCoutChangement(secteurCible) {
-  const cle = state.secteurActif + '->' + secteurCible
-  return CONFIG.MAP.COUTS_CHANGEMENT[cle] ?? CONFIG.MAP.COUTS_CHANGEMENT.defaut
-}
-
 export function calculerGainInfluence(dureeSeconde) {
   if (dureeSeconde < CONFIG.INFLUENCE.APPUI_MIN) return { abonnes: 0, argent: 0 }
   const bonusUpgradesInfluence = (CONFIG.METIERS.influence.upgrades ?? [])
@@ -325,15 +320,19 @@ export function changerSecteur(secteurCible) {
       message: "Pour influencer, faut d'abord avoir un téléphone et un ordi." }
   if (!vehiculePermetSecteur(secteurCible))
     return { ok: false, raison: 'vehicule', message: CONFIG.MAP.MESSAGES_BLOCAGE_VEHICULE[secteurCible] }
-  if (Date.now() < state._changementSecteurExpiry)
-    return { ok: false, raison: 'cooldown' }
-  const cout = calculerCoutChangement(secteurCible)
-  if (state.argent < cout)
-    return { ok: false, raison: 'argent', cout }
-  state.argent -= cout
   state.secteurActif = secteurCible
-  state._changementSecteurExpiry = Date.now() + CONFIG.MAP.COOLDOWN_CHANGEMENT * 1000
-  return { ok: true, cout }
+  return { ok: true }
+}
+
+// ─── Campus — formations ──────────────────────────────────────────────────────
+
+export function acheterFormation(id) {
+  const f = CONFIG.FORMATIONS.find(f => f.id === id)
+  if (!f) return { ok: false, raison: 'unknown' }
+  if (state.argent < f.cout) return { ok: false, raison: 'argent' }
+  state.argent -= f.cout
+  state.xpSecteurs[f.secteur] = (state.xpSecteurs[f.secteur] ?? 0) + f.gainXP
+  return { ok: true, gainXP: f.gainXP, secteur: f.secteur }
 }
 
 function tickLogement() {
@@ -519,7 +518,6 @@ export function initialiserNouvelleGeneration() {
   state.telephoneCooldowns       = {}
   state._bonheurTempExpiry       = 0
   state._boostXpExpiry           = 0
-  state._changementSecteurExpiry = 0
   state._immoEvenementExpiry     = 0
   state._immoPassifMulti         = 1.0
   state._immoPassifMultiExpiry   = 0
@@ -710,7 +708,7 @@ Object.assign(window, {
   acheterVehicule,
   vehiculePermetSecteur,
   changerSecteur,
-  calculerCoutChangement,
+  acheterFormation,
   lancerChantier,
   terminerChantier,
   declencherEvenementImmo,

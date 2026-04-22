@@ -223,16 +223,6 @@ export const CONFIG = {
 
   // Carte / Map
   MAP: {
-    COOLDOWN_CHANGEMENT: 300,   // secondes (5 min)
-    COUTS_CHANGEMENT: {
-      'commerce->finance': 5000,
-      'commerce->tech':    5000,
-      'finance->commerce': 5000,
-      'finance->tech':     3000,
-      'tech->commerce':    5000,
-      'tech->finance':     3000,
-      defaut:              5000,
-    },
     ZONES: {
       commerce:   { label: 'Quartier Commercial',  emoji: '🏪', secteur: 'commerce',   disponible: true, x: 20, y: 30, vehiculeRequis: null       },
       finance:    { label: 'Quartier Financier',   emoji: '🏦', secteur: 'finance',    disponible: true, x: 60, y: 20, vehiculeRequis: 'supercar'  },
@@ -240,6 +230,7 @@ export const CONFIG = {
       immobilier: { label: 'Quartier Immobilier',  emoji: '🏢', secteur: 'immobilier', disponible: true, x: 25, y: 65, vehiculeRequis: 'berline'   },
       btp:        { label: 'Zone BTP',              emoji: '🏗', secteur: 'btp',        disponible: true, x: 80, y: 50, vehiculeRequis: 'velo'     },
       influence:  { label: 'Studio Influence',      emoji: '🎙', secteur: 'influence',  disponible: true, x: 45, y: 35, vehiculeRequis: 'voiture'  },
+      campus:     { label: 'Campus',                emoji: '🎓', secteur: null,         disponible: true, x: 10, y: 55, vehiculeRequis: null        },
     },
     MESSAGES_BLOCAGE_VEHICULE: {
       finance:    "T'as pas une Supercar ? Retourne au bureau.",
@@ -249,6 +240,21 @@ export const CONFIG = {
       influence:  "Pour créer du contenu pro, faut au moins arriver en voiture.",
     },
   },
+
+  // Campus — formations disponibles à l'achat
+  FORMATIONS: [
+    { id: 'f_com_1',  emoji: '📦', label: 'Vente — Initiation',          secteur: 'commerce',   cout: 400,   gainXP: 80   },
+    { id: 'f_com_2',  emoji: '📦', label: 'Vente — Avancé',              secteur: 'commerce',   cout: 2000,  gainXP: 350  },
+    { id: 'f_fin_1',  emoji: '💹', label: 'Finance — Initiation',        secteur: 'finance',    cout: 600,   gainXP: 80   },
+    { id: 'f_fin_2',  emoji: '💹', label: 'Finance — Avancé',            secteur: 'finance',    cout: 2500,  gainXP: 350  },
+    { id: 'f_tec_1',  emoji: '💻', label: 'Tech — Initiation',           secteur: 'tech',       cout: 500,   gainXP: 80   },
+    { id: 'f_tec_2',  emoji: '💻', label: 'Tech — Avancé',               secteur: 'tech',       cout: 2200,  gainXP: 350  },
+    { id: 'f_imm_1',  emoji: '🏢', label: 'Immobilier — Initiation',     secteur: 'immobilier', cout: 550,   gainXP: 80   },
+    { id: 'f_imm_2',  emoji: '🏢', label: 'Immobilier — Avancé',         secteur: 'immobilier', cout: 2400,  gainXP: 350  },
+    { id: 'f_btp_1',  emoji: '🏗', label: 'BTP — Initiation',             secteur: 'btp',        cout: 300,   gainXP: 80   },
+    { id: 'f_inf_1',  emoji: '🎙', label: 'Influence — Initiation',      secteur: 'influence',  cout: 800,   gainXP: 80   },
+    { id: 'f_inf_2',  emoji: '🎙', label: 'Influence — Avancé',          secteur: 'influence',  cout: 3000,  gainXP: 350  },
+  ],
 
   ORDRE_VEHICULES: ['velo', 'scooter', 'voiture', 'berline', 'supercar'],
 
