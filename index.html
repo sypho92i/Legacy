@@ -89,10 +89,20 @@
 
     /* Bouton Travailler — ancré en bas de zone-centrale */
     .btn-travailler-wrap {
-      margin-top: auto; position: relative; flex-shrink: 0;
+      position: relative; flex-shrink: 0;
       display: flex; flex-direction: column; align-items: center; gap: 4px;
       padding: 12px; width: 100%; max-width: 580px;
     }
+    .bande-finances {
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; gap: 16px;
+      padding: 8px 16px; width: 100%; max-width: 580px;
+      background: #0f0f0f; border-top: 1px solid #1a1a1a;
+      font-size: 0.95em;
+    }
+    .bande-finances__solde  { font-weight: bold; color: #e0e0e0; }
+    .bande-finances__sep    { color: #333; }
+    .bande-finances__passifs { font-size: 0.9em; }
     .btn-travailler {
       min-width: 200px; max-width: 320px; padding: 14px 32px;
       font-family: monospace; font-size: 1em; font-weight: bold;
@@ -111,10 +121,6 @@
     }
     .debug { border-top: 1px solid #222; padding: 8px; display: flex; gap: 8px; flex-shrink: 0; }
 
-    /* HUD */
-    .hud__argent   { font-size: 1.4em; font-weight: bold; }
-    .hud__meta     { color: #888; font-size: 0.85em; margin-top: 4px; }
-
     /* Jauges — dans la sidebar, compactes */
     .jauges        { display: flex; flex-direction: column; gap: 4px; }
     .jauge         { display: flex; align-items: center; gap: 6px; }
@@ -126,11 +132,6 @@
     .jauge__barre--rouge  { background: #f44336; }
     .jauge__valeur { width: 26px; text-align: right; font-size: 0.78em; color: #666; }
 
-    /* Bouton clic (conservé pour compatibilité BTP/anciens usages) */
-    .btn-clic      { padding: 16px 32px; font-size: 1.1em; font-family: monospace; cursor: pointer;
-                     border: 2px solid currentColor; background: transparent; border-radius: 6px;
-                     transition: transform 0.05s, color 0.3s; }
-    .btn-clic:active { transform: scale(0.97); }
     .multiplicateur-diamant { font-size: 0.85em; font-weight: bold; transition: color 0.3s; color: #888; }
     .revenu-par-clic { color: #555; font-size: 0.75em; }
 
@@ -159,16 +160,6 @@
       to   { opacity: 0; transform: translateX(-50%) translateY(-48px); }
     }
 
-    /* Menus */
-    .menus   { display: flex; gap: 8px; }
-    .menus__btn { flex: 1; padding: 8px; font-family: monospace; cursor: pointer;
-                  background: #1a1a1a; color: #ccc; border: 1px solid #333; border-radius: 4px; }
-    .menus__btn:hover { background: #252525; }
-    .menus__btn--pulse-rouge {
-      border-color: #f44336;
-      color: #f44336;
-      animation: pulse-rouge 1.2s ease-in-out infinite;
-    }
     @keyframes pulse-rouge {
       0%   { box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.5); }
       60%  { box-shadow: 0 0 0 5px rgba(244, 67, 54, 0); }
@@ -242,8 +233,7 @@
 
     /* Ville — carte toujours visible, remplit la zone centrale */
     .ville-container { display: flex; flex-direction: column; flex: 0 0 auto; width: 100%; max-width: 580px; }
-    /* Panneau plein — remplace la carte pour les vues non-travail */
-    .panneau-plein { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 580px; }
+
 
     /* Sprite personnage CSS pur */
     .sprite-perso {
@@ -328,9 +318,6 @@
       background: #1e3a1e; color: #4caf50; border: 1px solid #4caf50; border-radius: 3px;
     }
     .logement-item__btn:disabled { cursor: not-allowed; background: #1a1a1a; color: #555; border-color: #333; }
-
-    /* Bouton nav actif */
-    .menus__btn--actif { border-color: #7c3aed; color: #a78bfa; }
 
     /* Vue Carte */
     .carte-container { display: flex; flex-direction: column; gap: 8px; }

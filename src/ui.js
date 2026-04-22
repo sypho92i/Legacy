@@ -74,14 +74,7 @@ export const AppRoot = {
     setInterval(() => { now.value = Date.now() }, 1000)
 
     // ── Navigation centrale ───────────────────────────────────────────────────
-    // panneauActif : 'travail' uniquement (plus de remplacement de la carte)
-    const panneauActif        = ref('travail')
     const messageBlocageCarte = ref('')
-
-    function setPanneau(nom) {
-      panneauActif.value        = nom
-      messageBlocageCarte.value = ''
-    }
 
     // ── Overlay latéral (finances / logement / telephone / ordinateur / vehicules / boutique)
     const panneauOverlay = ref(null) // null | 'finances' | 'logement' | 'telephone' | 'ordinateur' | 'vehicules' | 'boutique'
@@ -304,9 +297,7 @@ export const AppRoot = {
 
     // ── Véhicules ─────────────────────────────────────────────────────────────
 
-    const vehiculeActuel = computed(() =>
-      state.possessions.vehicule ? CONFIG.VEHICULES[state.possessions.vehicule] : null
-    )
+
 
     const boutiqueVehicules = computed(() =>
       Object.entries(CONFIG.VEHICULES).map(([id, cfg]) => ({
@@ -534,12 +525,12 @@ export const AppRoot = {
       telephoneActions, abonnesAffiche, actionAcheterTelephone, actionTelephone,
       prixPacksTokens, tokensAffiche, boostXpActif, boostXpRestant,
       actionAcheterOrdinateur, actionAcheterTokens, actionExecuterCommande,
-      panneauActif, setPanneau, messageBlocageCarte,
+      messageBlocageCarte,
       panneauOverlay, ouvrirOverlay, fermerOverlay,
       navEcran, quartierEnCours, retourCarte, entrerDansSecteur, ouvrirQuartier,
       carteZones, spritePosition, spriteClasse,
       formationsCampus, actionAcheterFormation,
-      vehiculeActuel, boutiqueVehicules, actionAcheterVehicule,
+      boutiqueVehicules, actionAcheterVehicule,
       derniereNotifImmo, immoPassifBadge,
       chantierProgression, actionLancerChantier,
       influenceAppuiMs, influenceEnAppui, influenceBarrePct, influencePrecisionLabel,
@@ -577,14 +568,6 @@ export const AppRoot = {
 
         <!-- Karma -->
         <div class="sidebar-karma">Karma : {{ state.karma }} ({{ state.palierKarma }})</div>
-
-        <!-- Finances -->
-        <div class="sidebar-finances">
-          <div class="sidebar-argent">💰 {{ state.argent.toFixed(2) }} €</div>
-          <div :class="state.cashflowNet >= 0 ? 'cashflow-positif' : 'cashflow-negatif'">
-            {{ state.cashflowNet >= 0 ? '+' : '' }}{{ state.cashflowNet.toFixed(2) }} €/s
-          </div>
-        </div>
 
         <!-- Nav overlay -->
         <nav class="sidebar-nav">
@@ -756,6 +739,43 @@ export const AppRoot = {
           <p class="influence-hint">Maintiens le bouton ~5s pour maximiser les abonnés</p>
         </div>
 
+        <!-- ── Bouton Travailler ──────────────────────────────────── -->
+        <div
+          class="btn-travailler-wrap"
+          @mouseleave="influenceEnAppui && onInfluenceFin()"
+        >
+          <div class="zone-clic__flottants" aria-hidden="true">
+            <span v-for="f in flottants" :key="f.id" class="flottant" :class="f.classe">
+              +{{ f.gain.toFixed(2) }} €
+            </span>
+          </div>
+          <span class="multiplicateur-diamant" :style="{ color: multiplicateurActuel.couleur }">
+            ♦ {{ multiplicateurActuel.label }}
+          </span>
+          <button
+            class="btn-travailler"
+            :style="{ color: multiplicateurActuel.couleur, borderColor: multiplicateurActuel.couleur }"
+            @click="state.secteurActif !== 'influence' && onClic()"
+            @mousedown="state.secteurActif === 'influence' && onInfluenceDebut()"
+            @mouseup="state.secteurActif === 'influence' && onInfluenceFin()"
+            @touchstart.prevent="state.secteurActif === 'influence' && onInfluenceDebut()"
+            @touchend.prevent="state.secteurActif === 'influence' && onInfluenceFin()"
+          >{{ verbeBouton }}</button>
+          <p class="revenu-par-clic">{{ revenuClicAffiche.toFixed(2) }} €/clic</p>
+        </div>
+
+        <!-- ── Bande finances ─────────────────────────────────────── -->
+        <div class="bande-finances">
+          <span class="bande-finances__solde">💰 {{ state.argent.toFixed(2) }} €</span>
+          <span class="bande-finances__sep">|</span>
+          <span
+            class="bande-finances__passifs"
+            :class="state.cashflowNet >= 0 ? 'cashflow-positif' : 'cashflow-negatif'"
+          >
+            {{ state.cashflowNet >= 0 ? '+' : '' }}{{ state.cashflowNet.toFixed(2) }} €/s
+          </span>
+        </div>
+
         <!-- ── Upgrades (uniquement en vue carte) ────────────────── -->
         <div v-if="navEcran === 'map'" class="panneau-upgrades">
           <div class="niveau-commerce">
@@ -818,31 +838,6 @@ export const AppRoot = {
               </div>
             </li>
           </ul>
-        </div>
-
-        <!-- ── Bouton Travailler (ancré en bas de zone-centrale) ─── -->
-        <div
-          class="btn-travailler-wrap"
-          @mouseleave="influenceEnAppui && onInfluenceFin()"
-        >
-          <div class="zone-clic__flottants" aria-hidden="true">
-            <span v-for="f in flottants" :key="f.id" class="flottant" :class="f.classe">
-              +{{ f.gain.toFixed(2) }} €
-            </span>
-          </div>
-          <span class="multiplicateur-diamant" :style="{ color: multiplicateurActuel.couleur }">
-            ♦ {{ multiplicateurActuel.label }}
-          </span>
-          <button
-            class="btn-travailler"
-            :style="{ color: multiplicateurActuel.couleur, borderColor: multiplicateurActuel.couleur }"
-            @click="state.secteurActif !== 'influence' && onClic()"
-            @mousedown="state.secteurActif === 'influence' && onInfluenceDebut()"
-            @mouseup="state.secteurActif === 'influence' && onInfluenceFin()"
-            @touchstart.prevent="state.secteurActif === 'influence' && onInfluenceDebut()"
-            @touchend.prevent="state.secteurActif === 'influence' && onInfluenceFin()"
-          >{{ verbeBouton }}</button>
-          <p class="revenu-par-clic">{{ revenuClicAffiche.toFixed(2) }} €/clic</p>
         </div>
 
         <!-- ── Overlay panneau latéral ────────────────────────────── -->

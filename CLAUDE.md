@@ -489,6 +489,17 @@ Moteur vide opérationnel : boucle tick 200ms, état global réactif, HUD + jaug
 - ui.js : Suppression de `calculerCoutChangement` de l'import. `carteZones` computed simplifié : suppression de `enCooldown/cdRestant/cout/abordable` — juste `estActuelle` (secteur non-null et actif) + `disabled` (estActuelle ou indisponible). `ouvrirQuartier` branché sur `zone.id` (non `zone.secteur`) pour supporter campus. Suppression de `cdGlobalRestant`. Ajout computed `formationsCampus` (CONFIG.FORMATIONS + flag `disabled`). Handler `actionAcheterFormation(id)` avec floating text. Template : zones carte sans affichage de coût ni cooldown ; carte-info sans `cdGlobalRestant` ; vue quartier campus = liste formations (classes boutique réutilisées) ; vue quartier non-campus = façade RPG + bouton "Travailler ici" (inchangé).
 - index.html : **non modifié**.
 
+### Ticket UI-R2 — Réordonnancement zone centrale + bande-finances
+
+- engine.js, state.js, config.js : **aucun changement**.
+- ui.js : Suppression du bloc `.sidebar-finances` de la sidebar (solde + cashflow). Déplacement du bloc `.btn-travailler-wrap` depuis le bas de `zone-centrale` (après upgrades) vers juste après la barre influence. Ajout du bloc `.bande-finances` après `btn-travailler-wrap` (solde + séparateur + cashflow coloré). Ordre final dans `<main class="zone-centrale">` : vue carte → vue quartier → influence barre → btn-travailler-wrap → bande-finances → panneau-upgrades → panneau-overlay → immo-notif.
+- index.html : Suppression de `margin-top: auto` sur `.btn-travailler-wrap` (n'est plus en bas de colonne). Ajout CSS `.bande-finances`, `.bande-finances__solde`, `.bande-finances__sep`, `.bande-finances__passifs`.
+
+### Simplification — Ticket S2 — Nettoyage code mort
+- ui.js : suppression de `panneauActif` (ref inutilisée), `setPanneau()` (fonction inutilisée), `vehiculeActuel` (computed inutilisé) — retirés de la déclaration et du `return`. −10 lignes.
+- index.html : suppression de `.hud__argent`, `.hud__meta` (ancien HUD), `.btn-clic` + `.btn-clic:active` (remplacé par `.btn-travailler`), `.menus` + `.menus__btn` + `.menus__btn:hover` + `.menus__btn--pulse-rouge` (ancien nav horizontal), `.panneau-plein` (jamais utilisé), `.menus__btn--actif` (idem). `@keyframes pulse-rouge` conservé (utilisé par `.cashflow-negatif` et `.sidebar-nav__btn--pulse-rouge`). −17 lignes CSS.
+- Bilan net : −27 lignes sans aucun changement de comportement.
+
 ---
 *Ne jamais lire le GDD pour coder — toutes les infos techniques sont ici.*
 *Mettre à jour la section "Sessions terminées" à chaque fin de ticket.*
