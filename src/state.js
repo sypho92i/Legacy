@@ -86,4 +86,9 @@ export const state = reactive({
 
   // Influence — hold-to-release
   _influenceAppuiDebut: 0,      // timestamp ms du début d'appui (0 = pas d'appui)
+
+  // Formations
+  formationActive: null,        // { id, secteur, label, dureeRestante, dureeInitiale, gainXP } | null
+  formations: [],               // slugs secteurs débloqués par formation — reset à chaque génération
+  secteursVisites: ['commerce'],// secteurs ayant déjà payé le coût d'installation
 })

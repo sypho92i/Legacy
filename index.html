@@ -96,13 +96,14 @@
     .bande-finances {
       flex-shrink: 0;
       display: flex; align-items: center; justify-content: center; gap: 16px;
-      padding: 8px 16px; width: 100%; max-width: 580px;
-      background: #0f0f0f; border-top: 1px solid #1a1a1a;
-      font-size: 0.95em;
+      padding: 10px 16px; width: 100%; max-width: 580px;
+      background: #0f0f0f; border-top: 1px solid #222;
+      font-size: 1.1em;
+      position: sticky; bottom: 0; z-index: 5;
     }
-    .bande-finances__solde  { font-weight: bold; color: #e0e0e0; }
+    .bande-finances__solde  { font-size: 1.3em; font-weight: bold; color: #e0e0e0; }
     .bande-finances__sep    { color: #333; }
-    .bande-finances__passifs { font-size: 0.9em; }
+    .bande-finances__passifs { font-size: 1.1em; font-weight: bold; }
     .btn-travailler {
       min-width: 200px; max-width: 320px; padding: 14px 32px;
       font-family: monospace; font-size: 1em; font-weight: bold;
@@ -347,19 +348,21 @@
       min-width: 110px; text-align: center;
       font-family: monospace;
     }
-    .carte-zone:hover:not(.carte-zone--locked):not(.carte-zone--active):not(.carte-zone--cooldown) {
+    .carte-zone:hover:not(.carte-zone--locked):not(.carte-zone--active):not(.carte-zone--cooldown):not(.carte-zone--vehicule-bloque) {
       border-color: #7c3aed; background: #1a1033;
     }
-    .carte-zone--active   { border-color: #22c55e; background: #052e16; cursor: default; }
-    .carte-zone--locked   { border-color: #1f2937; opacity: 0.5; cursor: not-allowed; }
-    .carte-zone--cooldown { border-color: #facc15; opacity: 0.7; cursor: not-allowed; }
-    .carte-zone--indispo  { opacity: 0.6; }
+    .carte-zone--active          { border-color: #22c55e; background: #052e16; cursor: default; }
+    .carte-zone--locked          { border-color: #1f2937; opacity: 0.5; cursor: not-allowed; }
+    .carte-zone--cooldown        { border-color: #facc15; opacity: 0.7; cursor: not-allowed; }
+    .carte-zone--indispo         { opacity: 0.6; }
+    .carte-zone--vehicule-bloque { border-color: #3f3f46; opacity: 0.55; cursor: not-allowed; filter: grayscale(0.6); }
 
-    .carte-zone__emoji { font-size: 1.8em; line-height: 1; }
-    .carte-zone__label { font-size: 0.72em; color: #9ca3af; }
-    .carte-zone__lock  { font-size: 0.68em; color: #4b5563; }
-    .carte-zone__badge { font-size: 0.68em; color: #22c55e; font-weight: bold; }
-    .carte-zone__cout  { font-size: 0.68em; color: #facc15; }
+    .carte-zone__emoji           { font-size: 1.8em; line-height: 1; }
+    .carte-zone__label           { font-size: 0.72em; color: #9ca3af; }
+    .carte-zone__lock            { font-size: 0.68em; color: #4b5563; }
+    .carte-zone__badge           { font-size: 0.68em; color: #22c55e; font-weight: bold; }
+    .carte-zone__cout            { font-size: 0.68em; color: #facc15; }
+    .carte-zone__vehicule-requis { font-size: 1.1em; }
 
     .carte-info {
       padding: 8px 12px;
@@ -684,6 +687,45 @@
     }
     .btn-influence:active { background: #1e1e2e; }
     .influence-hint { font-size: 0.7em; color: #4b5563; }
+
+    /* Formations — vue bâtiment écol */
+    .formations-vue { display: flex; flex-direction: column; gap: 12px; }
+    .formation-active-card {
+      padding: 12px; background: #0f1a2e; border: 1px solid #2563eb;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .formation-active-header {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.9em; font-weight: bold; color: #93c5fd;
+    }
+    .formation-timer { margin-left: auto; color: #facc15; font-family: monospace; }
+    .formation-barre {
+      height: 8px; background: #1e2e4a; border: 1px solid #2563eb; overflow: hidden;
+    }
+    .formation-barre-fill { height: 100%; background: #3b82f6; transition: width 1s linear; }
+    .btn-etudier {
+      align-self: flex-start; padding: 4px 12px; font-family: monospace; font-size: 0.82em;
+      cursor: pointer; background: #1e2d44; color: #60a5fa; border: 1px solid #3b82f6; border-radius: 3px;
+    }
+    .btn-etudier:hover { background: #1e3a5f; }
+
+    .formation-liste { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .formation-item {
+      padding: 10px; border: 1px solid #2a2a2a; border-radius: 4px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .formation-item--terminee { border-color: #2a2a2a; opacity: 0.55; }
+    .formation-item--en-cours { border-color: #3b82f6; background: #0a1628; }
+    .formation-item__header {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.9em; color: #e0e0e0;
+    }
+    .formation-item__meta {
+      display: flex; gap: 12px; font-size: 0.8em; color: #888;
+    }
+    .formation-check  { color: #4caf50; font-weight: bold; }
+    .formation-en-cours { font-size: 0.78em; color: #60a5fa; border: 1px solid #3b82f6;
+                          padding: 1px 6px; border-radius: 3px; }
 
   </style>
 </head>

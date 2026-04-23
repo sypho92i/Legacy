@@ -326,13 +326,48 @@ export function changerSecteur(secteurCible) {
 
 // ─── Campus — formations ──────────────────────────────────────────────────────
 
-export function acheterFormation(id) {
+export function inscrireFormation(id) {
   const f = CONFIG.FORMATIONS.find(f => f.id === id)
   if (!f) return { ok: false, raison: 'unknown' }
+  if (state.formationActive) return { ok: false, raison: 'en_cours' }
   if (state.argent < f.cout) return { ok: false, raison: 'argent' }
   state.argent -= f.cout
+  state.formationActive = {
+    id:            f.id,
+    secteur:       f.secteur,
+    label:         f.label,
+    dureeRestante: f.duree,
+    dureeInitiale: f.duree,
+    gainXP:        f.gainXP,
+  }
+  return { ok: true }
+}
+
+export function etudierFormation() {
+  if (!state.formationActive) return { ok: false }
+  state.formationActive.dureeRestante = Math.max(0, state.formationActive.dureeRestante - 2)
+  if (state.formationActive.dureeRestante === 0) terminerFormation()
+  return { ok: true }
+}
+
+function terminerFormation() {
+  const f = state.formationActive
+  if (!f) return
   state.xpSecteurs[f.secteur] = (state.xpSecteurs[f.secteur] ?? 0) + f.gainXP
-  return { ok: true, gainXP: f.gainXP, secteur: f.secteur }
+  if (!state.formations.includes(f.secteur)) state.formations.push(f.secteur)
+  state.formationActive = null
+  window.dispatchEvent(new CustomEvent('legacy:formation-complete', {
+    detail: { secteur: f.secteur, gainXP: f.gainXP, label: f.label },
+  }))
+}
+
+function tickFormation() {
+  if (!state.formationActive) return
+  state.formationActive.dureeRestante -= CONFIG.TICK_MS / 1000
+  if (state.formationActive.dureeRestante <= 0) {
+    state.formationActive.dureeRestante = 0
+    terminerFormation()
+  }
 }
 
 function tickLogement() {
@@ -525,6 +560,9 @@ export function initialiserNouvelleGeneration() {
   state.btpCompletes             = []
   state._influenceAppuiDebut     = 0
   state.secteurActif             = 'commerce'
+  state.formationActive          = null
+  state.formations               = []
+  state.secteursVisites          = ['commerce']
 
   for (const key of Object.keys(state.jauges)) {
     state.jauges[key] = CONFIG.JAUGE_DEPART
@@ -687,6 +725,7 @@ function tick() {
   tickLogement()
   tickImmo()
   tickBtp()
+  tickFormation()
   tickAge()
   tickKarma()
   tickEvenementsKarma()
@@ -708,7 +747,8 @@ Object.assign(window, {
   acheterVehicule,
   vehiculePermetSecteur,
   changerSecteur,
-  acheterFormation,
+  inscrireFormation,
+  etudierFormation,
   lancerChantier,
   terminerChantier,
   declencherEvenementImmo,

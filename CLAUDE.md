@@ -1,35 +1,34 @@
 # LEGACY — Context for Claude Code
 
-> Ce fichier est la **source unique de vérité technique** pour le développement de LEGACY.
-> Ne jamais lire le GDD pour coder — toutes les infos utiles sont ici.
-> Mettre à jour la section "Sessions terminées" à chaque fin de ticket.
+> Source unique de vérité technique. Ne jamais lire le GDD pour coder.
+> Mettre à jour "Sessions terminées" à chaque fin de ticket.
 
 ---
 
 ## Stack technique
 
-- **Plateforme** : Web navigateur — fichier HTML unique autonome (double-clic pour ouvrir)
+- **Plateforme** : Web navigateur — fichier HTML unique autonome
 - **Framework** : Vanilla HTML/JS — pas de bundler, pas de framework lourd
 - **Déploiement** : Vercel, auto-deploy sur push Git (branche `main`)
 - **Persistance** : Firebase Realtime Database (intégration future)
-- **Style** : CSS pixel art dark — pas de moteur 3D, pas de Unity
+- **Style** : CSS pixel art dark — monospace, pas de moteur 3D
 
 ---
 
 ## Architecture des fichiers
 
 ```
-index.html          ← point d'entrée unique
+index.html       ← point d'entrée unique, tout le CSS
 src/
-  config.js         ← toutes les constantes du jeu (CONFIG object)
-  state.js          ← état global réactif (STATE object)
-  engine.js         ← boucle de jeu, tick, logique métier
-  ui.js             ← rendu DOM, animations, floating text
+  config.js      ← toutes les constantes du jeu (CONFIG object)
+  state.js       ← état global réactif (STATE object)
+  engine.js      ← boucle de jeu, tick, logique métier
+  ui.js          ← Vue 3, template, handlers, computeds
 ```
 
 ---
 
-## État global — structure de STATE
+## État global — STATE
 
 ```js
 STATE = {
@@ -40,55 +39,58 @@ STATE = {
 
   // Finances
   argent: number,
-  cashflowNet: number,      // revenus passifs - charges (calculé)
+  cashflowNet: number,      // calculé : revenus passifs - charges
 
-  // Métier
+  // Secteur / métier
   secteurActif: string,     // 'commerce' | 'finance' | 'tech' | 'immobilier' | 'btp' | 'influence'
-  metierActif: string,      // slug du métier en cours
-  niveauCompetence: {       // par secteur
-    commerce: number,
-    finance: number,
-    tech: number,
-    immobilier: number,
-    btp: number,
-    influence: number,
-  },
+  metierActif: string,
+  xpSecteurs: { commerce, finance, tech, immobilier, btp, influence },
 
   // Jauges (0–100)
-  faim: number,
-  hygiene: number,
-  sante: number,
-  bonheur: number,
-  reputation: number,
-  karma: number,            // 0–100, démarre à 75 (lignée propre)
+  jauges: { faim, hygiene, sante, bonheur, reputation },
+  karma: number,            // 0–100, démarre à 75
 
-  // Renommée / téléphone
-  abonnes: number,          // jauge renommée sociale
-  telephoneActions: [],     // actions débloquées
+  // Renommée
+  abonnes: number,
+  telephoneCooldowns: {},
+  _bonheurTempExpiry: 0,
 
-  // Objets possédés
+  // Possessions
   possessions: {
     vehicule: string | null,
     logement: string,       // 'squat' par défaut
+    logementAchete: boolean,
+    telephone: boolean,
     ordinateur: boolean,
     tokens: number,
-    animaux: [],
-    items: [],
   },
+
+  // Progression secteurs
+  secteursVisites: ['commerce'],   // commerce visité par défaut — reset à chaque génération
+  formations: [],                  // slugs secteurs débloqués par formation — reset à chaque génération
+  formationActive: null,           // { id, secteur, label, dureeRestante, dureeInitiale, gainXP } | null
 
   // Illégal
-  coucheIllegalMax: number, // 0 | 1 | 2 | 3 — max atteint dans cette vie
+  coucheIllegalMax: number,        // 0 | 1 | 2 | 3
+
+  // Interne
+  upgrades: [],
+  passifs: [],
+  bonusUpgrades: number,
+  btpCompletes: [],
+  chantierActif: null | { id, label, dureeRestante, dureeInitiale, recompense },
+  _dernierGainClic: 0,
+  _boostXpExpiry: 0,
+  _immoEvenementExpiry: 0,
+  _immoPassifMulti: 1.0,
+  _immoPassifMultiExpiry: 0,
+  _influenceAppuiDebut: 0,
+  _ticksDepuisLoyer: 0,
 
   // Lignée
-  lignee: [                 // historique des générations
-    { nom, age_mort, argent_transmis, karma_final, couche_illegale_max }
-  ],
-  karmaDepart: number,      // hérité de la lignée (75 par défaut)
-  boostCompetences: {       // héritage lignée, plafond +25% par secteur
-    commerce: number,
-    finance: number,
-    // ...
-  },
+  lignee: [{ nom, age_mort, argent_transmis, karma_final, couche_illegale_max }],
+  karmaDepart: number,
+  boostCompetences: { commerce, finance, tech, immobilier, btp, influence },
 }
 ```
 
@@ -96,410 +98,597 @@ STATE = {
 
 ## Boucle de jeu — engine.js
 
-- **Tick** : toutes les **200ms**
-- À chaque tick :
-  1. Avancer le temps (`age` += incrément)
-  2. Descendre les jauges passives (faim, hygiène, santé, bonheur)
-  3. Appliquer les revenus passifs → `state.argent`
-  4. Débiter les charges fixes
-  5. Vérifier les événements probabilistes (karma)
-  6. Vérifier conditions de mort (âge, santé, karma)
-  7. Appeler `ui.render()`
+**Tick : toutes les 200ms**
+
+À chaque tick : âge, jauges, passifs, charges, événements karma, logement, immobilier, BTP, vérification mort.
 
 ---
 
-## Formule de revenu par clic
+## Formules clés
 
+**Revenu par clic :**
 ```
-revenuClic = revenuBase × multiplicateurCompétence × modifKarma × modifBonheur
+revenuClic = (revenuBase + bonusUpgrades) × multiplicateurNiveau × modifKarma × modifBonheur
 ```
+Finance : base aléatoire `[revenuMin–revenuMax]` au lieu de fixe.
+BTP : `revenuBase: 5` toujours retourné, le clic accélère aussi le chantier actif.
 
-- `revenuBase` → `CONFIG.METIERS[metierActif].revenuBase`
-- `multiplicateurCompétence` → lié au niveau, change de couleur : gris(1) → blanc(2) → jaune(3) → orange(4) → rouge/or(5)
-- `modifKarma` → table dans CONFIG (Vertueux +20%, Neutre ±0%, Louche −15%, Criminel −35%, Ennemi public −60%)
-- `modifBonheur` → table dans CONFIG (80–100% +20%, 50–80% 0%, 20–50% −25%, 0–20% −50%)
-
----
-
-## Verbes de clic par métier
-
-Définis dans `CONFIG.VERBE_METIER` :
-
+**Multiplicateur niveau :**
 ```js
-CONFIG.VERBE_METIER = {
-  vendeur:       'Conclure une vente',
-  commercial:    'Démarcher un client',
-  manager:       'Closer un contrat',
-  developpeur:   'Livrer un feature',
-  graphiste:     'Livrer un design',
-  ouvrier:       'Poser des briques',
-  electricien:   'Câbler une installation',
-  comptable:     'Clôturer un bilan',
-  agent_immo:    'Signer un mandat',
-  // ...
-  DEFAUT:        'Travailler',
-}
+CONFIG.MULTIPLICATEURS_NIVEAU = [
+  { niveau:1, valeur:1.0, couleur:'#9e9e9e', label:'×1.0' },
+  { niveau:2, valeur:1.5, couleur:'#ffffff', label:'×1.5' },
+  { niveau:3, valeur:2.2, couleur:'#ffeb3b', label:'×2.2' },
+  { niveau:4, valeur:3.2, couleur:'#ff9800', label:'×3.2' },
+  { niveau:5, valeur:5.0, couleur:'#ffd700', label:'×5.0' },
+]
+```
+
+**Niveaux XP :**
+```js
+CONFIG.NIVEAUX.SEUILS = [0, 100, 400, 1200, 3500]  // 5 paliers
 ```
 
 ---
 
-## Système karma — seuils
+## Système karma
 
 ```js
 CONFIG.KARMA = {
-  VERTUEUX:      { min: 80, max: 100, modifProd: 1.20 },
-  NEUTRE:        { min: 40, max: 80,  modifProd: 1.00 },
-  LOUCHE:        { min: 20, max: 40,  modifProd: 0.85 },
-  CRIMINEL:      { min: 5,  max: 20,  modifProd: 0.65 },
-  ENNEMI_PUBLIC: { min: 0,  max: 5,   modifProd: 0.40 },
+  VERTUEUX:      { min: 80, modifProd: 1.20 },
+  NEUTRE:        { min: 40, modifProd: 1.00 },
+  LOUCHE:        { min: 20, modifProd: 0.85 },
+  CRIMINEL:      { min: 5,  modifProd: 0.65 },
+  ENNEMI_PUBLIC: { min: 0,  modifProd: 0.40 },
 }
 ```
+
+Héritage intergénérationnel : malus couche 2 (−10), couche 3 (−10), consécutivité ≥2 (−15), ≥3 (−15). Rédemption : +5 par génération vertueuse.
 
 ---
 
 ## Système illégal — trois couches
 
-| Couche | Accès | Karma/action | Plancher karma |
-|--------|-------|-------------|----------------|
-| 1 — Opportuniste | Toujours | −2 à −5 | Aucun |
-| 2 — Organisé | karma < 65 + compétence niv.3+ | −15 à −25 par palier | 55 max |
-| 3 — Haut niveau | karma < 35 + couche 2 active | −30 à −40 par palier | 30 max |
+| Couche | Accès | Plancher karma |
+|--------|-------|----------------|
+| 1 — Opportuniste | Toujours | Aucun |
+| 2 — Organisé | karma < 65 + niv.3+ | 55 max |
+| 3 — Haut niveau | karma < 35 + couche 2 | 30 max |
+
+Commandes ordinateur illégales (non encore implémentées côté moteur) : `fraude_fiscale` (couche 1), `piratage` (couche 2), `hacking_avance` (couche 3).
 
 ---
 
-## Héritage karma intergénérationnel
+## Navigation carte — secteurs
+
+### Changement de secteur — règles
+
+**Aucun cooldown.** Le changement est libre sous trois conditions :
+1. **Formation requise** : certains secteurs exigent une formation achetée au Campus
+2. **Véhicule requis** : chaque secteur peut exiger un véhicule minimum
+3. **Coût d'installation** : `CONFIG.MAP.COUT_INSTALLATION` (2000€) débité une seule fois à la première visite — Commerce est déjà visité par défaut
+
+`changerSecteur(slug)` retourne `{ ok, raison?, message? }`.
+Raisons : `'meme_secteur'` | `'formation'` | `'vehicule'` | `'possessions'` | `'argent'`
+
+### Formations — accès aux secteurs et mécanique
+
+Les formations s'achètent et se suivent au Campus (bâtiment `ecole`). Elles débloquent l'accès aux secteurs et donnent un boost XP.
+
+**Mécanique :**
+- Le joueur paie le coût → `formationActive` démarre avec un timer
+- Le bouton "Étudier" dans la vue Campus accélère le timer (comme BTP)
+- Une seule formation à la fois (`state.formationActive`)
+- À la fin du timer : `gainXP` crédité dans `state.xpSecteurs[secteur]` + slug pushé dans `state.formations[]`
+- Reset complet (`formationActive = null`, `formations = []`) à chaque nouvelle génération
 
 ```js
-function karmaDepart(lignee) {
-  const derniere = lignee[lignee.length - 1]
-  let base = 75
-  if (derniere.couche_illegale_max >= 2) base -= 10
-  if (derniere.couche_illegale_max >= 3) base -= 10  // total -20
-  // generations consecutives couche 3
-  const consec = compterGenerationsConsecutivesCouche3(lignee)
-  if (consec >= 2) base -= 15  // total -35
-  if (consec >= 3) base -= 15  // total -50 → 25
-  return Math.max(0, base)
+// CONFIG.FORMATIONS est un array
+CONFIG.FORMATIONS = [
+  { id: 'f_com_1', emoji: '📦', label: 'Vente — Initiation',      secteur: 'commerce',   cout: 1200,  gainXP: 80,  duree: 120 },
+  { id: 'f_com_2', emoji: '📦', label: 'Vente — Avancé',          secteur: 'commerce',   cout: 6000,  gainXP: 350, duree: 300 },
+  { id: 'f_fin_1', emoji: '💹', label: 'Finance — Initiation',    secteur: 'finance',    cout: 2000,  gainXP: 80,  duree: 120 },
+  { id: 'f_fin_2', emoji: '💹', label: 'Finance — Avancé',        secteur: 'finance',    cout: 10000, gainXP: 350, duree: 300 },
+  { id: 'f_tec_1', emoji: '💻', label: 'Tech — Initiation',       secteur: 'tech',       cout: 1500,  gainXP: 80,  duree: 120 },
+  { id: 'f_tec_2', emoji: '💻', label: 'Tech — Avancé',           secteur: 'tech',       cout: 8000,  gainXP: 350, duree: 300 },
+  { id: 'f_imm_1', emoji: '🏢', label: 'Immo — Initiation',       secteur: 'immobilier', cout: 2000,  gainXP: 80,  duree: 120 },
+  { id: 'f_imm_2', emoji: '🏢', label: 'Immo — Avancé',           secteur: 'immobilier', cout: 10000, gainXP: 350, duree: 300 },
+  { id: 'f_btp_1', emoji: '🏗', label: 'BTP — Initiation',        secteur: 'btp',        cout: 800,   gainXP: 80,  duree: 120 },
+  { id: 'f_inf_1', emoji: '🎙', label: 'Influence — Initiation',  secteur: 'influence',  cout: 2500,  gainXP: 80,  duree: 120 },
+  { id: 'f_inf_2', emoji: '🎙', label: 'Influence — Avancé',      secteur: 'influence',  cout: 12000, gainXP: 350, duree: 300 },
+]
+CONFIG.MAP.COUT_INSTALLATION = 2000
+```
+
+Fonctions engine.js :
+- `inscrireFormation(id)` : vérifie argent + pas de formationActive → déduit coût → set `state.formationActive`
+- `etudierFormation()` : appelée par clic "Étudier" → réduit `dureeRestante` de 2s par clic
+- `tickFormation()` : décrémente `dureeRestante` par tick → à 0 : crédite XP + push formations + dispatch `legacy:formation-complete`
+- Zone verrouillée par formation manquante affiche 🎓 sur la carte
+
+### Véhicules requis par secteur
+
+```js
+CONFIG.MAP.ZONES = {
+  btp:      { label: 'Zone BTP',           emoji: '🏗', x: 15, y: 65, vehiculeRequis: null,      disponible: true },
+  commerce: { label: 'Quartier Commercial',emoji: '🏪', x: 20, y: 30, vehiculeRequis: 'velo',    disponible: true },
+  campus:   { label: 'Campus',             emoji: '🎓', x: 10, y: 50, vehiculeRequis: 'velo',    disponible: true },
+  tech:     { label: 'Quartier Tech',      emoji: '💻', x: 55, y: 65, vehiculeRequis: 'voiture', disponible: true },
+  influence:{ label: 'Studio Influence',   emoji: '🎙', x: 45, y: 35, vehiculeRequis: 'voiture', disponible: true },
+  finance:  { label: 'Quartier Financier', emoji: '🏦', x: 60, y: 20, vehiculeRequis: 'supercar',disponible: true },
 }
-// Rédemption : +5 par génération vertueuse consécutive (sans couche 2+)
+// BTP seul accessible sans véhicule — point de départ absolu
+// Commerce + Campus : vélo minimum
+// Tech + Influence : voiture minimum
+// Finance : supercar
+// Zones grisées sur la carte si vehiculeRequis non satisfait — affiche l'emoji du véhicule requis
 ```
 
 ---
 
-## Téléphone — actions et renommée
-
-- `state.abonnes` = jauge renommée (nombre d'abonnés)
-- Actions débloquées progressivement, **non affichées à l'avance**
-- Seuils de déblocage dans `CONFIG.TELEPHONE.SEUILS_DEBLOCAGE`
+## Quartiers et bâtiments
 
 ```js
-CONFIG.TELEPHONE = {
-  ACTIONS: {
-    monter_compte:     { disponible: true,  effet: '+abonnes +renommee',  cout: 0 },
-    promouvoir:        { disponible: true,  effet: '+renommee +passif',   cout: 0 },
-    jeux_mobile:       { disponible: true,  effet: '+bonheur_temp',       cout: 0 },
-    placement_produit: { seuil_abonnes: 10000,  effet: 'passif_marques'      },
-    revenus_youtube:   { seuil_abonnes: 100000, effet: 'passif_youtube'       },
-    // features cachées supplémentaires...
-  }
+CONFIG.QUARTIERS = {
+  btp:      { label: 'Zone BTP',           batiments: ['chantiers', 'logements_bas', 'garage'] },
+  commerce: { label: 'Quartier Commercial',batiments: ['bureau', 'boutique_upgrades', 'agence_immo', 'logements_moyens'] },
+  finance:  { label: 'Quartier Financier', batiments: ['banque', 'bourse', 'logements_haut', 'concessionnaire'] },
+  tech:     { label: 'Quartier Tech',      batiments: ['coworking', 'startup'] },
+  influence:{ label: 'Studio Influence',   batiments: ['studio'] },
+  campus:   { label: 'Campus',             batiments: ['ecole'] },
+}
+
+// Pas de quartier Immobilier — agence dans Commerce, logements répartis dans BTP/Commerce/Finance
+// Garage (BTP) = vélo + scooter | Concessionnaire (Finance) = voiture + berline + supercar
+
+CONFIG.BATIMENTS = {
+  // BTP
+  chantiers:         { emoji: '🔨', label: 'Chantiers',      contenu: 'upgrades',   secteur: 'btp'        },
+  logements_bas:     { emoji: '🏚', label: 'Logements',      contenu: 'logements',  gamme: 'bas'          },
+  garage:            { emoji: '🚲', label: 'Garage',         contenu: 'vehicules',  gamme: 'bas'          },
+  // Commerce
+  bureau:            { emoji: '🏢', label: 'Bureau',         contenu: 'upgrades',   secteur: 'commerce'   },
+  boutique_upgrades: { emoji: '🏪', label: 'Boutique',       contenu: 'boutique'                          },
+  agence_immo:       { emoji: '🏘', label: 'Agence Immo',    contenu: 'upgrades',   secteur: 'immobilier' },
+  logements_moyens:  { emoji: '🏠', label: 'Résidences',     contenu: 'logements',  gamme: 'moyen'        },
+  // Finance
+  banque:            { emoji: '🏦', label: 'Banque',         contenu: 'upgrades',   secteur: 'finance'    },
+  bourse:            { emoji: '📊', label: 'Bourse',         contenu: 'upgrades',   secteur: 'finance'    },
+  logements_haut:    { emoji: '🏰', label: 'Villas',         contenu: 'logements',  gamme: 'haut'         },
+  concessionnaire:   { emoji: '🚗', label: 'Concessionnaire',contenu: 'vehicules',  gamme: 'haut'         },
+  // Tech
+  coworking:         { emoji: '💻', label: 'Coworking',      contenu: 'upgrades',   secteur: 'tech'       },
+  startup:           { emoji: '🚀', label: 'Startup',        contenu: 'upgrades',   secteur: 'tech'       },
+  // Influence
+  studio:            { emoji: '🎙', label: 'Studio',         contenu: 'upgrades',   secteur: 'influence'  },
+  // Campus
+  ecole:             { emoji: '🎓', label: 'École / Campus', contenu: 'formations'                        },
 }
 ```
 
----
-
-## Ordinateur — commandes et tokens
-
-- `state.possessions.ordinateur` : boolean
-- `state.possessions.tokens` : number
-- Commandes dans `CONFIG.ORDINATEUR.COMMANDES`
-
-```js
-CONFIG.ORDINATEUR = {
-  COMMANDES: {
-    bourse:          { tokens: 1, effet: '+passif_financier',  legal: true  },
-    don_caritatif:   { tokens: 1, effet: '+karma +reputation', legal: true  },
-    recherche:       { tokens: 1, effet: '+boost_secteur_temp',legal: true  },
-    fraude_fiscale:  { tokens: 2, effet: '+argent_massif',     karma: -15,  couche: 1 },
-    piratage:        { tokens: 3, effet: '+actifs_vol',        karma: -25,  couche: 2 },
-    hacking_avance:  { tokens: 5, effet: '+revenus_massifs',   karma: -40,  couche: 3 },
-  },
-  PACKS_TOKENS: [
-    { quantite: 5,  prix: 500  },
-    { quantite: 10, prix: 900  },
-    { quantite: 20, prix: 1600 },
-  ]
-}
-```
+**Logements par gamme :** `bas` < 500€/mois — `moyen` 500–2000€ ou achat < 150k — `haut` > 150k achat.
 
 ---
 
-## Vue carte — map de la ville
-
-- Bouton dédié dans l'interface principale → ouvre la vue map (overlay ou vue séparée)
-- Vue du dessus, pixel art
-- Zones cliquables = changement de secteur actif
-
-```js
-CONFIG.MAP = {
-  ZONES: {
-    quartier_commercial: { secteur: 'commerce',   disponible: true  },
-    quartier_populaire:  { secteur: null,          disponible: true  },
-    // futures zones débloquables...
-  }
-}
-```
-
----
-
-## Véhicules — mobilité et charges
+## Véhicules
 
 ```js
 CONFIG.VEHICULES = {
-  velo:          { secteurs: 1, reputation: 0,  charge_mensuelle: 0,    karma_saisie: 0   },
-  scooter:       { secteurs: 2, reputation: 5,  charge_mensuelle: 50,   karma_saisie: 0   },
-  voiture:       { secteurs: 2, reputation: 10, charge_mensuelle: 200,  karma_saisie: 0   },
-  berline:       { secteurs: 2, reputation: 20, charge_mensuelle: 600,  karma_saisie: -5  },
-  supercar:      { secteurs: 3, reputation: 35, charge_mensuelle: 2000, karma_saisie: -15 },
+  velo:     { prix: 0,     chargeMensuelle: 0,    karma: 0,   reputation: 0,  bonusClic: 0 },
+  scooter:  { prix: 800,   chargeMensuelle: 50,   karma: 0,   reputation: 5,  bonusClic: 0 },
+  voiture:  { prix: 5000,  chargeMensuelle: 200,  karma: 0,   reputation: 10, bonusClic: 1 },
+  berline:  { prix: 15000, chargeMensuelle: 600,  karma: -5,  reputation: 20, bonusClic: 3 },
+  supercar: { prix: 80000, chargeMensuelle: 2000, karma: -15, reputation: 35, bonusClic: 8 },
 }
+CONFIG.ORDRE_VEHICULES = ['velo', 'scooter', 'voiture', 'berline', 'supercar']
 ```
 
 ---
 
-## Boutique — catégories
+## Téléphone & Ordinateur
 
-| Slug | Type | Effet principal |
-|------|------|----------------|
-| `logement` | Permanent | +bonheur base, transmissible |
-| `loisirs` | Temporaire | +bonheur fort, limité |
-| `voyages` | Temporaire | +bonheur, passifs maintenus |
-| `alimentation` | Quotidien | +faim, +bonheur temp |
-| `sante` | Permanent | +espérance de vie |
-| `social` | Karma | +karma, +opportunités |
-| `ordinateur` | Permanent | débloque commandes avancées |
-| `tokens` | Consommable | fuel ordinateur |
+**Téléphone** (1000€) : actions `monter_compte`, `promouvoir`, `jeux_mobile`, `placement_produit` (seuil 10k abonnés).
+
+**Ordinateur** (10000€) : tokens consommables, 3 commandes légales (`bourse` passif, `don_caritatif` karma, `recherche` boost XP), commandes illégales à implémenter.
 
 ---
 
-## UI — conventions
+## UI — Layout
 
-- **Floating text** : ref locale dans ui.js (`flottants`), hors state.js. Animation CSS `@keyframes flotter` 800ms, nettoyage par `setTimeout`.
-- **Couleur multiplicateur** : calculée dans ui.js selon `niveauCompetence[secteurActif]`
-- **Pulse cashflow négatif** : icône menu Finances pulse en rouge CSS si `cashflowNet < 0`
-- **Jauge karma** : couleur progressive vert→rouge via CSS `hsl()` interpolé
+### Architecture
+```
+#app → CSS grid : 220px 1fr, 100vh
+├── .sidebar         (fixe, flex-column)
+└── .zone-centrale   (flex-grow, position: relative, align-items: center)
+```
+
+### Sidebar
+- Sprite CSS `#sprite-perso` : 4 variantes `.sprite--jeune/adulte/senior/vieux` (< 30 / < 50 / < 70 / 70+)
+- Identité : nom + âge + génération
+- 6 jauges `<JaugeBar />`
+- `.sidebar-finances` : argent + cashflow + karma
+- `.sidebar-nav` : boutons vers overlays (finances, logement, téléphone, ordi, véhicules)
+
+### Zone centrale
+Contenu contraint : `max-width: 580px`, centré via `align-items: center`.
+Structure verticale fixe de la zone centrale :
+
+```
+.zone-centrale
+├── .carte-wrap         (flex: 1, overflow: hidden) ← carte ou vue quartier
+├── .action-wrap        (flex-shrink: 0, centré)    ← bouton + multiplicateur + €/clic
+├── .bande-finances     (flex-shrink: 0, sticky)    ← 💰 solde | +X.XX €/s passifs
+└── .panneau-upgrades   (overflow-y: auto)          ← upgrades secteur, scrollable
+```
+
+| `navEcran` | Vue affichée |
+|------------|-------------|
+| `'map'` | Carte ville (`.carte-map`) |
+| `'quartier'` | Façades RPG du quartier |
+| `'batiment'` | Contenu du bâtiment cliqué |
+
+```js
+const navEcran = ref('map')
+const quartierEnCours = ref(null)   // slug du quartier (ex: 'finance')
+const batimentEnCours = ref(null)   // slug du bâtiment (ex: 'banque')
+const panneauOverlay = ref(null)    // 'finances'|'logement'|'telephone'|'ordinateur'|'vehicules'|null
+```
+
+Fonctions de navigation :
+- `ouvrirQuartier(slug)` → `navEcran = 'quartier'`, `quartierEnCours = slug`
+- `ouvrirBatiment(slug)` → `navEcran = 'batiment'`, `batimentEnCours = slug`
+- `retourQuartier()` → `navEcran = 'quartier'`, `batimentEnCours = null`
+- `retourCarte()` → `navEcran = 'map'`, reset tout
+- `entrerDansSecteur(slug)` → `changerSecteur()` + `retourCarte()`
+- `ouvrirOverlay(nom)` / `fermerOverlay()`
+
+**Breadcrumb :** affiché en haut de la zone centrale selon navEcran.
+- map : `🗺 Ville`
+- quartier : `🗺 Ville > [label quartier]`
+- batiment : `🗺 Ville > [label quartier] > [label bâtiment]`
+
+**Vue bâtiment — contenu conditionnel** selon `CONFIG.BATIMENTS[slug].contenu` :
+- `'upgrades'` → upgrades du secteur lié + bouton "Travailler ici" (`entrerDansSecteur`)
+- `'boutique'` → items boutique consommables
+- `'logements'` → logements filtrés par `gamme`
+- `'vehicules'` → liste véhicules achetables
+- `'formations'` → liste formations + timer si `formationActive` + bouton "Étudier" 
+
+### Bouton d'action
+`.action-wrap` : centré horizontalement, `flex-shrink: 0`. Contient :
+- Floating texts (position absolute)
+- Bouton verbe dynamique (`CONFIG.VERBE_METIER`) avec couleur multiplicateur
+- Ligne secondaire : ♦ multiplicateur + revenu/clic
+
+### Bande finances (sticky)
+`.bande-finances` : ligne horizontale centrée, `flex-shrink: 0`, toujours visible.
+Contenu : `💰 X XXX €` séparé par `|` de `+X.XX €/s`.
+Couleur cashflow : vert si ≥ 0, rouge + pulse si < 0.
+
+### Overlays sidebar
+`.panneau-overlay` : `position: absolute; right: 0; top: 0; width: 340px; height: 100%` — par-dessus la carte, refermable via ✕.
+
+---
+
+## Conventions UI
+
+- **`ajouterFlottant(texte, duree=800)`** : helper unique pour tous les floating texts
+- **`now`** : `ref(Date.now())` + `setInterval 1s` — cooldowns téléphone/ordi uniquement
+- **Sprite** : CSS pur, aucune image externe, computed `spriteClasse`
+- **Pulse rouge** : cashflow négatif → animation bouton Finances sidebar
 
 ---
 
 ## Sessions terminées
 
-### Ticket 1 — Structure HTML/JS de base
-Fichiers créés : `index.html`, `src/state.js`, `src/engine.js`, `src/ui.js`, `src/config.js`.
-Moteur vide opérationnel : boucle tick 200ms, état global réactif, HUD + jauges + bouton clic squelettes, zéro logique métier.
+### T1-T2 — Structure + clic
+Fichiers créés. Moteur tick 200ms. `onClic()` → `calculerRevenuClic()`. Floating texts. Verbe bouton dynamique.
 
-### Ticket 2 — Bouton de clic avec gain de monnaie
-- `onClic()` incrémente `state.argent` via `calculerRevenuClic()` (formule complète : `revenuBase × multiplicateurCompétence × modifKarma × modifBonheur`).
-- Floating text : `flottants` ref locale (UI pure, hors state.js), animation CSS `@keyframes flotter` 800ms, nettoyage par `setTimeout`.
-- Verbe bouton : `verbeBouton` computed depuis `CONFIG.VERBE_METIER[metierActif]` avec fallback `VERBE_METIER_DEFAUT`.
-- `revenuClicAffiche` computed remplace l'ancienne valeur statique `state.revenuParClic` dans le template.
+### T3-T4 — Upgrades Commerce
+6 upgrades chaînés. Coût `100 × 2.8^n`. États disponible/trop-cher/verrouille/achete. `acheterUpgrade()`. `state.bonusUpgrades` additif.
 
-### Ticket 3 — Arbre d'upgrades Commerce — UI liste
-- `CONFIG.METIERS.commerce.upgrades` défini dans `config.js` : 6 upgrades chainés par `prerequis` (u_c1→u_c6).
-- Coût calculé dynamiquement : `Math.round(100 * Math.pow(2.8, n - 1))` (n = index 1-based).
-- `renderUpgradesCommerce` : computed Vue dans `AppRoot.setup()`, retourne le tableau des upgrades enrichis de `{ cout, etat }`.
-- Trois états exclusifs : `disponible` (argent OK + prérequis OK), `trop-cher` (prérequis OK, pas assez d'argent), `verrouille` (prérequis non rempli).
-- État `achete` géré implicitement : upgrade présent dans `state.upgrades` (array) → plus de bouton, ✓ affiché.
-- Bouton `disabled` via `:disabled="upg.etat !== 'disponible'"` — pas seulement visuel.
-- Cadenas `🔒` affiché si `verrouille`, pas de bouton.
-- CSS upgrades ajouté dans `index.html` (`.upgrade-item--disponible`, `--trop-cher`, `--verrouille`, `--achete`, `.upgrade-cout--rouge`).
-- Logique d'achat NON implémentée (ticket suivant). engine.js et state.js non modifiés.
+### T5 — Revenus passifs
+`getTauxPassifTotal()`. `tickPassifs()`. Malus bonheur < 20.
 
-### Ticket 4 — Arbre d'upgrades Commerce — Logique achat
-- `state.bonusUpgrades: 0` ajouté dans state.js (cumul additif des bonus clic).
-- `passifValeur` ajouté sur u_c4/u_c5/u_c6 dans config.js (8, 25, 50 — valeurs implicites dans les strings effet).
-- `calculerRevenuClic()` mis à jour : `(CONFIG.REVENU_BASE_CLIC + state.bonusUpgrades) × ...` — bonus additif.
-- `acheterUpgrade(id)` dans engine.js : vérifie argent ≥ coût, prérequis rempli, non déjà acheté → déduit argent, push `{ id }` dans `state.upgrades`, applique effet (bonusClic additif sur `state.bonusUpgrades` / passifId push dans `state.passifs`). Exposée via `window.acheterUpgrade`.
-- ui.js : import `acheterUpgrade`, exposé dans setup() return, `@click="acheterUpgrade(upg.id)"` sur le bouton Acheter.
+### T6-T6b — Niveaux XP
+`state.xpSecteurs`. `calculerNiveau()`. Seuils `[0,100,400,1200,3500]`. 5 paliers par secteur. Barre XP UI.
 
-### Ticket 5 — Système de revenus passifs (tick/seconde)
-- `CONFIG.MALUS_PASSIF_TICK: 5` ajouté dans config.js (€/s déduits si bonheur < 20).
-- `getPlafondPassif(passifId)` : cherche `upgrade.plafond` dans CONFIG.METIERS pour le passif correspondant — retourne null si absent (aucun plafond appliqué). Prêt pour quand les plafonds seront définis.
-- `tauxPassifPlafonné(p)` : applique le plafond si défini, sinon retourne `p.tauxParSeconde` brut.
-- `getTauxPassifTotal()` exportée : somme des taux plafonnés — utilisée par tickPassifs() et par le HUD via computed Vue.
-- `tickPassifs()` modifiée : calcule via `getTauxPassifTotal()`, applique malus bonheur si `state.jauges.bonheur < 20` (soustrait `MALUS_PASSIF_TICK` du taux €/s, plancher 0), puis multiplie par tick ratio.
-- HUD : `| Passifs : +X.X €/s` ajouté dans `.hud__meta` — computed `tauxPassifAffiche` réactif sur `state.passifs`. Temporaire, migrera en vue Finances.
+### T7 — Jauges
+Déclin passif. Faim < 20 → malus santé. Hygiene < 20 → malus réputation.
 
-### Ticket 6 — Système de niveaux par secteur (Commerce)
-- `state.secteurActif: 'commerce'` et `state.xpSecteurs: { commerce:0, finance:0, ... }` ajoutés dans state.js.
-- `CONFIG.NIVEAUX` ajouté dans config.js : `SEUILS: [0, 100, 280]`, `PALIERS_COMMERCE: { 1:'Vendeur', 2:'Responsable commercial', 3:'Franchisé' }`, `FACTEUR_XP: 1.8`.
-- `niveauRequis` ajouté sur chaque upgrade Commerce : u_c1/u_c2 → 1, u_c3/u_c4 → 2, u_c5/u_c6 → 3.
-- `calculerXpClic()` dans engine.js : `Math.max(0.1, 1 × modifKarma × modifBonheur)`. Exportée.
-- `calculerNiveau(secteur)` dans engine.js : cherche le palier atteint dans SEUILS (itération descendante), retourne 1–3. Exportée.
-- `onClic()` dans ui.js : après gain argent, `state.xpSecteurs[state.secteurActif] += calculerXpClic()`.
-- `renderUpgradesCommerce` mis à jour : condition `verrouille` = `!prerequisRempli || !niveauOk` (niveauOk = niveauAtteint >= upg.niveauRequis).
-- Computeds ajoutés dans setup() : `niveauCommerce`, `nomPalierCommerce`, `xpCommerceInfo` (current/max/pct pour la barre).
-- Template upgrades : bloc `.niveau-commerce` affiché en tête — palier + numéro de niveau + barre XP bleue + label `X / Y XP`.
-- CSS ajouté dans index.html : `.niveau-commerce`, `.xp-piste`, `.xp-barre`, `.xp-label`.
+### T8 — Mort et générations
+`verifierMort()`. Heritage 50% argent. `initialiserNouvelleGeneration()`. Karma intergénérationnel. Overlay écran mort.
 
-### Ticket 6b — Extension niveaux Commerce : 3 → 5 paliers
-- `CONFIG.NIVEAUX.SEUILS` : `[0, 100, 400, 1200, 3500]` — 5 paliers.
-- `CONFIG.NIVEAUX.PALIERS_COMMERCE` : 1→Vendeur, 2→Responsable commercial, 3→Franchisé, 4→Directeur régional, 5→Magnat.
-- `niveauRequis` : u_c1→1, u_c2→2, u_c3→2, u_c4→3, u_c5→4, u_c6→5.
-- Seul config.js modifié — `calculerNiveau` (engine.js) est générique, gère N seuils sans changement.
+### T9 — Boutique
+5 items consommables. `acheterItem()`.
 
-### Ticket 7 — Afficher les jauges
-- `CONFIG.JAUGE_DEPART: 80` ajouté dans config.js — valeur initiale de toutes les jauges.
-- `JAUGE_DECAY_PAR_TICK` mis à jour : faim −0.008, hygiene −0.004, bonheur −0.005, sante −0.002, reputation 0.
-- Constantes d'interaction ajoutées : `JAUGE_SEUIL_FAIM: 20`, `JAUGE_MALUS_SANTE_PAR_TICK: 0.003`, `JAUGE_SEUIL_HYGIENE: 20`, `JAUGE_MALUS_REPUTATION_PAR_TICK: 0.002`.
-- state.js : toutes les jauges initialisées à `CONFIG.JAUGE_DEPART` (80), reputation passe de 50 → 80.
-- engine.js : `tickJauges()` refactorisée — helper `clampJauge()`, déclin passif en boucle, puis interactions conditionnelles (faim < 20 → malus sante, hygiene < 20 → malus reputation).
-- ui.js / index.html : aucun changement (JaugeBar et CSS déjà opérationnels depuis ticket 6).
+### T10 — Vue Finances
+`cashflowNet`. 3 onglets revenus/charges/bilan.
 
-### Ticket 8 — Système de mort et boucle générationnelle
-- `CONFIG.DEBUG: false` ajouté dans config.js.
-- state.js : `nomPersonnage: 'Héros'`, `coucheIllegalMax: 0`, `lignee: []` (tableau `{ nom, age_mort, argent_transmis, karma_final, couche_illegale_max }`).
-- engine.js : `tickAge()` ne déclenche plus `onMort()` — délégué à `verifierMort()`.
-- `verifierMort()` : vérifie `sante ≤ 0 || age ≥ CONFIG.AGE_MORT`, garde `_mortDeclenchee` pour éviter le double déclenchement.
-- `tickEvenementsKarma()` : ENNEMI_PUBLIC (karma 0–5) → 2%/tick → `sante −= 15` (clampé).
-- `calculerHeritage()` exportée : `{ nom, age_mort, argent_transmis (50%), karma_final, couche_illegale_max }`.
-- `karmaDepart(lignee)` interne : malus couche 2 (−10), couche 3 (−10), consécutivité couche 3 ≥2 (−15), ≥3 (−15), rédemption vertueuse (+5/génération).
-- `onMort()` : push héritage dans `state.lignee`, stop moteur, dispatch `legacy:mort` avec `{ heritage }`.
-- `initialiserNouvelleGeneration()` exportée : `generation += 1`, reset age/jauges/upgrades/passifs/XP, argent = `argent_transmis` du dernier héritage, karma = `karmaDepart(state.lignee)`.
-- `startEngine()` : reset `_mortDeclenchee = false`.
-- `tick()` : ajout de `tickEvenementsKarma()` + `verifierMort()` en fin de boucle.
-- ui.js : refs `mort` + `heritageAffiche` + listener `legacy:mort` → overlay. Computed `competencesAuDeces` (xpSecteurs → niveau par secteur). Fonctions `nouvelleGeneration()` + `mortSimulee()` (debug).
-- Overlay plein écran : résumé (nom, âge, argent transmis, karma) + grille 6 compétences + bouton "Nouvelle génération →".
-- Bouton debug `☠ Mort simulée` visible uniquement si `CONFIG.DEBUG === true`.
-- index.html : CSS `.overlay-mort`, `.ecran-mort` et enfants, `.debug__mort`.
+### T11 — Multiplicateur coloré
+`CONFIG.MULTIPLICATEURS_NIVEAU`. `getMultiplicateurNiveau()`. Diamant ♦ coloré.
 
-### Ticket 9 — Boutique basique
-- `CONFIG.JAUGE_DECAY_PAR_TICK` mis à jour ×3 : faim 0.024, hygiene 0.012, bonheur 0.015, sante 0.006.
-- `CONFIG.BOUTIQUE.ITEMS` ajouté dans config.js : 5 items (`repas_simple` 10€ +40 faim, `repas_correct` 25€ +70 faim, `douche` 5€ +50 hygiene, `medecin` 50€ +35 sante, `loisir` 30€ +40 bonheur).
-- `acheterItem(id)` exportée dans engine.js : vérifie argent, déduit prix, clamp jauge, retourne item ou null. Exposée via `window.acheterItem`.
-- ui.js : `acheterItem` importée. Computed `itemsBoutique` (items + flag `disabled`). Handler `acheterItemBoutique(id)` + floating text 800ms. `boutiqueFlottants` ref locale.
-- Template restructuré : contenu existant enveloppé dans `.main-col`, `<aside class="boutique-panel">` toujours visible à droite avec les 5 items. Bouton "Boutique" retiré du menu nav.
-- index.html : `#app` passe de flex-column à CSS grid 2 colonnes (`1fr 200px`). `.main-col` occupe `grid-row: 1/3`. `.debug` span les 2 colonnes. CSS `.boutique-panel`, `.boutique-item`, `.boutique-item__btn`, `.boutique-flottant` ajoutés.
+### T12 — Logement
+7 logements. `tickLogement()`. Malus squat. Expulsion. Héritage logement acheté.
 
-### Ticket 10 — Vue Finances & cashflowNet
-- state.js : `cashflowNet: 0` ajouté dans la section Finances.
-- engine.js : `calculerCashflowNet()` exportée — `state.cashflowNet = getTauxPassifTotal() - 0` (totalCharges = 0, prêt pour Ticket 11). Appelée dans `tick()` avant `verifierMort()`.
-- ui.js : computed `tauxPassifAffiche` supprimée (orpheline). HUD — ligne `| Passifs : +X.X €/s` retirée. Ref `ongletFinances` + computeds `financesRevenus` / `financesCharges` ajoutés. Bouton Finances : classe `menus__btn--pulse-rouge` si `state.cashflowNet < 0`. Menu Finances : 3 onglets — Revenus (liste passifs + total), Charges (vide), Bilan (cashflowNet en grand, détail revenus/charges). `.menus button` → `.menus__btn` (sélecteur de classe).
-- index.html : CSS `.menus__btn`, `.menus__btn--pulse-rouge`, `@keyframes pulse-rouge`. CSS `.finances-onglets`, `.finances-onglet`, `.finances-contenu`, `.finances-vide`, `.finances-liste`, `.finances-ligne`, `.finances-total`, `.finances-bilan` et variantes couleur.
+### T13 — Téléphone
+4 actions cooldowns. Abonnés. `executerActionTelephone()`.
 
-### Ticket 11 — Multiplicateur coloré du clic
-- `CONFIG.MULTIPLICATEURS_NIVEAU` ajouté dans config.js : tableau de 5 objets `{ niveau, valeur, couleur, label }` — niv.1 ×1.0 gris, niv.2 ×1.5 blanc, niv.3 ×2.2 jaune, niv.4 ×3.2 orange, niv.5 ×5.0 rouge/or.
-- `getMultiplicateurNiveau(secteur)` exportée dans engine.js : appelle `calculerNiveau(secteur)`, cherche l'entrée correspondante dans `CONFIG.MULTIPLICATEURS_NIVEAU`, fallback sur index 0.
-- `calculerRevenuClic()` mis à jour : `getMultiplicateurCompetence(state.competence)` remplacé par `getMultiplicateurNiveau(state.secteurActif).valeur`.
-- ui.js : import `getMultiplicateurNiveau`. Computed `multiplicateurActuel` → `getMultiplicateurNiveau(state.secteurActif)`. Exposé dans `return`.
-- Template : span `btn-clic__multi` (valeur statique) retiré du bouton. `<span class="multiplicateur-diamant" :style="{ color: multiplicateurActuel.couleur }">♦ {{ multiplicateurActuel.label }}</span>` ajouté adjacent au bouton dans `.btn-clic-wrap`.
-- index.html : CSS `.multiplicateur-diamant` ajouté (font-size 1.15em, bold, transition color 0.3s).
-- Couleur du bouton de clic rendue dynamique : `:class="'btn-clic--' + state.multiplicateurCouleur"` remplacé par `:style="{ color: multiplicateurActuel.couleur }"`. La bordure suit via `currentColor`. Transition `color 0.3s` ajoutée sur `.btn-clic`. Les anciennes classes CSS `.btn-clic--gris/blanc/jaune/orange/or` ne sont plus utilisées pour le bouton principal.
+### T14 — Ordinateur
+Tokens. 3 packs. 3 commandes légales. Prix scalés génération/âge.
 
-### Ticket 12 — Boutique logement — 6 niveaux
-- `CONFIG.LOGEMENTS` ajouté dans config.js : 7 entrées (squat/defaut + 3 locations + 3 achats), champs `{ type, nom, cout, charge, bonheur, transmissible }`.
-- `CONFIG.LOGEMENT_TICK_PRELEVEMENT: 25` (= ~6 mois de jeu), `CONFIG.JAUGES_MALUS_SQUAT` (reputation −0.005/tick, hygiene decay bonus −0.008/tick, bonheur plafond 40), `CONFIG.EXPULSION` (choc reputation −15, choc bonheur −20).
-- state.js : `state.possessions` créé (`logement: 'squat'`, `logementAchete: false`, plus vehicule/ordinateur/tokens/animaux/items pour les tickets futurs). `state._ticksDepuisLoyer: 0` ajouté au root.
-- engine.js : `louerLogement(slug)` (vérifie type=location + premier loyer abordable, set logement) et `acheterLogement(slug)` (déduit cout, set logement+logementAchete=true) exportées + exposées via window. `tickLogement()` : malus squat continus (reputation/hygiene/plafond bonheur) si squat, sinon prélèvement loyer tous les 25 ticks avec expulsion si insolvable. `calculerCashflowNet()` : totalCharges = `CONFIG.LOGEMENTS[state.possessions.logement].charge`. `initialiserNouvelleGeneration()` : logement hérité si `logementAchete`, sinon reset squat. `tickLogement()` branché dans `tick()`.
-- ui.js : import `louerLogement`/`acheterLogement`. Computeds `logementActuel`, `logementLocations`, `logementAchats`. Handlers `actionLouer`/`actionAcheter`. `financesCharges` remplacé par computed réel. `totalChargesAffiche` computed. Bouton `🏠 Logement` dans nav. Vue logement dédiée dans le panel. Onglet Charges Finances mis à jour. Bilan : ligne charges dynamique.
-- index.html : CSS `.logement-vue`, `.logement-actuel`, `.logement-section-titre`, `.logement-liste`, `.logement-item`, `.logement-item--actuel`, `.logement-item--verrouille`, `.logement-item__*`.
+### T15 — Carte / Map
+`CONFIG.MAP.ZONES`. `changerSecteur()`. Cooldown 300s (supprimé au T22).
 
-### Ticket 13 — Système Téléphone
-- `CONFIG.BOUTIQUE.TELEPHONE: { prix: 1000 }` ajouté dans config.js.
-- `CONFIG.TELEPHONE.ACTIONS` ajouté : 4 actions — `monter_compte` (cd 45s, +50 abonnés ×2 si vertueux), `promouvoir` (cd 90s, +200 abonnés + passif `passif_promo` 0.5 €/s non cumulable), `jeux_mobile` (cd 20s, +15 bonheur immédiat + `_bonheurTempExpiry` 30s), `placement_produit` (cd 180s, seuil 10k abonnés, passif `passif_placement` 3 €/s cumulable max 5).
-- state.js : `possessions.telephone: false`, `abonnes: 0`, `telephoneCooldowns: {}`, `_bonheurTempExpiry: 0`.
-- engine.js : `acheterTelephone()` exportée (vérifie argent ≥ 1000 + !telephone). `executerActionTelephone(id)` exportée : vérifie possession + seuil abonnés + cooldown → applique effet → enregistre `telephoneCooldowns[id] = Date.now() + cooldown×1000`. Bonus karma vertueux ×2 sur abonnés. Passif non cumulable (promouvoir) vs cumulable avec passifMax (placement_produit). `initialiserNouvelleGeneration()` : reset telephone/abonnes/telephoneCooldowns/_bonheurTempExpiry.
-- ui.js : `ref now` + `setInterval 1s`. Computed `telephoneActions` (enrichit chaque action de enCooldown/cdRestant/seuilOk/plafondOk/disabled via now.value). Computed `abonnesAffiche` (format k/M). Handlers `actionAcheterTelephone` + `actionTelephone` (floating text via boutiqueFlottants). Bouton 📱 Téléphone dans nav avec badge prix si non acheté. Vue 'telephone' : écran d'achat si !telephone, sinon header abonnés + liste 4 actions (locked/cooldown/max/dispo).
-- index.html : CSS `.nav-badge--prix`, `.telephone-vue`, `.telephone-achat`, `.telephone-mock`, `.telephone-btn-achat`, `.telephone-screen`, `.telephone-header`, `.telephone-abonnes`, `.telephone-actions`, `.telephone-action` + variantes `--locked/--cooldown/--disabled`, `__emoji/__label/__lock/__cd/__btn`.
+### T16 — Secteur Tech
+`CONFIG.METIERS.tech`. `revenuBase: 12`. Computeds généralisés (`renderUpgradesSecteur`, etc.).
 
-### Ticket 14 — Ordinateur : achat, tokens, 3 commandes légales
-- `CONFIG.BOUTIQUE.ORDINATEUR: { prix: 10000 }` ajouté dans config.js.
-- `CONFIG.ORDINATEUR` ajouté : `PACKS_TOKENS` (3 packs : 5/10/20 tokens, prixBase 500/900/1600), `MULTIPLICATEURS_GENERATION` (gen 1→1.0, 2→1.5, 3→2.2, defaut→3.0), `MULTIPLICATEURS_AGE` (18-30→×1.0, 30-50→×1.3, 50-70→×1.6, 70+→×2.0), `COMMANDES` (3 légales : `bourse` passif cumulable 2€/s max 10, `don_caritatif` +8 karma +10 rep, `recherche` boost XP ×1.20 pendant 60s).
-- state.js : `_boostXpExpiry: 0` ajouté (possessions.ordinateur et tokens existaient déjà).
-- engine.js : `calculerXpClic()` modifiée — si `Date.now() < state._boostXpExpiry`, multiplie par `boostXpMulti`. `calculerPrixTokens(prixBase)` exportée : `Math.round(prixBase × multiGen × multiAge)`. `acheterOrdinateur()`, `acheterTokens(quantite)`, `executerCommande(id)` exportées + exposées via window. `initialiserNouvelleGeneration()` : reset `_boostXpExpiry = 0`.
-- ui.js : import 3 nouvelles fonctions + `calculerPrixTokens`. Computeds `prixPacksTokens` (PACKS_TOKENS enrichis de prixReel), `tokensAffiche`, `boostXpActif` (via `now`), `boostXpRestant`. Handlers `actionAcheterOrdinateur`, `actionAcheterTokens`, `actionExecuterCommande` (floating text). Bouton 💻 Ordinateur dans nav avec badge 10k€ si non acheté. Vue 'ordinateur' : écran achat si !ordinateur, sinon section Tokens (solde + 3 packs avec prix réel) + section Commandes (3 items, badge 🔬 ACTIF Xs si boost actif).
-- index.html : CSS `.ordinateur-vue/achat/screen`, `.ordinateur-section-titre`, `.ordinateur-tokens-solde`, `.ordinateur-packs`, `.ordinateur-pack/__btn/--indispo`, `.ordinateur-commandes`, `.ordinateur-commande/--disabled`, `__emoji/__label/__cout/__btn`, `.ordinateur-boost-badge`.
+### T17 — Secteur Finance
+Aléatoire `[5–40]`. Feedback couleur floating text.
 
-### Ticket 15 — Vue Carte / Map
-- `CONFIG.MAP` ajouté dans config.js : `COOLDOWN_CHANGEMENT: 300s`, `COUTS_CHANGEMENT` (6 clés directionnelles + defaut 5000), `ZONES` (commerce/finance/tech avec x/y% et disponible).
-- state.js : `_changementSecteurExpiry: 0`.
-- engine.js : `calculerCoutChangement(secteurCible)` exportée (lookup cle directionnelle ou defaut). `changerSecteur(secteurCible)` exportée : vérifie same/cooldown/argent → déduit → change secteurActif → enregistre expiry. `initialiserNouvelleGeneration()` : reset _changementSecteurExpiry + secteurActif = 'commerce'.
-- ui.js : `vueActive = ref(null)` + `toggleCarte()`. `toggleMenu()` reset vueActive. Computed `carteZones` (enrichit zones de estActuelle/enCooldown/cdRestant/cout/abordable/disabled via now.value). Computed `cdGlobalRestant` (format mm:ss). Handler `actionChangerSecteur`. Bouton 🗺 Carte dans nav (`.menus__btn--actif` si actif). Template : `v-if="vueActive !== 'carte'"` sur zone-clic, vue carte complète avec 3 zones positionnées en % + panneau info bas. Finance et Tech affichent 🔒 Bientôt (disponible: false).
-- index.html : CSS `.menus__btn--actif`, `.carte-container`, `.carte-map` (grille pixel art CSS), `.carte-zone` + variantes `--active/--locked/--cooldown/--indispo`, `__emoji/__label/__lock/__badge/__cout`, `.carte-info`, `.carte-cooldown-global`.
+### T18 — Véhicules
+5 véhicules. `vehiculePermetSecteur()`. `acheterVehicule()`. Charges mensuelles.
 
-### Ticket 16 — Secteur Tech
-- config.js : `CONFIG.NIVEAUX.PALIERS_TECH` ajouté (`1:Développeur junior` → `5:Fondateur`). `CONFIG.METIERS.tech` ajouté : `revenuBase: 12`, 6 upgrades à structure plate (u_t1→u_t6 : Laptop pro/IDE premium/Framework maison/Open source repo/Équipe tech/SaaS produit). `CONFIG.METIERS.commerce.revenuBase: 1` explicité. `CONFIG.MAP.ZONES.tech.disponible: true`.
-- engine.js : `calculerRevenuClic()` utilise `CONFIG.METIERS[state.secteurActif]?.revenuBase ?? CONFIG.REVENU_BASE_CLIC` — chaque secteur a son propre revenu de base.
-- ui.js : 4 computeds généralisés — `renderUpgradesCommerce→renderUpgradesSecteur` (lit `CONFIG.METIERS[state.secteurActif]`), `niveauCommerce→niveauSecteur`, `nomPalierCommerce→nomPalierSecteur` (lookup `CONFIG.NIVEAUX['PALIERS_' + secteur.toUpperCase()]`), `xpCommerceInfo→xpSecteurInfo`. `verbeBouton` : cherche `secteurActif` en premier, puis `metierActif`, puis DEFAUT. Template : toutes les refs commerce-spécifiques remplacées par les génériques. Ajout `<p v-if="renderUpgradesSecteur.length === 0">` pour les secteurs sans upgrades. Return mis à jour.
-- index.html : aucun changement CSS nécessaire (styles upgrades/niveaux déjà génériques).
+### T19 — Secteur Immobilier
+8 upgrades. Événements pondérés. `_immoPassifMulti`.
 
-### Ticket 17 — Secteur Finance
-- config.js : `VERBE_METIER.finance: 'Passer un ordre'`. `CONFIG.METIERS.finance` : `revenuBase: null`, `revenuMin: 5`, `revenuMax: 25`, 6 upgrades à structure `effet` imbriquée (u_f1→u_f6 : Compte courtier/Analyse technique/Portefeuille diversifié/Fonds d'investissement/Hedge fund/Empire financier). `CONFIG.NIVEAUX.PALIERS_FINANCE` (Stagiaire→Magnat). `MAP.ZONES.finance.disponible: true`.
-- state.js : `_dernierGainClic: 0` ajouté (dernier revenu brut pour feedback couleur).
-- engine.js : `calculerRevenuClic()` — branche finance : base aléatoire `[5–25]` + `bonusUpgrades`, arrondi à 2 décimales, stocké dans `_dernierGainClic`, retourné sans modif karma/bonheur. Autres secteurs : comportement inchangé, stockent aussi dans `_dernierGainClic`. `acheterUpgrade()` : supporte les deux structures — plate (`upgrade.bonusClic`) ET imbriquée (`upgrade.effet.bonusClic`) — via `upgrade.effet?.bonusClic ?? upgrade.bonusClic`.
-- ui.js : `onClic()` — après calcul du gain, si `secteurActif === 'finance'` : classe `flottant--positif` (>20€), `flottant--negatif` (<10€), `flottant--neutre` (sinon). Stockée dans l'objet flottant. Template : `:class="f.classe"` ajouté sur le span flottant.
-- index.html : `.flottant--positif` (vert vif, bold, 1.1em), `.flottant--negatif` (rouge), `.flottant--neutre` (jaune). Couleur par défaut `.flottant` conservée pour les autres secteurs.
+### T20 — Secteur BTP
+7 chantiers chaînés avec timer. `lancerChantier()`. Clic accélère.
 
-### Ticket 18 — Véhicules
-- config.js : `CONFIG.VEHICULES` (5 véhicules : velo→supercar, champs prix/chargeMensuelle/karma/reputation/bonusClic). `MAP.ZONES.finance.vehiculeRequis: 'voiture'`, `MAP.ZONES.tech.vehiculeRequis: 'berline'`. `MAP.MESSAGES_BLOCAGE_VEHICULE` (messages humoristiques inline pour finance et tech).
-- state.js : `_dernierGainClic` déjà présent. `possessions.vehicule: null` déjà présent. Aucun changement.
-- engine.js : `ORDRE_VEHICULES` constant interne. `vehiculePermetSecteur(secteurCible)` exportée : compare index ORDRE du véhicule actuel vs requis (null = toujours OK). `acheterVehicule(id)` exportée : annule effets ancien véhicule (karma/reputation), applique nouveau. `calculerRevenuClic()` : ajoute `vehiculeBonus` (bonusClic du véhicule actuel) pour tous les secteurs. `calculerCashflowNet()` : inclut `chargeMensuelle` du véhicule dans totalCharges. `changerSecteur()` : vérifie `vehiculePermetSecteur` en premier, retourne `{ raison: 'vehicule', message }` si bloqué.
-- ui.js : import `acheterVehicule`/`vehiculePermetSecteur`. `messageBlocageCarte = ref('')`. `toggleVehicules()`. Computeds `vehiculeActuel`, `boutiqueVehicules` (avec flags estActuel/abordable/estInferieur via `_ORDRE_VEHICULES`). Handler `actionAcheterVehicule`. `actionChangerSecteur` : affiche message inline si `raison === 'vehicule'`. Template : zone-clic `v-if="vueActive === null"` (générique). Bouton 🚗 Véhicules dans nav. Vue vehicules : 5 cards avec prix/charges/effets/badge ACTUEL/Déjà dépassé. `carte-message-blocage` inline sous la carte.
-- index.html : CSS `.vehicule-card` et variantes, `.carte-message-blocage`.
+### S1 — Simplification
+`ajouterFlottant()` helper. `Object.assign(window,{})` unique. −75 lignes.
 
-### Ticket 19 — Secteur Immobilier + patches
-- config.js : `VERBE_METIER.immobilier: 'Signer un bail'`. `NIVEAUX.PALIERS_IMMOBILIER` (Propriétaire débutant→Magnat de l'Immo). `METIERS.immobilier` : revenuBase 20, 8 upgrades avec prix explicite et passifs passif_immo_1→8. `CONFIG.IMMOBILIER.EVENEMENTS` : 4 événements pondérés (travaux/locataire_fuite/hausse_marche/locataire_premium) + INTERVALLE_MIN/MAX 110–130s. Zone `immobilier` dans MAP.ZONES (berline requise). Messages blocage mis à jour pour finance/tech/immobilier. Patch : finance vehiculeRequis→supercar, tech→voiture, finance revenuMax→40.
-- state.js : `_immoEvenementExpiry: 0`, `_immoPassifMulti: 1.0`, `_immoPassifMultiExpiry: 0`.
-- engine.js : `acheterUpgrade` utilise `upgrade.prix` quand défini (sinon formule générique). `getTauxPassifTotal` applique `_immoPassifMulti` aux passifs `passif_immo_*`. `declencherEvenementImmo()` exportée : tirage pondéré, applique effets, planifie prochain événement, dispatch `legacy:immo-event`. `tickImmo()` : reset passifMulti expiré (global), init/déclenchement événements si secteur immo. Branchée dans `tick()`. Reset immo dans `initialiserNouvelleGeneration`.
-- ui.js : `derniereNotifImmo = ref(null)` + listener `legacy:immo-event` (clear 4s). `immoPassifBadge` computed. `renderUpgradesSecteur` : coût via `upgrade.prix ?? formule`, `effetTexte` généré (string, bonusClic, passifId) — corrige [object Object] pour finance/immo. Template : notif `.immo-notif` fixée, badge `.immo-passif-badge` si multi ≠ 1, `.upgrade-prix` affiché si prix explicite.
-- index.html : CSS `.immo-notif`, `@keyframes fadeInOut`, `.immo-passif-badge`, `.upgrade-prix`.
+### T21 — Secteur Influence
+Hold-to-release gaussien (cible 5s). Abonnés → monétisation. Accès : téléphone + ordinateur.
 
-### Ticket 20 — Secteur BTP : chantiers avec timer
-- config.js : `VERBE_METIER.btp: 'Donner un coup de main'`. `NIVEAUX.PALIERS_BTP` (Ouvrier→Groupe BTP). `METIERS.btp` : `revenuBase: 5`, `clicAccelere: 1`, 7 upgrades chaînés (u_b1→u_b7, 30s/500€ → 900s/100 000€, sans prix d'achat). `MAP.ZONES.btp` : disponible, vehiculeRequis 'velo'. `MAP.MESSAGES_BLOCAGE_VEHICULE.btp: null`.
-- state.js : `chantierActif: null` (`{ id, label, dureeRestante, dureeInitiale, recompense }`) et `btpCompletes: []` (ids complétés, sert de prérequis pour la chaîne).
-- engine.js : `lancerChantier(id)` vérifie secteur/chantier actif/niveau/prérequis btpCompletes. `terminerChantier()` crédite argent, push btpCompletes, null chantierActif, dispatch `legacy:btp-complete`. `tickBtp()` décrémente `dureeRestante` de TICK_MS/1000 à chaque tick. `calculerRevenuClic()` : en BTP avec chantier actif, réduit dureeRestante de clicAccelere par clic (+ complétion immédiate si 0) — revenu de base 5€ toujours retourné. Tout exposé via `Object.assign(window, {...})`.
-- ui.js : `renderUpgradesSecteur` branché BTP (estBtp/enCours, cout=0, prerequis via btpCompletes, etat sans achete). Computed `chantierProgression` (timer formaté, pourcent barre). Handler `actionLancerChantier`. Listener `legacy:btp-complete` → floating text 2s. Template : bouton "Lancer" (BTP) vs "Acheter" (autres), bloc `.btp-chantier-actif` avec progress bar verte + hint.
-- index.html : CSS `.btp-chantier-actif`, `.btp-progress-bar`, `.btp-progress-fill`, `.btp-chantier-timer`, `.btp-chantier-recompense`, `.btp-clic-hint`.
+### UI-R1 — Refonte layout ✅
+Grid 2 colonnes. Sprite CSS. Sidebar-nav. `.btn-travailler` centré dans zone centrale. `panneauOverlay` drawer. `navEcran` + vue quartier façades RPG. `max-width: 580px` contenu central.
 
-### Simplification — Ticket S1
-- ui.js : helper `ajouterFlottant(texte, duree=800)` créé juste après `boutiqueFlottants` — encapsule le pattern push+setTimeout. Remplace 10 occurrences identiques (−53 lignes).
-- engine.js : tous les `window.xxx = xxx` éparpillés (16 lignes) remplacés par un unique `Object.assign(window, {...})` en fin de fichier. Suppression de `tickCompetence()` et `getMultiplicateurCompetence()` (dead code).
-- config.js : suppression de `MULTIPLICATEUR_COMPETENCE` et `COULEUR_COMPETENCE` (−15 lignes, remplacés par `MULTIPLICATEURS_NIVEAU`).
-- state.js : suppression de `competence: 1` et `multiplicateurCouleur` (−3 lignes, plus utilisés).
-- Bilan net : −75 lignes sans aucun changement de comportement.
+### T22 — Suppression cooldown + Formations + Coût installation ✅
+Cooldown changement secteur supprimé. `CONFIG.FORMATIONS` array avec duree. `inscrireFormation()` remplace `acheterFormation()`. `secteursVisites`, `formations` dans state. `COUT_INSTALLATION` 2000€ à la première visite. Campus + ecole ajoutés.
 
-### Ticket 21 — Secteur Influence
-- config.js : `VERBE_METIER.influence: 'Créer du contenu'`. `NIVEAUX.PALIERS_INFLUENCE` (Créateur débutant→Phénomène viral). `METIERS.influence` : `revenuBase: 0`, `tauxMonetisation: 0.001`, 6 upgrades u_inf1→u_inf6 (3 bonusAbonnes : 10%/15%/25%/50%, 2 passifs : passif_inf4 5€/s, passif_inf6 30€/s). `MAP.ZONES.influence` (x:45, y:35, voiture requise). `CONFIG.INFLUENCE` : `CIBLE_SECONDES:5`, `SIGMA:2`, `APPUI_MIN:0.3`. Accès : téléphone + ordinateur requis.
-- state.js : `_influenceAppuiDebut: 0` ajouté. Reset dans `initialiserNouvelleGeneration`.
-- engine.js : `calculerGainInfluence(dureeSeconde)` exportée — Gaussienne centrée sur 5s (σ=2), gainAbonnés = base × (1+bonusUpgrades) × exp, gainArgent = abonnés × tauxMonetisation. `changerSecteur` : check possession téléphone+ordinateur avant véhicule pour secteur influence (`raison: 'possessions'`). Exposée via `Object.assign`.
-- ui.js : import `calculerGainInfluence`. Refs `influenceAppuiMs`, `influenceEnAppui`, variable `_influenceRafId`. Handlers `onInfluenceDebut` (lance RAF loop) / `onInfluenceFin` (cancel RAF, calcule gain, ajouterFlottant). Computeds `influenceBarrePct` (0→100% sur 10s), `influencePrecisionLabel` (🎯 Parfait/⬆/⬇ selon delta). `effetTexte` dans `renderUpgradesSecteur` : supporte `e.bonusAbonnes`. `actionChangerSecteur` : gère `raison === 'possessions'`. Template : zone-clic conditionnée `secteurActif !== 'influence'` ; section `.zone-influence` avec @mouseleave guard, barre de progression, label précision, bouton hold (mousedown/mouseup/touch).
-- index.html : CSS `.zone-influence`, `.influence-abonnes`, `.influence-barre-wrap`, `.influence-barre-cible`, `.influence-barre-fill` + `--actif`, `.influence-precision`, `.btn-influence`, `.influence-hint`.
+### UI-R2 — Recentrage bouton d'action + bande finances sticky ✅
+`.action-wrap` flex-shrink:0 sous la carte. `.bande-finances` sticky bottom:0, font-size agrandie. `.panneau-upgrades` scrollable. Zone centrale restructurée en flex-column.
 
-### Ticket UI-R1 — Redesign interface : ville navigable + layout sidebar
+### T23 — Vue bâtiment cliquable + formations timer ✅
+3ème niveau de navigation map→quartier→bâtiment. `batimentEnCours` ref. `ouvrirBatiment()`, `retourQuartier()`. `breadcrumb` computed. `formationActiveInfo` + `formationsCampus`. Timer formations : `inscrireFormation` → `tickFormation` → `terminerFormation`. Vue bâtiment conditionnelle selon `contenu`.
 
-- engine.js et state.js : **aucun changement**.
-- ui.js : `panneauActif = ref('travail')` (valeur fixe, ne change plus). `panneauOverlay = ref(null)` — contrôle l'overlay latéral (`'finances' | 'logement' | 'telephone' | 'ordinateur' | 'vehicules' | 'boutique' | null`). `ouvrirOverlay(nom)` (toggle) + `fermerOverlay()`. `navEcran = ref('map')` — `'map' | 'quartier'`. `quartierEnCours = ref(null)`. `ouvrirQuartier(slug)` : boutique → `ouvrirOverlay('boutique')`, sinon → `navEcran='quartier'`. `entrerDansSecteur(slug)` : appelle `changerSecteur` puis `retourCarte()`. `spriteClasse` computed : age-based CSS class.
-- ui.js template : sidebar-nav buttons → `ouvrirOverlay(nom)`, `--actif` si `panneauOverlay === nom`. `btn-travailler-wrap` déplacé de la sidebar vers le bas de `<main class="zone-centrale">`. La carte est **toujours visible** — les panneaux sont un `.panneau-overlay` absolue positionné (drawer latéral droit). Vue quartier `.quartier-vue` avec breadcrumb, façade bâtiments (basée sur `CONFIG.QUARTIERS?` optionnel), bouton "Travailler ici". `.panneau-upgrades` visible uniquement en `navEcran === 'map'`.
-- index.html CSS : `.zone-centrale` → `align-items: center`. `.ville-container, .panneau-upgrades, .panneau-plein, .influence-zone-centrale` → `max-width: 580px; width: 100%`. `.btn-travailler-wrap` → centré, `max-width: 580px`, `align-items: center`, `padding: 12px`. `.btn-travailler` → `min-width: 200px; max-width: 320px; padding: 14px 32px`. `.panneau-overlay` absolute `top:0 right:0`, largeur 340px, `z-index: 10`, `box-shadow`. `.panneau-overlay__header/titre/fermer`. `.quartier-vue`, `.quartier-facade`, `.batiment-card/__toit/__corps/__emoji/__label`. `.btn-entrer-secteur`.
+### T24 — Refonte carte + quartiers + vue bâtiment navigation ✅
+Quartier Immobilier supprimé de la carte. CONFIG.QUARTIERS/BATIMENTS refactorisés (garage BTP, concessionnaire Finance). `vehiculeRequis` corrigés (BTP:null, commerce:velo, campus:velo). Zones grisées avec emoji véhicule requis si véhicule insuffisant. `vehiculesBatiment` computed filtré par gamme ('bas'→vélo/scooter, 'haut'→voiture+). "Travailler ici" uniquement dans la vue bâtiment.
 
-### Ticket T22 — Suppression cooldown secteurs + Quartier Campus
+---
 
-**Objectif** : Changement de secteur libre et instantané ; campus = lieu de formation sur la carte.
+### T22 — Suppression cooldown + Formations + Coût installation ✅
 
-- config.js : Suppression de `MAP.COOLDOWN_CHANGEMENT` et `MAP.COUTS_CHANGEMENT`. Ajout zone `campus` dans `MAP.ZONES` (`secteur: null`, x:10, y:55, vehiculeRequis:null). Ajout `CONFIG.FORMATIONS` : 11 formations répétables (2 niveaux commerce/finance/tech/immo/influence, 1 niveau btp), champs `{ id, emoji, label, secteur, cout, gainXP }`.
-- state.js : Suppression de `_changementSecteurExpiry: 0` (−1 ligne).
-- engine.js : Suppression de `calculerCoutChangement()`. `changerSecteur()` réduit à 3 vérifications strictes dans l'ordre : `same` → `possessions` (influence) → `vehicule` → `{ ok: true }`. Suppression de `state._changementSecteurExpiry = ...` et `state.argent -= cout`. `initialiserNouvelleGeneration()` : suppression du reset `_changementSecteurExpiry`. Nouvelle fonction exportée `acheterFormation(id)` : déduit `cout`, ajoute `gainXP` à `xpSecteurs[secteur]`, retourne `{ ok, gainXP, secteur }`. Exposée via `Object.assign(window, {...})`.
-- ui.js : Suppression de `calculerCoutChangement` de l'import. `carteZones` computed simplifié : suppression de `enCooldown/cdRestant/cout/abordable` — juste `estActuelle` (secteur non-null et actif) + `disabled` (estActuelle ou indisponible). `ouvrirQuartier` branché sur `zone.id` (non `zone.secteur`) pour supporter campus. Suppression de `cdGlobalRestant`. Ajout computed `formationsCampus` (CONFIG.FORMATIONS + flag `disabled`). Handler `actionAcheterFormation(id)` avec floating text. Template : zones carte sans affichage de coût ni cooldown ; carte-info sans `cdGlobalRestant` ; vue quartier campus = liste formations (classes boutique réutilisées) ; vue quartier non-campus = façade RPG + bouton "Travailler ici" (inchangé).
-- index.html : **non modifié**.
+**Fichiers :** `config.js`, `state.js`, `engine.js`, `ui.js` — pas d'index.html.
 
-### Ticket UI-R2 — Réordonnancement zone centrale + bande-finances
+**config.js :**
+- Supprimer `COOLDOWN_CHANGEMENT` et `COUTS_CHANGEMENT` de `CONFIG.MAP`
+- Ajouter `CONFIG.MAP.COUT_INSTALLATION: 2000`
+- Ajouter `CONFIG.FORMATIONS` (voir section dédiée)
+- Ajouter `campus` dans `CONFIG.QUARTIERS`, `ecole` dans `CONFIG.BATIMENTS`
+- Mettre à jour `CONFIG.MAP.ZONES` avec les `vehiculeRequis` corrects (voir section)
 
-- engine.js, state.js, config.js : **aucun changement**.
-- ui.js : Suppression du bloc `.sidebar-finances` de la sidebar (solde + cashflow). Déplacement du bloc `.btn-travailler-wrap` depuis le bas de `zone-centrale` (après upgrades) vers juste après la barre influence. Ajout du bloc `.bande-finances` après `btn-travailler-wrap` (solde + séparateur + cashflow coloré). Ordre final dans `<main class="zone-centrale">` : vue carte → vue quartier → influence barre → btn-travailler-wrap → bande-finances → panneau-upgrades → panneau-overlay → immo-notif.
-- index.html : Suppression de `margin-top: auto` sur `.btn-travailler-wrap` (n'est plus en bas de colonne). Ajout CSS `.bande-finances`, `.bande-finances__solde`, `.bande-finances__sep`, `.bande-finances__passifs`.
+**state.js :**
+- Ajouter `secteursVisites: ['commerce']`
+- Ajouter `formations: []`
+- Supprimer `_changementSecteurExpiry`
+- `initialiserNouvelleGeneration()` : reset `formations = []`, `secteursVisites = ['commerce']`
 
-### Simplification — Ticket S2 — Nettoyage code mort
-- ui.js : suppression de `panneauActif` (ref inutilisée), `setPanneau()` (fonction inutilisée), `vehiculeActuel` (computed inutilisé) — retirés de la déclaration et du `return`. −10 lignes.
-- index.html : suppression de `.hud__argent`, `.hud__meta` (ancien HUD), `.btn-clic` + `.btn-clic:active` (remplacé par `.btn-travailler`), `.menus` + `.menus__btn` + `.menus__btn:hover` + `.menus__btn--pulse-rouge` (ancien nav horizontal), `.panneau-plein` (jamais utilisé), `.menus__btn--actif` (idem). `@keyframes pulse-rouge` conservé (utilisé par `.cashflow-negatif` et `.sidebar-nav__btn--pulse-rouge`). −17 lignes CSS.
-- Bilan net : −27 lignes sans aucun changement de comportement.
+**engine.js :**
+- Supprimer `calculerCoutChangement()`
+- Supprimer toute référence à `_changementSecteurExpiry`
+- Réécrire `changerSecteur(slug)` — ordre des vérifications :
+  1. Même secteur → `{ ok: false, raison: 'meme_secteur' }`
+  2. Formation manquante → `{ ok: false, raison: 'formation', message }`
+  3. Véhicule insuffisant → `{ ok: false, raison: 'vehicule', message }`
+  4. Possessions manquantes (influence) → `{ ok: false, raison: 'possessions', message }`
+  5. Première visite + argent insuffisant → `{ ok: false, raison: 'argent', message }`
+  6. Première visite : déduit `COUT_INSTALLATION`, push dans `secteursVisites`
+  7. `state.secteurActif = slug` → `{ ok: true }`
+- Ajouter `acheterFormation(secteur)` : vérifie argent → déduit → push `state.formations`. Exposée via `Object.assign`.
+
+**ui.js :**
+- Supprimer `cdGlobalRestant` computed et affichage
+- Supprimer `calculerCoutChangement` import + usage
+- `carteZones` computed : supprimer `enCooldown`/`cdRestant`, ajouter `formationRequise` (bool) et `coutInstallation` (si première visite)
+- Ajouter computed `formationsDisponibles` (CONFIG.FORMATIONS enrichi de `estAchetee`/`abordable`)
+- Ajouter handler `actionAcheterFormation(secteur)`
+- Template carte : zone formation affiche 🎓 + label formation
+- Template quartier campus : vue formations au lieu de façades standard
+- Imports et `return` mis à jour
+
+**Contraintes :** zéro régression véhicules/possessions influence. Aucune modification index.html.
+
+---
+
+### UI-R2 — Recentrage bouton d'action + bande finances sticky ✅
+
+**Fichiers :** `index.html`, `ui.js` — engine.js, state.js, config.js non touchés.
+
+**Objectif :** Restructurer la zone centrale pour que le bouton d'action soit directement sous la carte, suivi d'une bande solde/passifs sticky, puis les upgrades scrollables.
+
+**index.html — CSS :**
+- `.zone-centrale` : `display: flex; flex-direction: column; overflow: hidden` — ne plus utiliser `align-items: center` globalement
+- `.carte-wrap` : `flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0` — contient la carte ou la vue quartier
+- `.action-wrap` : `flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 16px; background: #0d0d0d; border-top: 1px solid #1a1a1a; position: relative`
+- `.bande-finances` : `flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 16px; padding: 8px 16px; background: #0f0f0f; border-top: 1px solid #1a1a1a; font-size: 0.95em`
+- `.bande-finances__solde` : `font-weight: bold; color: #e0e0e0`
+- `.bande-finances__sep` : `color: #333`
+- `.bande-finances__passifs` : `font-size: 0.9em` — vert si ≥ 0, rouge + pulse si < 0
+- `.panneau-upgrades` : `flex: 1; overflow-y: auto; padding: 12px; max-width: 580px; width: 100%; align-self: center`
+- `.btn-travailler` : `min-width: 220px; max-width: 340px; padding: 14px 32px` — retirer `width: 100%` s'il est présent
+- Supprimer `.btn-travailler-wrap` s'il existait comme wrapper sidebar — remplacé par `.action-wrap`
+
+**ui.js — template :**
+
+Restructurer `<main class="zone-centrale">` :
+
+```html
+<main class="zone-centrale">
+
+  <!-- Carte ou vue quartier -->
+  <div class="carte-wrap">
+    <!-- contenu navEcran === 'map' ou 'quartier' inchangé -->
+  </div>
+
+  <!-- Bouton d'action -->
+  <div class="action-wrap">
+    <div class="zone-clic__flottants" aria-hidden="true">
+      <span v-for="f in flottants" :key="f.id" class="flottant" :class="f.classe">
+        +{{ f.gain.toFixed(2) }} €
+      </span>
+    </div>
+    <button
+      class="btn-travailler"
+      :style="{ color: multiplicateurActuel.couleur, borderColor: multiplicateurActuel.couleur }"
+      @click="state.secteurActif !== 'influence' && onClic()"
+      @mousedown="state.secteurActif === 'influence' && onInfluenceDebut()"
+      @mouseup="state.secteurActif === 'influence' && onInfluenceFin()"
+      @touchstart.prevent="state.secteurActif === 'influence' && onInfluenceDebut()"
+      @touchend.prevent="state.secteurActif === 'influence' && onInfluenceFin()"
+    >{{ verbeBouton }}</button>
+    <div class="action-meta">
+      <span class="multiplicateur-diamant" :style="{ color: multiplicateurActuel.couleur }">
+        ♦ {{ multiplicateurActuel.label }}
+      </span>
+      <span class="revenu-par-clic">{{ revenuClicAffiche.toFixed(2) }} €/clic</span>
+    </div>
+  </div>
+
+  <!-- Bande finances sticky -->
+  <div class="bande-finances">
+    <span class="bande-finances__solde">💰 {{ state.argent.toFixed(2) }} €</span>
+    <span class="bande-finances__sep">|</span>
+    <span class="bande-finances__passifs"
+      :class="state.cashflowNet >= 0 ? 'cashflow-positif' : 'cashflow-negatif'">
+      {{ state.cashflowNet >= 0 ? '+' : '' }}{{ state.cashflowNet.toFixed(2) }} €/s
+    </span>
+  </div>
+
+  <!-- Upgrades scrollables -->
+  <div class="panneau-upgrades">
+    <!-- contenu upgrades inchangé -->
+  </div>
+
+  <!-- Overlay panneau sidebar -->
+  <div v-if="panneauOverlay" class="panneau-overlay">
+    <!-- contenu overlay inchangé -->
+  </div>
+
+</main>
+```
+
+- Retirer `.btn-travailler-wrap` de la `<aside class="sidebar">` s'il y est encore
+- Retirer `@mouseleave` influence de la sidebar — le déplacer sur `.action-wrap`
+- `.sidebar-finances` dans la sidebar peut être simplifiée ou supprimée (solde maintenant dans `.bande-finances`)
+- Le `argent` et `cashflowNet` restent dans la sidebar si tu veux (doublon acceptable) ou on les retire — **garder uniquement dans `.bande-finances`** pour éviter la redondance
+
+**Contraintes :** zéro régression fonctionnelle. Le secteur Influence (hold-to-release) doit continuer à fonctionner via `.action-wrap`.
+
+---
+
+### T23 — Vue bâtiment cliquable + formations timer ✅
+
+**Fichiers :** `config.js`, `state.js`, `engine.js`, `ui.js`, `index.html`
+
+**Objectif :** Ajouter un 3ème niveau de navigation (map → quartier → bâtiment) et refondre le système de formations en mécanique active avec timer.
+
+---
+
+**config.js :**
+- Mettre à jour `CONFIG.FORMATIONS` : passer de l'objet actuel à l'array avec champs `{ id, emoji, label, secteur, cout, gainXP, duree }` (voir section "Formations" du MD)
+- Vérifier que `CONFIG.QUARTIERS` et `CONFIG.BATIMENTS` sont bien présents (déjà dans le code)
+
+**state.js :**
+- Ajouter `formationActive: null` — structure `{ id, secteur, label, dureeRestante, dureeInitiale, gainXP }`
+- `initialiserNouvelleGeneration()` : reset `formationActive = null`
+
+**engine.js :**
+- Ajouter `inscrireFormation(id)` : vérifie argent ≥ cout + `!state.formationActive` → déduit coût → set `state.formationActive`. Retourne `{ ok, raison? }`.
+- Ajouter `etudierFormation()` : si `formationActive` → `dureeRestante = Math.max(0, dureeRestante - 2)` → si 0 appelle `terminerFormation()`. Retourne `{ ok }`.
+- Ajouter `terminerFormation()` : crédite `gainXP` dans `xpSecteurs[secteur]` + push secteur dans `formations` + reset `formationActive = null` + dispatch `legacy:formation-complete`.
+- Ajouter `tickFormation()` : si `formationActive` → décrémente `dureeRestante` de `TICK_MS/1000` → si ≤ 0 appelle `terminerFormation()`. Brancher dans `tick()`.
+- Modifier `acheterFormation()` existant → renommer en `inscrireFormation()` (nouvelle mécanique remplace l'ancienne)
+- Exposer `inscrireFormation`, `etudierFormation` via `Object.assign`
+
+**ui.js :**
+- Ajouter `const batimentEnCours = ref(null)`
+- Ajouter `ouvrirBatiment(slug)`, `retourQuartier()` (voir section navigation MD)
+- Ajouter computed `breadcrumb` : string calculée depuis `navEcran` + `quartierEnCours` + `batimentEnCours`
+- Ajouter computed `formationActiveInfo` : enrichit `state.formationActive` de `pourcent` et `tempsAffiche` (même pattern que `chantierProgression`)
+- Ajouter computed `formationsCampus` : `CONFIG.FORMATIONS` enrichi de `estTerminee` (dans `state.formations`), `enCours` (id === `formationActive?.id`), `disabled` (argent insuffisant OU formationActive en cours sur autre formation)
+- Ajouter handler `actionInscrireFormation(id)` et `actionEtudierFormation()`
+- Listener `legacy:formation-complete` → `ajouterFlottant`
+- Template : ajouter `v-else-if="navEcran === 'batiment'"` dans zone centrale
+- Vue bâtiment : breadcrumb + contenu conditionnel selon `CONFIG.BATIMENTS[batimentEnCours].contenu`
+  - `'upgrades'` : réutilise `.panneau-upgrades` existant + bouton "Travailler ici"
+  - `'boutique'` : réutilise liste items existante
+  - `'logements'` : réutilise vue logements existante filtrée par gamme
+  - `'vehicules'` : réutilise vue véhicules existante
+  - `'formations'` : liste formations avec état (terminée ✓ / en cours barre progression / disponible / locked) + bouton "Étudier" si formationActive
+- Dans vue quartier : clic sur `.batiment-card` → `ouvrirBatiment(slugBat)` au lieu de rien
+- Exposer `batimentEnCours`, `ouvrirBatiment`, `retourQuartier`, `breadcrumb`, `formationActiveInfo`, `formationsCampus`, `actionInscrireFormation`, `actionEtudierFormation` dans le `return`
+
+**index.html :**
+- Ajouter CSS `.breadcrumb`, `.breadcrumb__item`, `.breadcrumb__sep`
+- Ajouter CSS `.batiment-vue` (wrapper contenu bâtiment)
+- Ajouter CSS `.formation-item`, `.formation-item--terminee`, `.formation-item--en-cours`, `.formation-barre`, `.formation-barre-fill`, `.formation-timer`, `.btn-etudier`
+
+**Contraintes :**
+- Zéro régression sur BTP, logement, véhicules, téléphone, ordinateur
+- `acheterFormation()` dans engine.js remplacé par `inscrireFormation()` — mettre à jour l'import dans ui.js
+- Les overlays sidebar (finances, logement...) continuent de fonctionner en parallèle
+
+---
+
+### T24 — Refonte carte + quartiers + vue bâtiment navigation ✅
+
+**Fichiers :** `config.js`, `ui.js`, `index.html` — engine.js et state.js non touchés.
+
+**Objectif :** Corriger le mapping quartiers/bâtiments, supprimer le quartier Immobilier, et rendre les bâtiments cliquables avec contenu dédié. Le bouton "Travailler ici" apparaît dans le bâtiment, pas dans la vue quartier.
+
+---
+
+**config.js :**
+- Remplacer `CONFIG.QUARTIERS` et `CONFIG.BATIMENTS` par les nouvelles valeurs du MD (section "Quartiers et bâtiments")
+- Remplacer `CONFIG.MAP.ZONES` par les nouvelles valeurs du MD (section "Véhicules requis par secteur") — retirer la zone `immobilier`
+- Ajouter le bâtiment `studio` pour le secteur influence
+- `CONFIG.MAP.MESSAGES_BLOCAGE_VEHICULE` : retirer l'entrée `immobilier`, garder les autres
+
+**ui.js :**
+- Ajouter `const batimentEnCours = ref(null)`
+- Ajouter `ouvrirBatiment(slug)` : `navEcran = 'batiment'`, `batimentEnCours = slug`
+- Ajouter `retourQuartier()` : `navEcran = 'quartier'`, `batimentEnCours = null`
+- Modifier `ouvrirQuartier(slug)` : ne plus appeler `changerSecteur()` — juste naviguer vers la vue quartier. Le changement de secteur se fait uniquement via "Travailler ici" dans le bâtiment.
+- Modifier `entrerDansSecteur(slug)` : inchangé — appelé depuis le bouton "Travailler ici" dans la vue bâtiment
+- Computed `breadcrumb` : string depuis navEcran + quartierEnCours + batimentEnCours
+  - `'map'` → `'🗺 Ville'`
+  - `'quartier'` → `'🗺 Ville > [CONFIG.QUARTIERS[quartierEnCours].label]'`
+  - `'batiment'` → `'🗺 Ville > [quartier label] > [CONFIG.BATIMENTS[batimentEnCours].label]'`
+- Template vue quartier : clic sur `.batiment-card` → `ouvrirBatiment(slugBat)` — retirer le bouton "Travailler ici" qui était dans la vue quartier
+- Template : ajouter `v-else-if="navEcran === 'batiment'"` dans zone centrale avec :
+  - Breadcrumb en haut + bouton retour `← [label quartier]`
+  - Contenu conditionnel selon `CONFIG.BATIMENTS[batimentEnCours].contenu` :
+    - `'upgrades'` → panneau upgrades existant + bouton "▶ Travailler ici" si `CONFIG.BATIMENTS[batimentEnCours].secteur` existe
+    - `'boutique'` → liste items boutique existante
+    - `'logements'` → vue logements filtrée par `CONFIG.BATIMENTS[batimentEnCours].gamme`
+    - `'vehicules'` → vue véhicules filtrée par `gamme` du bâtiment : `'bas'` = vélo + scooter (garage BTP), `'haut'` = voiture + berline + supercar (concessionnaire Finance)
+    - `'formations'` → à venir (T23) — afficher placeholder pour l'instant
+- Exposer `batimentEnCours`, `ouvrirBatiment`, `retourQuartier`, `breadcrumb` dans le `return`
+
+**index.html :**
+- Ajouter CSS `.breadcrumb` : `display: flex; align-items: center; gap: 8px; font-size: 0.8em; color: #666; padding: 8px 12px; flex-shrink: 0`
+- Ajouter CSS `.breadcrumb__retour` : bouton discret style `← retour`
+- Ajouter CSS `.batiment-vue` : `display: flex; flex-direction: column; flex: 1; overflow: hidden`
+- Ajouter CSS `.batiment-vue__titre` : nom du bâtiment en header
+
+**Contraintes :**
+- La vue quartier n'a plus de bouton "Travailler ici" — ce bouton est exclusivement dans la vue bâtiment
+- On peut visiter un quartier/bâtiment sans changer de secteur actif
+- Le secteur actif affiché dans `.carte-info` reste inchangé pendant la navigation
+- Zéro régression sur overlays sidebar, BTP, influence
 
 ---
 *Ne jamais lire le GDD pour coder — toutes les infos techniques sont ici.*
-*Mettre à jour la section "Sessions terminées" à chaque fin de ticket.*
+*Mettre à jour "Sessions terminées" à chaque fin de ticket.*

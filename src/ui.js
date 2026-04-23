@@ -1,7 +1,7 @@
 // ui.js — composants Vue, handlers d'événements, update UI
 // Règle : ne contient que du Vue réactif — zéro querySelector/getElementById
 import { state }            from './state.js'
-import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, acheterFormation, acheterVehicule, vehiculePermetSecteur, declencherEvenementImmo, lancerChantier, calculerGainInfluence } from './engine.js'
+import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, inscrireFormation, etudierFormation, acheterVehicule, vehiculePermetSecteur, declencherEvenementImmo, lancerChantier, calculerGainInfluence } from './engine.js'
 import { CONFIG }           from './config.js'
 
 // ─── Composant racine ─────────────────────────────────────────────────────────
@@ -84,14 +84,26 @@ export const AppRoot = {
     }
     function fermerOverlay() { panneauOverlay.value = null }
 
-    // ── Navigation carte / quartier ───────────────────────────────────────────
-    const navEcran        = ref('map')   // 'map' | 'quartier'
+    // ── Navigation carte / quartier / bâtiment ───────────────────────────────
+    const navEcran        = ref('map')   // 'map' | 'quartier' | 'batiment'
     const quartierEnCours = ref(null)    // slug du quartier en cours de visite
+    const batimentEnCours = ref(null)    // slug du bâtiment en cours de visite
 
     function retourCarte() {
       navEcran.value        = 'map'
       quartierEnCours.value = null
+      batimentEnCours.value = null
       messageBlocageCarte.value = ''
+    }
+
+    function retourQuartier() {
+      navEcran.value        = 'quartier'
+      batimentEnCours.value = null
+    }
+
+    function ouvrirBatiment(slug) {
+      batimentEnCours.value = slug
+      navEcran.value        = 'batiment'
     }
 
     function entrerDansSecteur(slug) {
@@ -112,6 +124,14 @@ export const AppRoot = {
       navEcran.value        = 'quartier'
       quartierEnCours.value = slug
     }
+
+    const breadcrumb = computed(() => {
+      if (navEcran.value === 'map') return '🗺 Ville'
+      const qLabel = CONFIG.MAP.ZONES[quartierEnCours.value]?.label ?? quartierEnCours.value
+      if (navEcran.value === 'quartier') return `🗺 Ville > ${qLabel}`
+      const bLabel = CONFIG.BATIMENTS?.[batimentEnCours.value]?.label ?? batimentEnCours.value
+      return `🗺 Ville > ${qLabel} > ${bLabel}`
+    })
 
     function toggleEngine() {
       isEngineRunning() ? stopEngine() : startEngine()
@@ -162,27 +182,34 @@ export const AppRoot = {
       return { left: zone.x + '%', top: zone.y + '%' }
     })
 
-    // ── Upgrades secteur actif ────────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
-    const renderUpgradesSecteur = computed(() => {
-      const metier = CONFIG.METIERS[state.secteurActif]
+    function formatMmSs(ms) {
+      const totalS = Math.ceil(ms / 1000)
+      const m = Math.floor(totalS / 60)
+      const s = totalS % 60
+      return `${m}:${s.toString().padStart(2, '0')}`
+    }
+
+    // ── Upgrades — helper partagé map + bâtiment ──────────────────────────────
+
+    function getUpgradesPourSecteur(secteur) {
+      const metier = CONFIG.METIERS[secteur]
       if (!metier?.upgrades) return []
-      const niveauAtteint = calculerNiveau(state.secteurActif)
-      const estBtp        = state.secteurActif === 'btp'
+      const niveauAtteint = calculerNiveau(secteur)
+      const estBtp        = secteur === 'btp'
       return metier.upgrades.map((upg, idx) => {
         const cout = estBtp
           ? 0
           : (upg.prix !== undefined ? upg.prix : Math.round(100 * Math.pow(2.8, idx)))
-
         const estAchete = estBtp
           ? false
           : state.upgrades.some(u => u.id === upg.id)
         const prerequisRempli = estBtp
           ? (upg.prerequis === null || state.btpCompletes.includes(upg.prerequis))
           : (upg.prerequis === null || state.upgrades.some(u => u.id === upg.prerequis))
-        const niveauOk  = !upg.niveauRequis || niveauAtteint >= upg.niveauRequis
-        const enCours   = estBtp && state.chantierActif?.id === upg.id
-
+        const niveauOk = !upg.niveauRequis || niveauAtteint >= upg.niveauRequis
+        const enCours  = estBtp && state.chantierActif?.id === upg.id
         let etat
         if (estBtp) {
           if (!prerequisRempli || !niveauOk) etat = 'verrouille'
@@ -194,7 +221,6 @@ export const AppRoot = {
           else if (state.argent < cout)           etat = 'trop-cher'
           else                                    etat = 'disponible'
         }
-
         const effetTexte = (() => {
           if (estBtp) return `⏱ ${upg.duree}s → +${upg.recompense.toLocaleString('fr-FR')} €`
           const e = upg.effet
@@ -205,9 +231,52 @@ export const AppRoot = {
           if (e.passifId)     return `+${e.passifValeur} €/s passif`
           return ''
         })()
-
         return { ...upg, cout, etat, effetTexte, estBtp, enCours }
       })
+    }
+
+    const renderUpgradesSecteur  = computed(() => getUpgradesPourSecteur(state.secteurActif))
+    const renderUpgradesBatiment = computed(() => {
+      const secteur = CONFIG.BATIMENTS?.[batimentEnCours.value]?.secteur
+      return secteur ? getUpgradesPourSecteur(secteur) : []
+    })
+
+    const batimentSecteurInfo = computed(() => {
+      const secteur = CONFIG.BATIMENTS?.[batimentEnCours.value]?.secteur
+      if (!secteur) return null
+      const niveau    = calculerNiveau(secteur)
+      const cle       = 'PALIERS_' + secteur.toUpperCase()
+      const nomPalier = (CONFIG.NIVEAUX[cle] ?? {})[niveau] ?? secteur
+      const xp        = state.xpSecteurs[secteur] ?? 0
+      const seuils    = CONFIG.NIVEAUX.SEUILS
+      let xpInfo
+      if (niveau >= seuils.length) {
+        xpInfo = { current: Math.round(xp), max: Math.round(xp), pct: 100 }
+      } else {
+        const seuilActuel  = seuils[niveau - 1]
+        const seuilSuivant = seuils[niveau]
+        const current      = Math.round(xp - seuilActuel)
+        const max          = seuilSuivant - seuilActuel
+        xpInfo = { current, max, pct: Math.min(100, (current / max) * 100) }
+      }
+      return { secteur, niveau, nomPalier, xpInfo }
+    })
+
+    const logementsBatiment = computed(() => {
+      const gamme = CONFIG.BATIMENTS?.[batimentEnCours.value]?.gamme
+      const gammeFilter = {
+        bas:   ([, l]) => l.type === 'location' && l.charge < 500,
+        moyen: ([, l]) => (l.type === 'location' && l.charge >= 500) || (l.type === 'achat' && l.cout < 150000),
+        haut:  ([, l]) => l.type === 'achat' && l.cout >= 150000,
+      }
+      const fn = gamme ? (gammeFilter[gamme] ?? (() => true)) : (() => true)
+      return Object.entries(CONFIG.LOGEMENTS)
+        .filter(fn)
+        .map(([slug, l]) => ({
+          slug, ...l,
+          estActuel: state.possessions.logement === slug,
+          abordable: l.type === 'location' ? state.argent >= l.charge : state.argent >= l.cout,
+        }))
     })
 
     // ── Niveau secteur actif ──────────────────────────────────────────────────
@@ -308,6 +377,14 @@ export const AppRoot = {
       }))
     )
 
+    const vehiculesBatiment = computed(() => {
+      const gamme = CONFIG.BATIMENTS?.[batimentEnCours.value]?.gamme
+      const all   = boutiqueVehicules.value
+      if (gamme === 'bas')  return all.filter(v => ['velo', 'scooter'].includes(v.id))
+      if (gamme === 'haut') return all.filter(v => ['voiture', 'berline', 'supercar'].includes(v.id))
+      return all
+    })
+
     function actionAcheterVehicule(id) {
       const result = acheterVehicule(id)
       if (!result.ok) return
@@ -391,9 +468,15 @@ export const AppRoot = {
 
     const carteZones = computed(() =>
       Object.entries(CONFIG.MAP.ZONES).map(([id, zone]) => {
-        const estActuelle = zone.secteur !== null && zone.secteur === state.secteurActif
-        const disabled    = estActuelle || !zone.disponible
-        return { id, ...zone, estActuelle, disabled }
+        const estActuelle    = zone.secteur !== null && zone.secteur === state.secteurActif
+        const vehiculeBloque = !!zone.vehiculeRequis && (() => {
+          const ordre     = CONFIG.ORDRE_VEHICULES
+          const idxActuel = ordre.indexOf(state.possessions.vehicule ?? '')
+          const idxRequis = ordre.indexOf(zone.vehiculeRequis)
+          return idxActuel < idxRequis
+        })()
+        const disabled = !zone.disponible || vehiculeBloque
+        return { id, ...zone, estActuelle, vehiculeBloque, disabled }
       })
     )
 
@@ -402,15 +485,38 @@ export const AppRoot = {
     const formationsCampus = computed(() =>
       CONFIG.FORMATIONS.map(f => ({
         ...f,
-        disabled: state.argent < f.cout,
+        estTerminee: state.formations?.includes(f.secteur) ?? false,
+        enCours:     state.formationActive?.id === f.id,
+        disabled:    state.argent < f.cout || (!!state.formationActive && state.formationActive.id !== f.id),
       }))
     )
 
-    function actionAcheterFormation(id) {
-      const result = acheterFormation(id)
+    const formationActiveInfo = computed(() => {
+      const f = state.formationActive
+      if (!f) return null
+      const duree = Math.max(0, f.dureeRestante)
+      return {
+        ...f,
+        pourcent:    Math.min(100, Math.round((1 - duree / f.dureeInitiale) * 100)),
+        tempsAffiche: formatMmSs(duree * 1000),
+      }
+    })
+
+    function actionInscrireFormation(id) {
+      const result = inscrireFormation(id)
       if (!result.ok) return
-      ajouterFlottant(`📚 +${result.gainXP} XP ${result.secteur}`)
+      const f = CONFIG.FORMATIONS.find(f => f.id === id)
+      ajouterFlottant(`📚 Formation démarrée`)
+      void f
     }
+
+    function actionEtudierFormation() {
+      etudierFormation()
+    }
+
+    window.addEventListener('legacy:formation-complete', (e) => {
+      ajouterFlottant(`🎓 +${e.detail.gainXP} XP ${e.detail.secteur} !`, 2000)
+    })
 
     // ── Compétences au décès ───────────────────────────────────────────────────
 
@@ -518,19 +624,21 @@ export const AppRoot = {
       verbeBouton, revenuClicAffiche, multiplicateurActuel,
       niveauSecteur, nomPalierSecteur, xpSecteurInfo,
       onClic, toggleEngine, isEngineRunning,
-      renderUpgradesSecteur, acheterUpgrade, acheterItemBoutique, itemsBoutique,
+      renderUpgradesSecteur, renderUpgradesBatiment, batimentSecteurInfo,
+      acheterUpgrade, acheterItemBoutique, itemsBoutique,
       mort, heritageAffiche, competencesAuDeces, nouvelleGeneration, mortSimulee,
       ongletFinances, financesRevenus, financesCharges, totalChargesAffiche, getTauxPassifTotal,
-      logementActuel, logementLocations, logementAchats, actionLouer, actionAcheter,
+      logementActuel, logementLocations, logementAchats, logementsBatiment, actionLouer, actionAcheter,
       telephoneActions, abonnesAffiche, actionAcheterTelephone, actionTelephone,
       prixPacksTokens, tokensAffiche, boostXpActif, boostXpRestant,
       actionAcheterOrdinateur, actionAcheterTokens, actionExecuterCommande,
       messageBlocageCarte,
       panneauOverlay, ouvrirOverlay, fermerOverlay,
-      navEcran, quartierEnCours, retourCarte, entrerDansSecteur, ouvrirQuartier,
+      navEcran, quartierEnCours, batimentEnCours, breadcrumb,
+      retourCarte, retourQuartier, ouvrirBatiment, entrerDansSecteur, ouvrirQuartier,
       carteZones, spritePosition, spriteClasse,
-      formationsCampus, actionAcheterFormation,
-      boutiqueVehicules, actionAcheterVehicule,
+      formationsCampus, formationActiveInfo, actionInscrireFormation, actionEtudierFormation,
+      boutiqueVehicules, vehiculesBatiment, actionAcheterVehicule,
       derniereNotifImmo, immoPassifBadge,
       chantierProgression, actionLancerChantier,
       influenceAppuiMs, influenceEnAppui, influenceBarrePct, influencePrecisionLabel,
@@ -634,8 +742,9 @@ export const AppRoot = {
               :key="zone.id"
               class="carte-zone"
               :class="{
-                'carte-zone--active':  zone.estActuelle,
-                'carte-zone--locked':  !zone.disponible,
+                'carte-zone--active':          zone.estActuelle,
+                'carte-zone--locked':          !zone.disponible,
+                'carte-zone--vehicule-bloque': zone.vehiculeBloque,
               }"
               :style="{ left: zone.x + '%', top: zone.y + '%' }"
               @click="!zone.disabled && ouvrirQuartier(zone.id)"
@@ -644,6 +753,7 @@ export const AppRoot = {
               <span class="carte-zone__label">{{ zone.label }}</span>
               <span v-if="!zone.disponible" class="carte-zone__lock">🔒 Bientôt</span>
               <span v-else-if="zone.estActuelle" class="carte-zone__badge">● ICI</span>
+              <span v-else-if="zone.vehiculeBloque" class="carte-zone__vehicule-requis">{{ CONFIG.VEHICULES[zone.vehiculeRequis]?.emoji }}</span>
             </div>
 
             <div
@@ -675,52 +785,161 @@ export const AppRoot = {
             <button class="quartier-retour" @click="retourCarte">← Ville</button>
             <span>{{ CONFIG.MAP.ZONES[quartierEnCours]?.label ?? quartierEnCours }}</span>
           </div>
+          <div class="quartier-facade">
+            <div
+              v-for="slugBat in (CONFIG.QUARTIERS?.[quartierEnCours]?.batiments ?? [])"
+              :key="slugBat"
+              class="batiment-card"
+              @click="ouvrirBatiment(slugBat)"
+            >
+              <div class="batiment-card__toit"></div>
+              <div class="batiment-card__corps">
+                <span class="batiment-card__emoji">{{ CONFIG.BATIMENTS?.[slugBat]?.emoji }}</span>
+                <span class="batiment-card__label">{{ CONFIG.BATIMENTS?.[slugBat]?.label }}</span>
+              </div>
+            </div>
+          </div>
+          <div v-if="messageBlocageCarte" class="carte-message-blocage">{{ messageBlocageCarte }}</div>
+        </div>
 
-          <!-- Campus : liste de formations -->
-          <template v-if="quartierEnCours === 'campus'">
-            <p style="color:#888; font-size:0.85em; margin:0 0 8px;">
-              Développez vos compétences dans tous les secteurs.
-            </p>
-            <ul class="boutique-liste boutique-liste--inline">
-              <li
-                v-for="f in formationsCampus"
-                :key="f.id"
-                class="boutique-item"
-                :class="{ 'boutique-item--disabled': f.disabled }"
-              >
-                <div class="boutique-item__label">{{ f.emoji }} {{ f.label }}</div>
-                <div class="boutique-item__prix" style="color:#aaa; font-size:0.8em;">
-                  +{{ f.gainXP }} XP {{ f.secteur }}
+        <!-- ── Vue Bâtiment ───────────────────────────────────────── -->
+        <div v-else-if="navEcran === 'batiment'" class="quartier-vue">
+          <div class="quartier-breadcrumb">
+            <button class="quartier-retour" @click="retourCarte">← Ville</button>
+            <span style="color:#555">/</span>
+            <button class="quartier-retour" @click="retourQuartier">{{ CONFIG.MAP.ZONES[quartierEnCours]?.label ?? quartierEnCours }}</button>
+            <span style="color:#555">/</span>
+            <span>{{ CONFIG.BATIMENTS?.[batimentEnCours]?.label ?? batimentEnCours }}</span>
+          </div>
+
+          <!-- Upgrades -->
+          <template v-if="CONFIG.BATIMENTS?.[batimentEnCours]?.contenu === 'upgrades'">
+            <div class="panneau-upgrades" style="flex:1;overflow-y:auto;">
+              <div v-if="batimentSecteurInfo" class="niveau-commerce">
+                <div class="niveau-commerce__header">
+                  <span class="niveau-commerce__palier">{{ batimentSecteurInfo.nomPalier }}</span>
+                  <span class="niveau-commerce__niv">Niv.{{ batimentSecteurInfo.niveau }}</span>
                 </div>
-                <div class="boutique-item__prix">{{ f.cout.toLocaleString('fr-FR') }} €</div>
-                <button
-                  class="boutique-item__btn"
-                  :disabled="f.disabled"
-                  @click="actionAcheterFormation(f.id)"
-                >Suivre</button>
+                <div class="xp-piste"><div class="xp-barre" :style="{ width: batimentSecteurInfo.xpInfo.pct + '%' }"></div></div>
+                <div class="xp-label">{{ batimentSecteurInfo.xpInfo.current }} / {{ batimentSecteurInfo.xpInfo.max }} XP</div>
+              </div>
+              <p v-if="renderUpgradesBatiment.length === 0" class="finances-vide">Aucune amélioration disponible.</p>
+              <ul v-else class="upgrades-list">
+                <li v-for="upg in renderUpgradesBatiment" :key="upg.id" :class="['upgrade-item', 'upgrade-item--' + upg.etat]">
+                  <div class="upgrade-header">
+                    <span class="upgrade-nom">{{ upg.nom ?? upg.label }}</span>
+                    <span v-if="!upg.estBtp" class="upgrade-cout" :class="{ 'upgrade-cout--rouge': upg.etat === 'trop-cher' }">{{ upg.cout }} €</span>
+                  </div>
+                  <div class="upgrade-footer">
+                    <span class="upgrade-effet">{{ upg.effetTexte }}</span>
+                    <template v-if="upg.estBtp">
+                      <span v-if="upg.etat === 'verrouille'" class="upgrade-cadenas">🔒</span>
+                      <template v-else>
+                        <span v-if="upg.enCours" class="upgrade-check" style="color:#facc15;">⚡ En cours</span>
+                        <button v-else class="upgrade-btn" :disabled="upg.etat !== 'disponible'" @click="actionLancerChantier(upg.id)">Lancer</button>
+                      </template>
+                    </template>
+                    <template v-else>
+                      <span v-if="upg.etat === 'verrouille'" class="upgrade-cadenas">🔒</span>
+                      <span v-else-if="upg.etat === 'achete'" class="upgrade-check">✓</span>
+                      <button v-else class="upgrade-btn" :disabled="upg.etat !== 'disponible'" @click="acheterUpgrade(upg.id)">Acheter</button>
+                    </template>
+                  </div>
+                </li>
+              </ul>
+            </div>
+            <button class="btn-entrer-secteur" @click="entrerDansSecteur(CONFIG.BATIMENTS?.[batimentEnCours]?.secteur)">▶ Travailler ici</button>
+          </template>
+
+          <!-- Boutique -->
+          <template v-else-if="CONFIG.BATIMENTS?.[batimentEnCours]?.contenu === 'boutique'">
+            <ul class="boutique-liste boutique-liste--inline">
+              <li v-for="item in itemsBoutique" :key="item.id" class="boutique-item" :class="{ 'boutique-item--disabled': item.disabled }">
+                <div class="boutique-item__label">{{ item.label }}</div>
+                <div class="boutique-item__prix">{{ item.prix }} €</div>
+                <button class="boutique-item__btn" :disabled="item.disabled" @click="acheterItemBoutique(item.id)">Acheter</button>
               </li>
             </ul>
           </template>
 
-          <!-- Autres quartiers : façade RPG + bouton travailler -->
-          <template v-else>
-            <div class="quartier-facade">
-              <div
-                v-for="slugBat in (CONFIG.QUARTIERS?.[quartierEnCours]?.batiments ?? [])"
-                :key="slugBat"
-                class="batiment-card"
-              >
-                <div class="batiment-card__toit"></div>
-                <div class="batiment-card__corps">
-                  <span class="batiment-card__emoji">{{ CONFIG.BATIMENTS?.[slugBat]?.emoji }}</span>
-                  <span class="batiment-card__label">{{ CONFIG.BATIMENTS?.[slugBat]?.label }}</span>
+          <!-- Logements -->
+          <template v-else-if="CONFIG.BATIMENTS?.[batimentEnCours]?.contenu === 'logements'">
+            <ul class="logement-liste">
+              <li v-for="l in logementsBatiment" :key="l.slug" class="logement-item"
+                :class="{ 'logement-item--actuel': l.estActuel, 'logement-item--verrouille': !l.abordable && !l.estActuel }">
+                <div class="logement-item__header">
+                  <span class="logement-item__nom">{{ l.nom }}</span>
+                  <span class="logement-item__prix">{{ l.type === 'achat' ? l.cout.toLocaleString('fr-FR') + ' €' : l.charge + ' € / 6 mois' }}</span>
                 </div>
+                <div class="logement-item__footer">
+                  <span v-if="l.bonheur > 0" class="logement-item__bonheur">+{{ l.bonheur }} bonheur</span>
+                  <span v-if="l.estActuel" class="logement-item__badge">✓ Actuel</span>
+                  <button v-else-if="l.type === 'location'" class="logement-item__btn" :disabled="!l.abordable" @click="actionLouer(l.slug)">Louer</button>
+                  <button v-else class="logement-item__btn" :disabled="!l.abordable" @click="actionAcheter(l.slug)">Acheter</button>
+                </div>
+              </li>
+            </ul>
+          </template>
+
+          <!-- Véhicules -->
+          <template v-else-if="CONFIG.BATIMENTS?.[batimentEnCours]?.contenu === 'vehicules'">
+            <div class="vehicules-vue">
+              <div v-for="v in vehiculesBatiment" :key="v.id" class="vehicule-card"
+                :class="{ 'vehicule-card--actuel': v.estActuel, 'vehicule-card--depasse': v.estInferieur }">
+                <span class="vehicule-card__emoji">{{ v.emoji }}</span>
+                <div class="vehicule-card__info">
+                  <span class="vehicule-card__label">{{ v.label }}</span>
+                  <span class="vehicule-card__stats">
+                    {{ v.prix.toLocaleString('fr-FR') }} €
+                    <template v-if="v.chargeMensuelle > 0"> — {{ v.chargeMensuelle }} €/mois</template>
+                    <template v-if="v.karma < 0"> — Karma {{ v.karma }}</template>
+                    <template v-if="v.reputation > 0"> — +{{ v.reputation }} rép.</template>
+                    <template v-if="v.bonusClic > 0"> — +{{ v.bonusClic }}€/clic</template>
+                  </span>
+                  <span v-if="v.estActuel" class="vehicule-card__badge">● ACTUEL</span>
+                </div>
+                <span v-if="v.estInferieur" style="font-size:0.7em; color:#666;">Déjà dépassé</span>
+                <button v-else-if="!v.estActuel" class="vehicule-card__btn" :disabled="!v.abordable" @click="actionAcheterVehicule(v.id)">Acheter</button>
               </div>
             </div>
-            <div v-if="messageBlocageCarte" class="carte-message-blocage">{{ messageBlocageCarte }}</div>
-            <button class="btn-entrer-secteur" @click="entrerDansSecteur(quartierEnCours)">
-              ▶ Travailler ici
-            </button>
+          </template>
+
+          <!-- Formations (ecole) -->
+          <template v-else-if="CONFIG.BATIMENTS?.[batimentEnCours]?.contenu === 'formations'">
+            <div class="formations-vue">
+              <div v-if="formationActiveInfo" class="formation-active-card">
+                <div class="formation-active-header">
+                  📚 {{ formationActiveInfo.label }}
+                  <span class="formation-timer">{{ formationActiveInfo.tempsAffiche }}</span>
+                </div>
+                <div class="formation-barre">
+                  <div class="formation-barre-fill" :style="{ width: formationActiveInfo.pourcent + '%' }"></div>
+                </div>
+                <button class="btn-etudier" @click="actionEtudierFormation">⚡ Étudier (−2s)</button>
+              </div>
+              <p style="color:#888; font-size:0.85em; margin:0 0 10px;">Développez vos compétences pour accéder aux secteurs.</p>
+              <ul class="formation-liste">
+                <li v-for="f in formationsCampus" :key="f.id" class="formation-item"
+                  :class="{
+                    'formation-item--terminee': f.estTerminee,
+                    'formation-item--en-cours': f.enCours,
+                  }">
+                  <div class="formation-item__header">
+                    <span>{{ f.emoji }} {{ f.label }}</span>
+                    <span v-if="f.estTerminee" class="formation-check">✓</span>
+                    <span v-else-if="f.enCours" class="formation-en-cours">En cours</span>
+                  </div>
+                  <div class="formation-item__meta">
+                    <span>+{{ f.gainXP }} XP {{ f.secteur }}</span>
+                    <span>{{ f.cout.toLocaleString('fr-FR') }} €</span>
+                    <span>⏱ {{ f.duree }}s</span>
+                  </div>
+                  <button v-if="!f.estTerminee && !f.enCours"
+                    class="boutique-item__btn" :disabled="f.disabled"
+                    @click="actionInscrireFormation(f.id)">S'inscrire</button>
+                </li>
+              </ul>
+            </div>
           </template>
         </div>
 
