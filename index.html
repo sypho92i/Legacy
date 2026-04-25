@@ -826,6 +826,52 @@
     }
     .overlay-evenement__btn:hover { background: #2d1a0a; border-color: #fbbf24; }
 
+    /* ── Marché noir ─────────────────────────────────────────────────────── */
+    .overlay-marche-noir {
+      display: flex; flex-direction: column; gap: 10px; height: 100%;
+      background: #050505; font-family: monospace;
+    }
+    .mn-immunite {
+      padding: 8px 12px; background: #0a1a0a; border: 1px solid #1a3a1a;
+      color: #4ade80; font-size: 0.82em; border-radius: 4px;
+    }
+    .mn-vide {
+      color: #444; font-size: 0.85em; text-align: center;
+      padding: 24px 0; letter-spacing: 1px;
+    }
+    .deal-card {
+      background: #0a0a0a; border: 1px solid #1e1e1e; border-radius: 4px;
+      padding: 10px 12px; display: flex; flex-direction: column; gap: 6px;
+      transition: opacity 0.2s;
+    }
+    .deal-card--expired { opacity: 0.4; pointer-events: none; }
+    .deal-card__header {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+    .deal-card__label { font-weight: bold; color: #c0c0c0; font-size: 0.9em; }
+    .deal-timer { font-size: 0.78em; color: #555; }
+    .deal-timer--orange { color: #fb923c; }
+    .deal-timer--rouge  { color: #ef4444; animation: pulse-rouge 0.8s infinite; }
+    .deal-card__desc { font-size: 0.8em; color: #666; margin: 0; line-height: 1.4; }
+    .deal-card__meta { display: flex; gap: 12px; font-size: 0.8em; }
+    .deal-cout { color: #f87171; }
+    .deal-gain { color: #4ade80; }
+    .deal-card__btn {
+      align-self: flex-end; padding: 5px 14px; font-family: monospace; font-size: 0.82em;
+      cursor: pointer; background: #0d0d0d; color: #a0a0a0;
+      border: 1px solid #2a2a2a; border-radius: 3px;
+    }
+    .deal-card__btn:not(:disabled):hover { background: #1a1a1a; border-color: #444; color: #e0e0e0; }
+    .deal-card__btn:disabled { cursor: not-allowed; opacity: 0.5; }
+    .mn-footer {
+      font-size: 0.75em; color: #333; text-align: center;
+      padding-top: 4px; border-top: 1px solid #111; margin-top: auto;
+    }
+    .btn-contact {
+      border-color: #3a1a2a !important; color: #c084fc !important;
+    }
+    .btn-contact:hover { background: #1a0d20 !important; border-color: #7c3aed !important; }
+
   </style>
 </head>
 <body>

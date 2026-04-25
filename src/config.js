@@ -311,6 +311,62 @@ export const CONFIG = {
     },
   },
 
+  // Marché noir — contact clandestin (couche ≥ 2)
+  MARCHE_NOIR: {
+    DEBLOCKAGE_COUCHE:  2,
+    NB_DEALS_ACTIFS:    3,
+    DUREE_DEAL_S:     180,   // 3 min avant expiration d'un deal
+    COOLDOWN_REFRESH_S: 300, // 5 min entre deux rafraîchissements complets
+
+    DEALS: [
+      // === argent contre karma ===
+      { id: 'blanchiment',            label: 'Blanchiment rapide',
+        description: 'Transforme du cash sale en propre. Commission prélevée.',
+        conditions: { argentMin: 5000, coucheMin: 2 }, poids: 4,
+        cout: { argentPourcent: 0.20 },
+        gain: { karma: -8 } },
+      { id: 'achat_abonnes',          label: 'Faux abonnés en masse',
+        description: 'Un réseau de bots gonfle tes stats.',
+        conditions: { coucheMin: 2, possessions: 'telephone' }, poids: 3,
+        cout: { argent: 3000 },
+        gain: { abonnes: 8000, reputation: -10, karma: -5 } },
+      { id: 'corruption_fonctionnaire', label: 'Fonctionnaire corrompu',
+        description: "Il oublie certains de tes dossiers fiscaux.",
+        conditions: { argentMin: 8000, coucheMin: 2 }, poids: 2,
+        cout: { argent: 8000 },
+        gain: { karma: 10, reputation: -5 } },
+
+      // === accès et déblocages ===
+      { id: 'faux_diplome',           label: 'Faux diplôme sectoriel',
+        description: 'Un secteur débloqué sans passer par le Campus.',
+        conditions: { coucheMin: 2, argentMin: 6000 }, poids: 2,
+        cout: { argent: 6000, karma: -10 },
+        gain: { formationOfferte: true } },
+      { id: 'vehicule_vole',          label: 'Véhicule sans papiers',
+        description: 'Pas de questions posées. Pas de garantie non plus.',
+        conditions: { coucheMin: 2 }, poids: 2,
+        cout: { argent: 1500, karma: -12 },
+        gain: { vehiculeOffert: true } },
+
+      // === couche 3 uniquement ===
+      { id: 'contrat_douteux',        label: 'Contrat à hauts risques',
+        description: 'Gain énorme. Conséquences imprévisibles.',
+        conditions: { coucheMin: 3, argentMin: 2000 }, poids: 3,
+        cout: { argent: 2000 },
+        gain: { argentAleatoire: [15000, 50000], karma: -20, reputation: -15 } },
+      { id: 'protection_criminelle',  label: 'Protection du milieu',
+        description: "Plus d'événements négatifs pendant 10 min.",
+        conditions: { coucheMin: 3, argentMin: 12000 }, poids: 2,
+        cout: { argent: 12000, karma: -5 },
+        gain: { immuniteEvenementsS: 600 } },
+      { id: 'tuyau_boursier',         label: 'Tuyau boursier illégal',
+        description: 'Information privilégiée. Mise obligatoire.',
+        conditions: { coucheMin: 3, secteurActif: 'finance', argentMin: 20000 }, poids: 2,
+        cout: { argentPourcent: 0.30 },
+        gain: { argentPourcent: 0.80, karma: -15 } },
+    ],
+  },
+
   // Événements aléatoires
   EVENEMENTS: {
     TICK_VERIFICATION:    25,    // toutes les 25 ticks (5s) on tente un tirage

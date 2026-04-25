@@ -1,7 +1,7 @@
 // ui.js — composants Vue, handlers d'événements, update UI
 // Règle : ne contient que du Vue réactif — zéro querySelector/getElementById
 import { state }            from './state.js'
-import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, inscrireFormation, etudierFormation, acheterVehicule, vehiculePermetSecteur, declencherEvenementImmo, lancerChantier, calculerGainInfluence, executerCommandeIllegale, COMMANDES_ILLEGALES, appliquerEvenement } from './engine.js'
+import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, inscrireFormation, etudierFormation, acheterVehicule, vehiculePermetSecteur, declencherEvenementImmo, lancerChantier, calculerGainInfluence, executerCommandeIllegale, COMMANDES_ILLEGALES, appliquerEvenement, accepterDeal } from './engine.js'
 import { CONFIG }           from './config.js'
 
 // ─── Composant racine ─────────────────────────────────────────────────────────
@@ -695,6 +695,91 @@ export const AppRoot = {
       return 'sprite--vieux'
     })
 
+    // ── Marché noir ───────────────────────────────────────────────────────────
+
+    const marcheNoirDisponible = computed(() =>
+      state.coucheIllegalMax >= CONFIG.MARCHE_NOIR.DEBLOCKAGE_COUCHE
+    )
+
+    function _formatMMSS(s) {
+      const m = Math.floor(s / 60)
+      return `${m}:${(s % 60).toString().padStart(2, '0')}`
+    }
+
+    const dealsEnrichis = computed(() => {
+      if (!marcheNoirDisponible.value) return []
+      const nowS = now.value / 1000
+      return state.marcheNoir.dealsActifs.map(deal => {
+        const tempsRestantS = Math.max(0, Math.floor(deal.expiryS - nowS))
+        const expire        = tempsRestantS <= 0
+
+        let abordable = true
+        const cout = deal.cout
+        if (cout.argent !== undefined && state.argent < cout.argent) abordable = false
+        if (cout.argentPourcent !== undefined && state.argent <= 0)  abordable = false
+
+        const coutsTexte = []
+        if (cout.argent         !== undefined && cout.argent > 0)
+          coutsTexte.push(`−${cout.argent.toLocaleString('fr-FR')} €`)
+        if (cout.argentPourcent !== undefined)
+          coutsTexte.push(`−${Math.round(cout.argentPourcent * 100)}% argent`)
+        if (cout.karma          !== undefined)
+          coutsTexte.push(`${cout.karma} karma`)
+
+        const gainsTexte = []
+        const gain = deal.gain
+        if (gain.argent          !== undefined && gain.argent > 0)
+          gainsTexte.push(`+${gain.argent.toLocaleString('fr-FR')} €`)
+        if (gain.argentPourcent  !== undefined)
+          gainsTexte.push(`+${Math.round(gain.argentPourcent * 100)}% argent`)
+        if (gain.argentAleatoire !== undefined)
+          gainsTexte.push(`+${gain.argentAleatoire[0].toLocaleString('fr-FR')}–${gain.argentAleatoire[1].toLocaleString('fr-FR')} €`)
+        if (gain.karma           !== undefined)
+          gainsTexte.push(`${gain.karma > 0 ? '+' : ''}${gain.karma} karma`)
+        if (gain.abonnes         !== undefined && gain.abonnes > 0)
+          gainsTexte.push(`+${gain.abonnes.toLocaleString('fr-FR')} abonnés`)
+        if (gain.reputation      !== undefined)
+          gainsTexte.push(`${gain.reputation > 0 ? '+' : ''}${gain.reputation} rép.`)
+        if (gain.formationOfferte)    gainsTexte.push('Formation offerte')
+        if (gain.vehiculeOffert)      gainsTexte.push('Véhicule +1')
+        if (gain.immuniteEvenementsS) gainsTexte.push(`Immunité ${gain.immuniteEvenementsS / 60} min`)
+
+        return {
+          ...deal, tempsRestantS, tempsAffiche: _formatMMSS(tempsRestantS),
+          expire, abordable,
+          coutAffiche: coutsTexte.join(', ') || '—',
+          gainAffiche: gainsTexte.join(', ')  || '—',
+        }
+      })
+    })
+
+    const immuniteRestanteS = computed(() =>
+      Math.max(0, Math.floor(state.marcheNoir._immuniteExpiry - now.value / 1000))
+    )
+
+    const prochainRefreshS = computed(() => {
+      if (state.marcheNoir._dernierRefreshS === 0) return 0
+      return Math.max(0, Math.floor(
+        state.marcheNoir._dernierRefreshS + CONFIG.MARCHE_NOIR.COOLDOWN_REFRESH_S - now.value / 1000
+      ))
+    })
+
+    function actionAccepterDeal(idInstance) {
+      const result = accepterDeal(idInstance)
+      if (!result.ok) {
+        if (result.raison === 'expire') ajouterFlottant('⌛ Deal expiré', 1500, 'boutique-flottant--negatif')
+        return
+      }
+      const gain = result.deal.gain
+      let texte = '✓ Deal conclu'
+      if (gain.argentAleatoire)             texte = '💰 Jackpot !'
+      else if (gain.argentPourcent > 0)     texte = `+${Math.round(gain.argentPourcent * 100)}% argent`
+      else if (gain.formationOfferte)       texte = '🎓 Formation débloquée'
+      else if (gain.vehiculeOffert)         texte = '🚗 Véhicule obtenu'
+      else if (gain.immuniteEvenementsS)    texte = '🛡 Immunité active'
+      ajouterFlottant(texte, 2000, 'boutique-flottant--positif')
+    }
+
     // ── Immobilier — badge passif multi ──────────────────────────────────────
     const immoPassifBadge = computed(() => {
       if (state._immoPassifMulti === 1.0) return null
@@ -724,6 +809,7 @@ export const AppRoot = {
       formationsCampus, formationActiveInfo, actionInscrireFormation, actionEtudierFormation,
       boutiqueVehicules, vehiculesBatiment, actionAcheterVehicule,
       evenementOverlay, evenementOverlayInfo, fermerEvenementOverlay,
+      marcheNoirDisponible, dealsEnrichis, immuniteRestanteS, prochainRefreshS, actionAccepterDeal,
       derniereNotifImmo, immoPassifBadge,
       chantierProgression, actionLancerChantier,
       influenceAppuiMs, influenceEnAppui, influenceBarrePct, influencePrecisionLabel,
@@ -797,6 +883,12 @@ export const AppRoot = {
             :class="{ 'sidebar-nav__btn--actif': panneauOverlay === 'vehicules' }"
             @click="ouvrirOverlay('vehicules')"
           >🚗 Véhicules</button>
+          <button
+            v-if="marcheNoirDisponible"
+            class="sidebar-nav__btn btn-contact"
+            :class="{ 'sidebar-nav__btn--actif': panneauOverlay === 'marche_noir' }"
+            @click="ouvrirOverlay('marche_noir')"
+          >🕵️ Contact</button>
         </nav>
 
         <!-- Debug -->
@@ -1152,8 +1244,9 @@ export const AppRoot = {
                : panneauOverlay === 'finances'   ? '📊 Finances'
                : panneauOverlay === 'logement'   ? '🏠 Logement'
                : panneauOverlay === 'telephone'  ? '📱 Téléphone'
-               : panneauOverlay === 'ordinateur' ? '💻 Ordinateur'
-               :                                  '🚗 Véhicules' }}
+               : panneauOverlay === 'ordinateur'  ? '💻 Ordinateur'
+               : panneauOverlay === 'marche_noir' ? '🕵️ Réseau'
+               :                                   '🚗 Véhicules' }}
             </span>
             <button class="panneau-overlay__fermer" @click="fermerOverlay">✕</button>
           </div>
@@ -1381,6 +1474,54 @@ export const AppRoot = {
                 </div>
                 <span v-if="v.estInferieur" style="font-size:0.7em; color:#666;">Déjà dépassé</span>
                 <button v-else-if="!v.estActuel" class="vehicule-card__btn" :disabled="!v.abordable" @click="actionAcheterVehicule(v.id)">Acheter</button>
+              </div>
+            </div>
+          </template>
+
+          <!-- Marché noir -->
+          <template v-else-if="panneauOverlay === 'marche_noir'">
+            <div class="overlay-marche-noir">
+              <!-- Statut immunité -->
+              <div v-if="immuniteRestanteS > 0" class="mn-immunite">
+                🛡 Immunité active — {{ _formatMMSS ? '' : '' }}{{ Math.floor(immuniteRestanteS / 60) }}:{{ (immuniteRestanteS % 60).toString().padStart(2, '0') }} restantes
+              </div>
+
+              <!-- Deals actifs -->
+              <div v-if="dealsEnrichis.length === 0" class="mn-vide">
+                <p>Aucune offre disponible.<br>
+                <span style="color:#555; font-size:0.85em;">Prochain refresh dans {{ prochainRefreshS }}s</span></p>
+              </div>
+              <div
+                v-for="deal in dealsEnrichis"
+                :key="deal.id_instance"
+                class="deal-card"
+                :class="{ 'deal-card--expired': deal.expire }"
+              >
+                <div class="deal-card__header">
+                  <span class="deal-card__label">{{ deal.label }}</span>
+                  <span
+                    class="deal-timer"
+                    :class="{
+                      'deal-timer--rouge':  deal.tempsRestantS < 30,
+                      'deal-timer--orange': deal.tempsRestantS >= 30 && deal.tempsRestantS < 60,
+                    }"
+                  >⏱ {{ deal.tempsAffiche }}</span>
+                </div>
+                <p class="deal-card__desc">{{ deal.description }}</p>
+                <div class="deal-card__meta">
+                  <span class="deal-cout">Coût : {{ deal.coutAffiche }}</span>
+                  <span class="deal-gain">Gain : {{ deal.gainAffiche }}</span>
+                </div>
+                <button
+                  class="deal-card__btn"
+                  :disabled="!deal.abordable || deal.expire"
+                  @click="actionAccepterDeal(deal.id_instance)"
+                >{{ deal.expire ? 'Expiré' : !deal.abordable ? 'Insuffisant' : 'Accepter' }}</button>
+              </div>
+
+              <!-- Footer refresh -->
+              <div v-if="dealsEnrichis.length > 0" class="mn-footer">
+                Refresh dans {{ prochainRefreshS }}s
               </div>
             </div>
           </template>

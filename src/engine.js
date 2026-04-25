@@ -621,6 +621,9 @@ export function initialiserNouvelleGeneration(boostChoisi = null) {
   state._dernierEvenementTick    = 0
   state._ticksDepuisVerifEvenement = 0
   _tickTotal                     = 0
+  state.marcheNoir.dealsActifs      = []
+  state.marcheNoir._dernierRefreshS = 0
+  state.marcheNoir._immuniteExpiry  = 0
 
   for (const key of Object.keys(state.jauges)) {
     state.jauges[key] = CONFIG.JAUGE_DEPART
@@ -770,6 +773,8 @@ function evaluerConditions(cond) {
   if (cond.hygieneMax      !== undefined && state.jauges.hygiene          > cond.hygieneMax)      return false
   if (cond.secteurActif    !== undefined && state.secteurActif           !== cond.secteurActif)   return false
   if (cond.coucheIllegalMin !== undefined && state.coucheIllegalMax       < cond.coucheIllegalMin) return false
+  if (cond.coucheMin       !== undefined && state.coucheIllegalMax       < cond.coucheMin)        return false
+  if (cond.possessions     !== undefined && !state.possessions[cond.possessions])                 return false
   if (cond.niveauMin       !== undefined && calculerNiveau(state.secteurActif) < cond.niveauMin) return false
   return true
 }
@@ -797,7 +802,11 @@ function tickEvenements() {
   if (_tickTotal - state._dernierEvenementTick < CONFIG.EVENEMENTS.COOLDOWN_GLOBAL_TICKS) return
   if (Math.random() > CONFIG.EVENEMENTS.PROBA_PAR_TIRAGE) return
 
-  const eligibles = CONFIG.EVENEMENTS.LISTE.filter(ev => evaluerConditions(ev.conditions))
+  const immunite   = Date.now() / 1000 < state.marcheNoir._immuniteExpiry
+  const eligibles = CONFIG.EVENEMENTS.LISTE.filter(ev =>
+    evaluerConditions(ev.conditions) &&
+    !(immunite && (ev.gravite === 'negatif' || ev.gravite === 'majeur'))
+  )
   if (eligibles.length === 0) return
 
   const total = eligibles.reduce((s, ev) => s + ev.poids, 0)
@@ -806,6 +815,125 @@ function tickEvenements() {
   for (const ev of eligibles) { r -= ev.poids; if (r <= 0) { choisi = ev; break } }
 
   appliquerEvenement(choisi)
+}
+
+// ─── Marché noir ─────────────────────────────────────────────────────────────
+
+function _tiragePondere(pool) {
+  const total = pool.reduce((s, d) => s + d.poids, 0)
+  let r = Math.random() * total
+  for (const d of pool) { r -= d.poids; if (r <= 0) return d }
+  return pool[pool.length - 1]
+}
+
+export function genererDeals() {
+  const now = Date.now() / 1000
+  const eligible = CONFIG.MARCHE_NOIR.DEALS.filter(d => evaluerConditions(d.conditions))
+  const nb   = Math.min(CONFIG.MARCHE_NOIR.NB_DEALS_ACTIFS, eligible.length)
+  const pool = [...eligible]
+  const choisis = []
+  for (let i = 0; i < nb; i++) {
+    if (pool.length === 0) break
+    const d = _tiragePondere(pool)
+    choisis.push({ ...d, expiryS: now + CONFIG.MARCHE_NOIR.DUREE_DEAL_S, id_instance: Math.random() })
+    pool.splice(pool.indexOf(d), 1)
+  }
+  state.marcheNoir.dealsActifs      = choisis
+  state.marcheNoir._dernierRefreshS = now
+}
+
+export function accepterDeal(idInstance) {
+  if (state.coucheIllegalMax < CONFIG.MARCHE_NOIR.DEBLOCKAGE_COUCHE)
+    return { ok: false, raison: 'couche' }
+
+  const idx = state.marcheNoir.dealsActifs.findIndex(d => d.id_instance === idInstance)
+  if (idx === -1) return { ok: false, raison: 'introuvable' }
+
+  const deal = state.marcheNoir.dealsActifs[idx]
+  const now  = Date.now() / 1000
+  if (now > deal.expiryS) return { ok: false, raison: 'expire' }
+
+  // Vérifier affordabilité argent
+  const cout = deal.cout
+  if (cout.argent !== undefined && state.argent < cout.argent) return { ok: false, raison: 'argent' }
+
+  // Appliquer cout
+  if (cout.argent         !== undefined) state.argent = Math.max(0, state.argent - cout.argent)
+  if (cout.argentPourcent !== undefined) state.argent = Math.max(0, state.argent * (1 - cout.argentPourcent))
+  if (cout.karma          !== undefined) state.karma  = Math.max(0, Math.min(100, state.karma + cout.karma))
+
+  // Appliquer gain
+  const gain = deal.gain
+  if (gain.argent          !== undefined) state.argent  = Math.max(0, state.argent + gain.argent)
+  if (gain.argentPourcent  !== undefined) state.argent  = Math.max(0, state.argent * (1 + gain.argentPourcent))
+  if (gain.argentAleatoire !== undefined) {
+    const [min, max] = gain.argentAleatoire
+    state.argent += Math.floor(Math.random() * (max - min) + min)
+  }
+  if (gain.karma      !== undefined) state.karma = Math.max(0, Math.min(100, state.karma + gain.karma))
+  if (gain.abonnes    !== undefined) state.abonnes = Math.max(0, state.abonnes + gain.abonnes)
+  if (gain.reputation !== undefined) state.jauges.reputation = clampJauge(state.jauges.reputation + gain.reputation)
+  if (gain.immuniteEvenementsS !== undefined)
+    state.marcheNoir._immuniteExpiry = now + gain.immuniteEvenementsS
+
+  if (gain.formationOfferte) {
+    const disponibles = Object.keys(state.xpSecteurs).filter(s => !state.formations.includes(s))
+    if (disponibles.length > 0)
+      state.formations.push(disponibles[Math.floor(Math.random() * disponibles.length)])
+    // Si toutes déjà obtenues : coût payé, rien de gagné — comportement attendu
+  }
+
+  if (gain.vehiculeOffert) {
+    const ordre     = CONFIG.ORDRE_VEHICULES
+    const idxActuel = ordre.indexOf(state.possessions.vehicule ?? '')
+    const prochain  = ordre[idxActuel + 1]   // undefined si déjà supercar
+    if (prochain) {
+      const ancien = state.possessions.vehicule
+        ? CONFIG.VEHICULES[state.possessions.vehicule] : null
+      if (ancien) {
+        state.karma = Math.min(100, Math.max(0, state.karma - ancien.karma))
+        state.jauges.reputation = Math.max(0, state.jauges.reputation - ancien.reputation)
+      }
+      state.possessions.vehicule = prochain
+      const cfg = CONFIG.VEHICULES[prochain]
+      if (cfg) {
+        state.karma = Math.max(0, Math.min(100, state.karma + cfg.karma))
+        state.jauges.reputation = clampJauge(state.jauges.reputation + cfg.reputation)
+      }
+    }
+    // Si déjà supercar : coût payé, rien de gagné
+  }
+
+  // Retirer deal accepté et générer un remplaçant individuel
+  state.marcheNoir.dealsActifs.splice(idx, 1)
+  const restantsIds = state.marcheNoir.dealsActifs.map(d => d.id)
+  const pool = CONFIG.MARCHE_NOIR.DEALS.filter(d =>
+    !restantsIds.includes(d.id) && evaluerConditions(d.conditions)
+  )
+  if (pool.length > 0) {
+    const nouveau = _tiragePondere(pool)
+    state.marcheNoir.dealsActifs.push({
+      ...nouveau, expiryS: now + CONFIG.MARCHE_NOIR.DUREE_DEAL_S, id_instance: Math.random(),
+    })
+  }
+
+  window.dispatchEvent(new CustomEvent('legacy:deal-accepte', { detail: { deal } }))
+  return { ok: true, deal }
+}
+
+function tickMarcheNoir() {
+  if (state.coucheIllegalMax < CONFIG.MARCHE_NOIR.DEBLOCKAGE_COUCHE) return
+  const now = Date.now() / 1000
+
+  // Purger les deals expirés
+  state.marcheNoir.dealsActifs = state.marcheNoir.dealsActifs.filter(d => now < d.expiryS)
+
+  // Premier accès : générer immédiatement
+  if (state.marcheNoir._dernierRefreshS === 0) { genererDeals(); return }
+
+  // Refresh complet si cooldown dépassé
+  if (now - state.marcheNoir._dernierRefreshS >= CONFIG.MARCHE_NOIR.COOLDOWN_REFRESH_S)
+    genererDeals()
 }
 
 // ─── Boucle principale ────────────────────────────────────────────────────────
@@ -839,6 +967,7 @@ function tick() {
   tickKarma()
   tickEvenementsKarma()
   tickEvenements()
+  tickMarcheNoir()
   calculerCashflowNet()
   verifierMort()
 }
@@ -865,4 +994,6 @@ Object.assign(window, {
   calculerGainInfluence,
   executerCommandeIllegale,
   appliquerEvenement,
+  genererDeals,
+  accepterDeal,
 })

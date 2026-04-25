@@ -96,4 +96,11 @@ export const state = reactive({
   // Événements aléatoires
   _dernierEvenementTick: 0,     // tick auquel s'est déclenché le dernier événement
   _ticksDepuisVerifEvenement: 0,// compteur vers le prochain tirage
+
+  // Marché noir — contact clandestin
+  marcheNoir: {
+    dealsActifs:      [],   // deals actuellement proposés (≤ NB_DEALS_ACTIFS)
+    _dernierRefreshS: 0,    // timestamp (s) du dernier refresh complet
+    _immuniteExpiry:  0,    // timestamp (s) fin d'immunité événements négatifs
+  },
 })

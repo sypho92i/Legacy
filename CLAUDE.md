@@ -712,6 +712,20 @@ Restructurer `<main class="zone-centrale">` :
 - index.html : CSS `.illegales-titre`, `.commandes-illegales`, `.commande-item` + variantes `--locked`/`--cooldown`, palette rouge/orange pixel art dark.
 - Valeurs : fraude_fiscale 500–2000€/60s cd, piratage 2000–8000€+5tokens/120s cd, hacking_avance 10000–40000€+15tokens/300s cd.
 
+### T28 — Événements aléatoires
+- config.js : `CONFIG.EVENEMENTS` — `TICK_VERIFICATION:25`, `PROBA_PAR_TIRAGE:0.04`, `COOLDOWN_GLOBAL_TICKS:150`, `LISTE` 13 événements pondérés (positif/negatif/majeur) avec `conditions`, `effets`, `poids`.
+- state.js : `_dernierEvenementTick:0`, `_ticksDepuisVerifEvenement:0`.
+- engine.js : module-level `let _tickTotal = 0`. `evaluerConditions(cond)` privée (karmaMin/Max, argentMin, abonnesMin, hygieneMax, secteurActif, coucheIllegalMin, niveauMin). `appliquerEvenement(event)` exportée. `tickEvenements()` branchée dans `tick()`. Reset dans `initialiserNouvelleGeneration()`.
+- ui.js : `ajouterFlottant(texte, duree, classe)` étendu avec param classe. `evenementOverlay` ref séparée. Listener `legacy:evenement` : majeur → overlay bloquant, autres → floating coloré. Computed `evenementOverlayInfo` avec `effetsLisibles`. `fermerEvenementOverlay()`.
+- index.html : CSS `.overlay-evenement` (amber, z-index:90), `.evt-effet--positif/--negatif`, `.boutique-flottant--positif/--negatif`.
+
+### T29 — Marché noir / réseau illégal
+- config.js : `CONFIG.MARCHE_NOIR` — `DEBLOCKAGE_COUCHE:2`, `NB_DEALS_ACTIFS:3`, `DUREE_DEAL_S:180`, `COOLDOWN_REFRESH_S:300`, `DEALS` 8 entrées (couche 2 : blanchiment, achat_abonnes, corruption_fonctionnaire, faux_diplome, vehicule_vole — couche 3 : contrat_douteux, protection_criminelle, tuyau_boursier).
+- state.js : `marcheNoir: { dealsActifs:[], _dernierRefreshS:0, _immuniteExpiry:0 }`.
+- engine.js : `evaluerConditions` étendue (coucheMin, possessions). `tickEvenements` : immunité filtre negatif/majeur. `_tiragePondere(pool)` privée. `genererDeals()` + `accepterDeal(idInstance)` exportées. `tickMarcheNoir()` branchée dans `tick()`. Reset génération.
+- ui.js : `marcheNoirDisponible` computed. `_formatMMSS(s)` helper. `dealsEnrichis` computed (tempsRestantS, tempsAffiche, expire, abordable, coutAffiche, gainAffiche). `immuniteRestanteS` + `prochainRefreshS` computeds. `actionAccepterDeal(idInstance)`. Bouton sidebar `🕵️ Contact` conditionnel. Overlay `marche_noir` : immunité badge, deal cards avec timers colorés, coût/gain, bouton accept, footer refresh.
+- index.html : CSS `.overlay-marche-noir`, `.mn-immunite`, `.mn-vide`, `.deal-card`, `.deal-card--expired`, `.deal-card__header`, `.deal-card__label`, `.deal-timer--rouge/--orange`, `.deal-cout`, `.deal-gain`, `.deal-card__btn`, `.mn-footer`, `.btn-contact`.
+
 ---
 *Ne jamais lire le GDD pour coder — toutes les infos techniques sont ici.*
 *Mettre à jour "Sessions terminées" à chaque fin de ticket.*
