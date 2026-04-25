@@ -689,6 +689,16 @@ Restructurer `<main class="zone-centrale">` :
 - Le secteur actif affiché dans `.carte-info` reste inchangé pendant la navigation
 - Zéro régression sur overlays sidebar, BTP, influence
 
+### T26 — Écran de fin de génération + tableau lignée
+- engine.js : `calculerHeritage()` enrichie — ajoute `secteurPrincipal` (xpSecteurs reduce) + `generationNumero`. `onMort()` : stocke l'héritage dans `window._recapGeneration` avant le dispatch `legacy:mort`. `initialiserNouvelleGeneration(boostChoisi = null)` : accepte un boost optionnel, incrémente `state.boostCompetences[boostChoisi]` avant le reset (boostCompetences n'est PAS resetté).
+- state.js : `boostCompetences: { commerce:0, finance:0, tech:0, immobilier:0, btp:0, influence:0 }` ajouté après `lignee`.
+- ui.js : Refs `recapData` + `boostSelectionne` remplacent `mort` + `heritageAffiche`. Listener `legacy:mort` → lit `window._recapGeneration` + set `panneauOverlay = 'mort'` (pas de ✕ fermeture). Computed `recapGeneration` : enrichit recapData de `boostsDisponibles` (secteurs disponibles) + `ligneeComplete` (state.lignee complet). `actionNouvelleGeneration()` : appelle `initialiserNouvelleGeneration(boostSelectionne.value)` + reset overlay + relance moteur. Overlay mort : 5 sections (recap bilan, stats vie, tableau lignée scrollable, grille 6 boost cards sélectionnables, bouton "Nouvelle génération →").
+- index.html : CSS overlay élargi (620px, 90vh max-height scrollable). `.overlay-mort__recap`, `.overlay-mort__ligne`, `.overlay-mort__or`, `.overlay-mort__lignee`, `.lignee-table-wrap`, `.lignee-table`, `.boost-grid`, `.boost-card`, `.boost-card--selected`, `.btn-continuer`.
+
+### T27 — Équilibrage économique global
+- config.js uniquement (11 valeurs, commentées `// T27:`).
+- `TICKS_PAR_AN` 50→75 (vie ~15.5 min). `NIVEAUX.SEUILS[1]` 100→150 (niv.2 plus graduel). Logements : studio 300→150€/mois, appartement 700→450€/mois, loft 1500→900€/mois. Téléphone 1000→800€. Formation BTP cout 200 (300→200). Vélo 200→300€. Berline mensuelle 500→400€. Supercar mensuelle 1500→1100€. BTP `revenuBase` 5→3. Finance `revenuMax` déjà à 40 (patch T19).
+
 ### T25 — Commandes illégales ordinateur
 - engine.js : `COMMANDES_ILLEGALES` (const exportée, 3 entrées : fraude_fiscale/piratage/hacking_avance). `getCoucheAccessible()` interne : couche 3 si karma < 35 + coucheIllegalMax ≥ 2, couche 2 si karma < 65 + niv.3 dans un secteur, sinon couche 1. `executerCommandeIllegale(id)` exportée : vérifie ordinateur + couche + cooldown → applique gain aléatoire, karma, reputation, tokens → met à jour `coucheIllegalMax` → cooldown via `state.telephoneCooldowns['illegal_' + id]`. Exposée via `Object.assign`.
 - ui.js : import `executerCommandeIllegale` + `COMMANDES_ILLEGALES`. Computed `commandesIllegalesInfo` (enrichit chaque commande de accessible/enCooldown/cdRestant/raison). Handler `actionCommandeIllegale`. Section "⚠ Marché noir" dans la vue ordinateur avec états locked/cooldown/disponible. Ajoutés au return.

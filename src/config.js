@@ -4,7 +4,7 @@
 export const CONFIG = {
   // Moteur
   TICK_MS: 200,                    // intervalle de la boucle de jeu
-  DEBUG: true,                     // active les outils de débogage en jeu
+  DEBUG: false,                    // active les outils de débogage en jeu
 
   // Finances
   REVENU_BASE_CLIC: 1,
