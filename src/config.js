@@ -4,7 +4,7 @@
 export const CONFIG = {
   // Moteur
   TICK_MS: 200,                    // intervalle de la boucle de jeu
-  DEBUG: false,                    // active les outils de débogage en jeu
+  DEBUG: true,                     // active les outils de débogage en jeu
 
   // Finances
   REVENU_BASE_CLIC: 1,
@@ -49,7 +49,7 @@ export const CONFIG = {
 
   // Âge
   AGE_DEPART: 18,
-  TICKS_PAR_AN: 50,          // 50 ticks × 200 ms = 10 s par an (balancing provisoire)
+  TICKS_PAR_AN: 75,          // T27: 50→75, vie totale 62 ans passe de ~10min à ~15.5min (cible 15-25min)
   AGE_MORT: 80,
 
   // Héritage
@@ -75,7 +75,7 @@ export const CONFIG = {
 
   // Niveaux par secteur
   NIVEAUX: {
-    SEUILS: [0, 100, 400, 1200, 3500], // XP cumulée requise pour niv.1 à 5
+    SEUILS: [0, 150, 500, 1500, 4000], // T27: niv.2 100→150 (atteint en ~1.5min était trop rapide), courbe lissée
     PALIERS_COMMERCE: {
       1: 'Vendeur',
       2: 'Responsable commercial',
@@ -124,9 +124,9 @@ export const CONFIG = {
   // Logements
   LOGEMENTS: {
     squat:       { type: 'defaut',   nom: 'Squat',       cout: 0,        charge: 0,    bonheur: 0,  transmissible: false },
-    studio:      { type: 'location', nom: 'Studio',      cout: 0,        charge: 300,  bonheur: 5,  transmissible: false },
-    appartement: { type: 'location', nom: 'Appartement', cout: 0,        charge: 700,  bonheur: 12, transmissible: false },
-    loft:        { type: 'location', nom: 'Loft',        cout: 0,        charge: 1500, bonheur: 20, transmissible: false },
+    studio:      { type: 'location', nom: 'Studio',      cout: 0,        charge: 150,  bonheur: 5,  transmissible: false }, // T27: 300→150, charge 60€/s effective inabordable début/milieu
+    appartement: { type: 'location', nom: 'Appartement', cout: 0,        charge: 450,  bonheur: 12, transmissible: false }, // T27: 700→450, lissage progression loyer
+    loft:        { type: 'location', nom: 'Loft',        cout: 0,        charge: 900,  bonheur: 20, transmissible: false }, // T27: 1500→900, lissage progression loyer
     maison:      { type: 'achat',    nom: 'Maison',      cout: 80000,    charge: 200,  bonheur: 30, transmissible: true  },
     villa:       { type: 'achat',    nom: 'Villa',       cout: 300000,   charge: 500,  bonheur: 45, transmissible: true  },
     penthouse:   { type: 'achat',    nom: 'Penthouse',   cout: 1000000,  charge: 1500, bonheur: 60, transmissible: true  },
@@ -147,7 +147,7 @@ export const CONFIG = {
 
   // Boutique — items consommables
   BOUTIQUE: {
-    TELEPHONE:   { prix: 1000 },
+    TELEPHONE:   { prix: 800 }, // T27: 1000→800, gate vers Influence (qui demande aussi ordi+voiture) trop tardif sinon
     ORDINATEUR:  { prix: 10000 },
     ITEMS: [
       { id: 'repas_simple',  label: 'Repas simple',         prix: 10, jauge: 'faim',    effet: 40 },
@@ -249,7 +249,7 @@ export const CONFIG = {
     { id: 'f_tec_2',  emoji: '💻', label: 'Tech — Avancé',               secteur: 'tech',       cout: 2200,  gainXP: 350, duree: 300 },
     { id: 'f_imm_1',  emoji: '🏢', label: 'Immobilier — Initiation',     secteur: 'immobilier', cout: 550,   gainXP: 80,  duree: 120 },
     { id: 'f_imm_2',  emoji: '🏢', label: 'Immobilier — Avancé',         secteur: 'immobilier', cout: 2400,  gainXP: 350, duree: 300 },
-    { id: 'f_btp_1',  emoji: '🏗', label: 'BTP — Initiation',            secteur: 'btp',        cout: 300,   gainXP: 80,  duree: 120 },
+    { id: 'f_btp_1',  emoji: '🏗', label: 'BTP — Initiation',            secteur: 'btp',        cout: 200,   gainXP: 80,  duree: 120 }, // T27: 300→200, BTP est le seul secteur sans véhicule requis, formation entry-level doit rester accessible
     { id: 'f_inf_1',  emoji: '🎙', label: 'Influence — Initiation',      secteur: 'influence',  cout: 800,   gainXP: 80,  duree: 120 },
     { id: 'f_inf_2',  emoji: '🎙', label: 'Influence — Avancé',          secteur: 'influence',  cout: 3000,  gainXP: 350, duree: 300 },
   ],
@@ -292,11 +292,11 @@ export const CONFIG = {
   },
 
   VEHICULES: {
-    velo:     { label: 'Vélo',     emoji: '🚲', prix: 200,   chargeMensuelle: 0,    karma:  0,  reputation: 0,  bonusClic: 0,  vehiculeRequis: null },
+    velo:     { label: 'Vélo',     emoji: '🚲', prix: 300,   chargeMensuelle: 0,    karma:  0,  reputation: 0,  bonusClic: 0,  vehiculeRequis: null }, // T27: 200→300, vrai gate Commerce/Campus (200 trop accessible)
     scooter:  { label: 'Scooter',  emoji: '🛵', prix: 1500,  chargeMensuelle: 50,   karma:  0,  reputation: 2,  bonusClic: 0,  vehiculeRequis: null },
     voiture:  { label: 'Voiture',  emoji: '🚗', prix: 8000,  chargeMensuelle: 200,  karma: -2,  reputation: 5,  bonusClic: 3,  vehiculeRequis: null },
-    berline:  { label: 'Berline',  emoji: '🚘', prix: 25000, chargeMensuelle: 500,  karma: -5,  reputation: 15, bonusClic: 8,  vehiculeRequis: null },
-    supercar: { label: 'Supercar', emoji: '🏎', prix: 80000, chargeMensuelle: 1500, karma: -10, reputation: 25, bonusClic: 20, vehiculeRequis: null },
+    berline:  { label: 'Berline',  emoji: '🚘', prix: 25000, chargeMensuelle: 400,  karma: -5,  reputation: 15, bonusClic: 8,  vehiculeRequis: null }, // T27: 500→400, ratio prix/charge cohérent vs voiture (8k/200)
+    supercar: { label: 'Supercar', emoji: '🏎', prix: 80000, chargeMensuelle: 1100, karma: -10, reputation: 25, bonusClic: 20, vehiculeRequis: null }, // T27: 1500→1100, charge écrasait juste après l'achat 80k€
   },
 
   // Immobilier — événements aléatoires
@@ -350,7 +350,7 @@ export const CONFIG = {
       ],
     },
     btp: {
-      revenuBase: 5,
+      revenuBase: 3, // T27: 5→3, click 5×1.3=6.5€ violait le ratio BTP < Commerce (1€) en début de partie
       clicAccelere: 1, // secondes retirées du chantier actif par clic
       upgrades: [
         { id: 'u_b1', label: 'Rénovation',           prerequis: null,   niveauRequis: 1, duree: 30,  recompense: 500    },
