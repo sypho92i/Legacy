@@ -689,6 +689,13 @@ Restructurer `<main class="zone-centrale">` :
 - Le secteur actif affiché dans `.carte-info` reste inchangé pendant la navigation
 - Zéro régression sur overlays sidebar, BTP, influence
 
+### T28 — Événements aléatoires
+- config.js : `CONFIG.EVENEMENTS` — 13 événements (TICK_VERIFICATION:25, PROBA:4%, COOLDOWN:150 ticks). Champs par event : id, label, message, conditions, poids, effets, gravite.
+- state.js : `_dernierEvenementTick: 0` + `_ticksDepuisVerifEvenement: 0`. Reset dans `initialiserNouvelleGeneration`.
+- engine.js : `evaluerConditions(cond)` interne (karmaMin/Max, argentMin, abonnesMin, hygieneMax, secteurActif, coucheIllegalMin, niveauMin). `appliquerEvenement(event)` exportée — applique tous les effets (argent, argentPourcent, abonnes, abonnesPourcent, karma, jauges), dispatch `legacy:evenement`. `tickEvenements()` branché dans `tick()` — guard `_mortDeclenchee`, cooldown, tirage pondéré. `_tickTotal` module-level reset à chaque génération.
+- ui.js : `evenementOverlay` ref + `evenementOverlayInfo` computed (effetsLisibles enrichis). Listener `legacy:evenement` → overlay si majeur, `ajouterFlottant` coloré sinon. `fermerEvenementOverlay()`. `ajouterFlottant` étendu avec param `classe`. Boutique-flottants `:class="f.classe"`.
+- index.html : CSS `.overlay-evenement` (z-index 90, amber), `.evt-effet--positif/negatif`, `.boutique-flottant--positif/negatif`.
+
 ### T26 — Écran de fin de génération + tableau lignée
 - engine.js : `calculerHeritage()` enrichie — ajoute `secteurPrincipal` (xpSecteurs reduce) + `generationNumero`. `onMort()` : stocke l'héritage dans `window._recapGeneration` avant le dispatch `legacy:mort`. `initialiserNouvelleGeneration(boostChoisi = null)` : accepte un boost optionnel, incrémente `state.boostCompetences[boostChoisi]` avant le reset (boostCompetences n'est PAS resetté).
 - state.js : `boostCompetences: { commerce:0, finance:0, tech:0, immobilier:0, btp:0, influence:0 }` ajouté après `lignee`.
