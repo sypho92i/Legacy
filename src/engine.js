@@ -528,12 +528,16 @@ function tickKarma() {
 // ─── Héritage & mort ─────────────────────────────────────────────────────────
 
 export function calculerHeritage() {
+  const secteurPrincipal = Object.entries(state.xpSecteurs)
+    .reduce((max, [s, xp]) => xp > max[1] ? [s, xp] : max, ['commerce', 0])[0]
   return {
     nom:               state.nomPersonnage,
     age_mort:          state.age,
     argent_transmis:   Math.floor(state.argent * 0.5),
     karma_final:       state.karma,
     couche_illegale_max: state.coucheIllegalMax,
+    secteurPrincipal,
+    generationNumero:  state.generation,
   }
 }
 
@@ -564,7 +568,11 @@ function karmaDepart(lignee) {
   return Math.max(0, Math.min(100, base))
 }
 
-export function initialiserNouvelleGeneration() {
+export function initialiserNouvelleGeneration(boostChoisi = null) {
+  // Boost intergénérationnel — appliqué avant le reset, persist dans boostCompetences
+  if (boostChoisi && boostChoisi in state.boostCompetences) {
+    state.boostCompetences[boostChoisi] += 1
+  }
   const dernierHeritage     = state.lignee[state.lignee.length - 1]
   const kDepart             = karmaDepart(state.lignee)
   const heritageLogementAchete = state.possessions.logementAchete
@@ -742,6 +750,7 @@ function tickEvenementsKarma() {
 function onMort() {
   const heritage = calculerHeritage()
   state.lignee.push(heritage)
+  window._recapGeneration = heritage
   stopEngine()
   window.dispatchEvent(new CustomEvent('legacy:mort', { detail: { heritage } }))
 }

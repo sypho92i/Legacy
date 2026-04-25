@@ -50,6 +50,7 @@ export const state = reactive({
   age: CONFIG.AGE_DEPART,
   coucheIllegalMax: 0,     // 0 | 1 | 2 | 3 — max atteint dans cette vie
   lignee: [],              // [{ nom, age_mort, argent_transmis, karma_final, couche_illegale_max }]
+  boostCompetences: { commerce: 0, finance: 0, tech: 0, immobilier: 0, btp: 0, influence: 0 },
 
   // Possessions
   possessions: {

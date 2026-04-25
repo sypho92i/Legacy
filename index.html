@@ -525,34 +525,68 @@
                     background: #111; color: #555; border: 1px solid #2a2a2a; border-radius: 4px; }
     .debug__mort { color: #c62828 !important; border-color: #5a1a1a !important; }
 
-    /* Écran de fin de vie */
+    /* Écran de fin de génération */
     .overlay-mort {
       position: fixed; inset: 0;
-      background: rgba(0, 0, 0, 0.88);
+      background: rgba(0, 0, 0, 0.92);
       display: flex; align-items: center; justify-content: center;
       z-index: 100;
     }
     .ecran-mort {
-      background: #111; border: 1px solid #444; border-radius: 8px;
-      padding: 32px; max-width: 420px; width: 100%;
+      background: #0d0d0d; border: 1px solid #5a1a1a; border-radius: 8px;
+      padding: 28px 32px; width: 100%; max-width: 620px;
+      max-height: 90vh; overflow-y: auto;
       display: flex; flex-direction: column; gap: 20px;
       font-family: monospace;
     }
-    .ecran-mort__titre { font-size: 1.6em; color: #e0e0e0; border-bottom: 1px solid #333; padding-bottom: 12px; }
-    .ecran-mort__resume { display: flex; flex-direction: column; gap: 6px; color: #ccc; }
-    .ecran-mort__nom    { font-size: 1.2em; font-weight: bold; color: #fff; }
-    .ecran-mort__competences h2 { font-size: 0.9em; color: #888; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
-    .ecran-mort__liste-comp { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; }
-    .ecran-mort__comp-item  { background: #1a1a1a; border: 1px solid #333; border-radius: 4px;
-                               padding: 4px 10px; display: flex; gap: 8px; align-items: center; }
-    .ecran-mort__comp-secteur { text-transform: capitalize; color: #aaa; }
-    .ecran-mort__comp-niv     { color: #ffeb3b; font-size: 0.85em; }
-    .ecran-mort__btn {
-      padding: 12px 24px; font-family: monospace; font-size: 1em; cursor: pointer;
-      background: #1a2e1a; color: #4caf50; border: 1px solid #4caf50; border-radius: 5px;
-      align-self: flex-end;
+    .overlay-mort__titre {
+      font-size: 1.5em; font-weight: bold; color: #fca5a5;
+      border-bottom: 1px solid #3a1a1a; padding-bottom: 12px;
     }
-    .ecran-mort__btn:hover { background: #223a22; }
+    .overlay-mort__sous-titre { font-size: 0.6em; color: #888; margin-top: 4px; font-weight: normal; }
+    .overlay-mort__section-titre {
+      font-size: 0.78em; text-transform: uppercase; letter-spacing: 0.1em;
+      color: #666; margin-bottom: 10px;
+    }
+    .overlay-mort__recap { display: flex; flex-direction: column; gap: 8px; }
+    .overlay-mort__ligne {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 6px 10px; background: #111; border: 1px solid #222; border-radius: 3px;
+      font-size: 0.88em; color: #ccc;
+    }
+    .overlay-mort__or { color: #fbbf24; }
+    .overlay-mort__lignee { display: flex; flex-direction: column; gap: 8px; }
+    .lignee-table-wrap { max-height: 160px; overflow-y: auto; border: 1px solid #222; border-radius: 4px; }
+    .lignee-table {
+      width: 100%; border-collapse: collapse; font-size: 0.82em;
+    }
+    .lignee-table th {
+      background: #181818; color: #666; text-align: left;
+      padding: 5px 10px; border-bottom: 1px solid #2a2a2a; position: sticky; top: 0;
+    }
+    .lignee-table td { padding: 5px 10px; color: #ccc; border-bottom: 1px solid #1a1a1a; }
+    .lignee-table__row--actuelle td { color: #fca5a5; background: #1a0a0a; }
+    .lignee-table__or { color: #fbbf24; }
+    .boost-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+    }
+    .boost-card {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      padding: 10px 6px; border: 1px solid #2a2a2a; border-radius: 5px;
+      cursor: pointer; background: #111; transition: border-color 0.15s, background 0.15s;
+      font-size: 0.8em; color: #888; text-transform: capitalize;
+    }
+    .boost-card:hover { border-color: #555; background: #181818; }
+    .boost-card--selected { border-color: #a78bfa; background: #1a1033; color: #c4b5fd; }
+    .boost-card__emoji { font-size: 1.5em; }
+    .boost-card__label { font-size: 0.85em; }
+    .btn-continuer {
+      padding: 13px 24px; font-family: monospace; font-size: 1em; font-weight: bold;
+      cursor: pointer; background: #1a2e1a; color: #4caf50;
+      border: 1px solid #4caf50; border-radius: 5px; align-self: stretch;
+      letter-spacing: 0.05em;
+    }
+    .btn-continuer:hover { background: #223a22; }
     /* BTP — chantier actif */
     .btp-chantier-actif {
       margin: 8px 0; padding: 10px 12px;

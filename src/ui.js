@@ -10,34 +10,51 @@ export const AppRoot = {
   setup() {
     const { ref, computed } = Vue
 
-    // ── Écran de fin de vie ───────────────────────────────────────────────────
-    const mort          = ref(false)
-    const heritageAffiche = ref(null)
+    // ── Écran de fin de génération ────────────────────────────────────────────
+    const recapData       = ref(null)
+    const boostSelectionne = ref(null)
 
-    window.addEventListener('legacy:mort', (e) => {
-      heritageAffiche.value = e.detail.heritage
-      mort.value = true
+    window.addEventListener('legacy:mort', () => {
+      recapData.value        = window._recapGeneration ?? null
+      boostSelectionne.value = null
+      panneauOverlay.value   = 'mort'
     })
 
-    function nouvelleGeneration() {
-      initialiserNouvelleGeneration()
-      mort.value = false
+    const recapGeneration = computed(() => {
+      if (!recapData.value) return null
+      const boostsDisponibles = Object.values(CONFIG.MAP.ZONES)
+        .filter(z => z.secteur && z.disponible !== false)
+        .map(z => ({ secteur: z.secteur, label: z.label, emoji: z.emoji }))
+      return {
+        ...recapData.value,
+        boostsDisponibles,
+        ligneeComplete: state.lignee,
+      }
+    })
+
+    function actionNouvelleGeneration() {
+      initialiserNouvelleGeneration(boostSelectionne.value)
+      boostSelectionne.value = null
+      panneauOverlay.value   = null
       startEngine()
     }
 
     function mortSimulee() {
+      const secteurPrincipal = Object.entries(state.xpSecteurs)
+        .reduce((max, [s, xp]) => xp > max[1] ? [s, xp] : max, ['commerce', 0])[0]
+      const heritage = {
+        nom:               state.nomPersonnage,
+        age_mort:          state.age,
+        argent_transmis:   Math.floor(state.argent * 0.5),
+        karma_final:       state.karma,
+        couche_illegale_max: state.coucheIllegalMax,
+        secteurPrincipal,
+        generationNumero:  state.generation,
+      }
+      state.lignee.push(heritage)
+      window._recapGeneration = heritage
       stopEngine()
-      window.dispatchEvent(new CustomEvent('legacy:mort', {
-        detail: {
-          heritage: {
-            nom:               state.nomPersonnage,
-            age_mort:          state.age,
-            argent_transmis:   Math.floor(state.argent * 0.5),
-            karma_final:       state.karma,
-            couche_illegale_max: state.coucheIllegalMax,
-          }
-        }
-      }))
+      window.dispatchEvent(new CustomEvent('legacy:mort', { detail: { heritage } }))
     }
 
     // ── Notif événement immobilier ────────────────────────────────────────────
@@ -653,7 +670,7 @@ export const AppRoot = {
       onClic, toggleEngine, isEngineRunning,
       renderUpgradesSecteur, renderUpgradesBatiment, batimentSecteurInfo,
       acheterUpgrade, acheterItemBoutique, itemsBoutique,
-      mort, heritageAffiche, competencesAuDeces, nouvelleGeneration, mortSimulee,
+      recapGeneration, boostSelectionne, actionNouvelleGeneration, mortSimulee, competencesAuDeces,
       ongletFinances, financesRevenus, financesCharges, totalChargesAffiche, getTauxPassifTotal,
       logementActuel, logementLocations, logementAchats, logementsBatiment, actionLouer, actionAcheter,
       telephoneActions, abonnesAffiche, actionAcheterTelephone, actionTelephone,
@@ -1339,29 +1356,91 @@ export const AppRoot = {
       </main>
 
       <!-- ══════════════════════════════════════════════════════════ -->
-      <!-- ÉCRAN DE FIN DE VIE (overlay global)                     -->
+      <!-- ÉCRAN DE FIN DE GÉNÉRATION (overlay bloquant global)     -->
       <!-- ══════════════════════════════════════════════════════════ -->
-      <div v-if="mort" class="overlay-mort">
-        <div class="ecran-mort">
-          <h1 class="ecran-mort__titre">Fin de vie</h1>
-          <div v-if="heritageAffiche" class="ecran-mort__resume">
-            <p class="ecran-mort__nom">{{ heritageAffiche.nom }}</p>
-            <p>Décédé à <strong>{{ heritageAffiche.age_mort }} ans</strong></p>
-            <p>Argent transmis : <strong>{{ heritageAffiche.argent_transmis }} €</strong></p>
-            <p>Karma final : <strong>{{ heritageAffiche.karma_final }}</strong></p>
+      <div v-if="panneauOverlay === 'mort'" class="overlay-mort">
+        <div class="ecran-mort" v-if="recapGeneration">
+
+          <!-- Titre -->
+          <div class="overlay-mort__titre">
+            💀 FIN DE GÉNÉRATION #{{ recapGeneration.generationNumero }}
+            <div class="overlay-mort__sous-titre">
+              {{ recapGeneration.nom || '???' }} — mort{{ recapGeneration.generationNumero !== 1 ? '' : '' }} à {{ recapGeneration.age_mort }} ans
+            </div>
           </div>
-          <div class="ecran-mort__competences">
-            <h2>Compétences</h2>
-            <ul class="ecran-mort__liste-comp">
-              <li v-for="c in competencesAuDeces" :key="c.secteur" class="ecran-mort__comp-item">
-                <span class="ecran-mort__comp-secteur">{{ c.secteur }}</span>
-                <span class="ecran-mort__comp-niv">Niv.{{ c.niveau }}</span>
-              </li>
-            </ul>
+
+          <!-- Bilan -->
+          <div class="overlay-mort__recap">
+            <h3 class="overlay-mort__section-titre">Bilan de vie</h3>
+            <div class="overlay-mort__ligne">
+              <span>💰 Héritage transmis</span>
+              <strong class="overlay-mort__or">{{ recapGeneration.argent_transmis.toLocaleString('fr-FR') }} €</strong>
+            </div>
+            <div class="overlay-mort__ligne">
+              <span>⚡ Karma final</span>
+              <strong>{{ recapGeneration.karma_final }}</strong>
+            </div>
+            <div class="overlay-mort__ligne">
+              <span>🏆 Secteur principal</span>
+              <strong style="text-transform:capitalize">{{ recapGeneration.secteurPrincipal }}</strong>
+            </div>
+            <div class="overlay-mort__ligne">
+              <span>☠ Couche illégale max</span>
+              <strong :style="{ color: recapGeneration.couche_illegale_max > 0 ? '#ef4444' : '#888' }">
+                {{ recapGeneration.couche_illegale_max === 0 ? 'Aucune' : recapGeneration.couche_illegale_max }}
+              </strong>
+            </div>
           </div>
-          <button class="ecran-mort__btn" @click="nouvelleGeneration">
-            Nouvelle génération →
+
+          <!-- Lignée -->
+          <div v-if="recapGeneration.ligneeComplete.length > 1" class="overlay-mort__lignee">
+            <h3 class="overlay-mort__section-titre">Lignée — {{ recapGeneration.ligneeComplete.length }} générations</h3>
+            <div class="lignee-table-wrap">
+              <table class="lignee-table">
+                <thead>
+                  <tr><th>Nom</th><th>Âge</th><th>Argent</th><th>Karma</th></tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(anc, i) in recapGeneration.ligneeComplete" :key="i"
+                    :class="{ 'lignee-table__row--actuelle': i === recapGeneration.ligneeComplete.length - 1 }">
+                    <td>{{ anc.nom || '???' }}</td>
+                    <td>{{ anc.age_mort }} ans</td>
+                    <td class="lignee-table__or">{{ anc.argent_transmis.toLocaleString('fr-FR') }} €</td>
+                    <td>{{ anc.karma_final }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Boost de départ -->
+          <div>
+            <h3 class="overlay-mort__section-titre">
+              Boost de départ
+              <span style="font-size:0.75em; color:#555; font-weight:normal;">(optionnel)</span>
+            </h3>
+            <div class="boost-grid">
+              <div
+                v-for="b in recapGeneration.boostsDisponibles"
+                :key="b.secteur"
+                class="boost-card"
+                :class="{ 'boost-card--selected': boostSelectionne === b.secteur }"
+                @click="boostSelectionne = boostSelectionne === b.secteur ? null : b.secteur"
+              >
+                <span class="boost-card__emoji">{{ b.emoji }}</span>
+                <span class="boost-card__label">{{ b.secteur }}</span>
+              </div>
+            </div>
+            <p v-if="boostSelectionne" style="font-size:0.75em; color:#a78bfa; margin-top:6px;">
+              +1 boost {{ boostSelectionne }} en héritage
+            </p>
+          </div>
+
+          <!-- Continuer -->
+          <button class="btn-continuer" @click="actionNouvelleGeneration">
+            ▶ COMMENCER GÉNÉRATION {{ recapGeneration.generationNumero + 1 }}
           </button>
+
         </div>
       </div>
 
