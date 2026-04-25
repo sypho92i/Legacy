@@ -689,6 +689,12 @@ Restructurer `<main class="zone-centrale">` :
 - Le secteur actif affiché dans `.carte-info` reste inchangé pendant la navigation
 - Zéro régression sur overlays sidebar, BTP, influence
 
+### T25 — Commandes illégales ordinateur
+- engine.js : `COMMANDES_ILLEGALES` (const exportée, 3 entrées : fraude_fiscale/piratage/hacking_avance). `getCoucheAccessible()` interne : couche 3 si karma < 35 + coucheIllegalMax ≥ 2, couche 2 si karma < 65 + niv.3 dans un secteur, sinon couche 1. `executerCommandeIllegale(id)` exportée : vérifie ordinateur + couche + cooldown → applique gain aléatoire, karma, reputation, tokens → met à jour `coucheIllegalMax` → cooldown via `state.telephoneCooldowns['illegal_' + id]`. Exposée via `Object.assign`.
+- ui.js : import `executerCommandeIllegale` + `COMMANDES_ILLEGALES`. Computed `commandesIllegalesInfo` (enrichit chaque commande de accessible/enCooldown/cdRestant/raison). Handler `actionCommandeIllegale`. Section "⚠ Marché noir" dans la vue ordinateur avec états locked/cooldown/disponible. Ajoutés au return.
+- index.html : CSS `.illegales-titre`, `.commandes-illegales`, `.commande-item` + variantes `--locked`/`--cooldown`, palette rouge/orange pixel art dark.
+- Valeurs : fraude_fiscale 500–2000€/60s cd, piratage 2000–8000€+5tokens/120s cd, hacking_avance 10000–40000€+15tokens/300s cd.
+
 ---
 *Ne jamais lire le GDD pour coder — toutes les infos techniques sont ici.*
 *Mettre à jour "Sessions terminées" à chaque fin de ticket.*
