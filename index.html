@@ -688,6 +688,31 @@
     .btn-influence:active { background: #1e1e2e; }
     .influence-hint { font-size: 0.7em; color: #4b5563; }
 
+    /* Commandes illégales */
+    .illegales-titre { color: #ef4444; margin-top: 12px; }
+    .commandes-illegales { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .commande-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px; border: 1px solid #3a1a1a; border-radius: 4px;
+      background: #1a0a0a;
+    }
+    .commande-item--locked  { opacity: 0.55; border-color: #2a2a2a; background: #111; }
+    .commande-item--cooldown { border-color: #78350f; background: #1c1008; }
+    .commande-item__emoji { font-size: 1.3em; flex-shrink: 0; }
+    .commande-item__info  { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+    .commande-item__label { font-size: 0.9em; font-weight: bold; color: #fca5a5; }
+    .commande-item__gains { font-size: 0.75em; color: #888; }
+    .commande-item__couche { font-size: 0.7em; color: #6b7280; }
+    .commande-item__action { flex-shrink: 0; text-align: right; }
+    .commande-item__raison { font-size: 0.72em; color: #6b7280; }
+    .commande-item__cd     { font-size: 0.82em; color: #f59e0b; font-family: monospace; }
+    .commande-item__btn {
+      padding: 4px 10px; font-family: monospace; font-size: 0.85em;
+      cursor: pointer; background: #3b0a0a; color: #ef4444;
+      border: 1px solid #ef4444; border-radius: 3px;
+    }
+    .commande-item__btn:hover { background: #5a1010; }
+
     /* Formations — vue bâtiment écol */
     .formations-vue { display: flex; flex-direction: column; gap: 12px; }
     .formation-active-card {

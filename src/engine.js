@@ -260,6 +260,53 @@ export function executerCommande(id) {
   return { ok: true }
 }
 
+// ─── Commandes illégales ──────────────────────────────────────────────────────
+
+export const COMMANDES_ILLEGALES = {
+  fraude_fiscale: { label: 'Fraude fiscale',  emoji: '🧾', couche: 1, cooldown: 60,
+                    gainMin: 500,   gainMax: 2000,  karma: -5,  reputation: -3,  tokens: 0  },
+  piratage:       { label: 'Piratage',        emoji: '🔓', couche: 2, cooldown: 120,
+                    gainMin: 2000,  gainMax: 8000,  karma: -10, reputation: -8,  tokens: 5  },
+  hacking_avance: { label: 'Hacking avancé', emoji: '💀', couche: 3, cooldown: 300,
+                    gainMin: 10000, gainMax: 40000, karma: -20, reputation: -15, tokens: 15 },
+}
+
+function getCoucheAccessible() {
+  if (state.karma < 35 && state.coucheIllegalMax >= 2) return 3
+  const anyNiv3 = Object.keys(state.xpSecteurs).some(s => calculerNiveau(s) >= 3)
+  if (state.karma < 65 && anyNiv3) return 2
+  return 1
+}
+
+export function executerCommandeIllegale(id) {
+  if (!state.possessions.ordinateur) return { ok: false, raison: 'ordinateur' }
+  const cmd = COMMANDES_ILLEGALES[id]
+  if (!cmd) return { ok: false, raison: 'inconnue' }
+
+  const coucheMax = getCoucheAccessible()
+  if (cmd.couche > coucheMax) return { ok: false, raison: 'couche', coucheRequise: cmd.couche }
+
+  const cooldownKey = 'illegal_' + id
+  const now = Date.now()
+  if (now < (state.telephoneCooldowns[cooldownKey] ?? 0))
+    return { ok: false, raison: 'cooldown' }
+
+  // Appliquer effets
+  const gain = Math.round(Math.random() * (cmd.gainMax - cmd.gainMin) + cmd.gainMin)
+  state.argent += gain
+  state.karma           = Math.max(0, Math.min(100, state.karma + cmd.karma))
+  state.jauges.reputation = clampJauge(state.jauges.reputation + cmd.reputation)
+  if (cmd.tokens > 0) state.possessions.tokens += cmd.tokens
+
+  // Mise à jour couche max atteinte
+  if (cmd.couche > state.coucheIllegalMax) state.coucheIllegalMax = cmd.couche
+
+  // Cooldown — même pattern que telephoneCooldowns
+  state.telephoneCooldowns[cooldownKey] = now + cmd.cooldown * 1000
+
+  return { ok: true, gain }
+}
+
 // ─── Véhicules ────────────────────────────────────────────────────────────────
 
 export function vehiculePermetSecteur(secteurCible) {
@@ -753,4 +800,5 @@ Object.assign(window, {
   terminerChantier,
   declencherEvenementImmo,
   calculerGainInfluence,
+  executerCommandeIllegale,
 })

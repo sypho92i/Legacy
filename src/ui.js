@@ -1,7 +1,7 @@
 // ui.js — composants Vue, handlers d'événements, update UI
 // Règle : ne contient que du Vue réactif — zéro querySelector/getElementById
 import { state }            from './state.js'
-import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, inscrireFormation, etudierFormation, acheterVehicule, vehiculePermetSecteur, declencherEvenementImmo, lancerChantier, calculerGainInfluence } from './engine.js'
+import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, inscrireFormation, etudierFormation, acheterVehicule, vehiculePermetSecteur, declencherEvenementImmo, lancerChantier, calculerGainInfluence, executerCommandeIllegale, COMMANDES_ILLEGALES } from './engine.js'
 import { CONFIG }           from './config.js'
 
 // ─── Composant racine ─────────────────────────────────────────────────────────
@@ -464,6 +464,33 @@ export const AppRoot = {
       ajouterFlottant(`${cmd.emoji} ${cmd.label}`)
     }
 
+    // ── Commandes illégales ───────────────────────────────────────────────────
+
+    const commandesIllegalesInfo = computed(() =>
+      Object.entries(COMMANDES_ILLEGALES).map(([id, cmd]) => {
+        const cooldownKey  = 'illegal_' + id
+        const expiry       = state.telephoneCooldowns[cooldownKey] ?? 0
+        const enCooldown   = now.value < expiry
+        const cdRestant    = enCooldown ? Math.ceil((expiry - now.value) / 1000) : 0
+        // Couche accessible : recalcul simplifié côté UI (même logique que engine)
+        const anyNiv3      = Object.keys(state.xpSecteurs).some(s => calculerNiveau(s) >= 3)
+        const coucheMax    = (state.karma < 35 && state.coucheIllegalMax >= 2) ? 3
+                           : (state.karma < 65 && anyNiv3)                     ? 2 : 1
+        const accessible   = cmd.couche <= coucheMax
+        let raison = null
+        if (!accessible) raison = `Couche ${cmd.couche} — karma ou niveau insuffisant`
+        else if (enCooldown) raison = `Cooldown ${cdRestant}s`
+        return { id, ...cmd, accessible, enCooldown, cdRestant, coucheMax, raison }
+      })
+    )
+
+    function actionCommandeIllegale(id) {
+      const result = executerCommandeIllegale(id)
+      if (!result.ok) return
+      const cmd = COMMANDES_ILLEGALES[id]
+      ajouterFlottant(`${cmd.emoji} +${result.gain.toLocaleString('fr-FR')} €`, 1200)
+    }
+
     // ── Carte — computeds ─────────────────────────────────────────────────────
 
     const carteZones = computed(() =>
@@ -632,6 +659,7 @@ export const AppRoot = {
       telephoneActions, abonnesAffiche, actionAcheterTelephone, actionTelephone,
       prixPacksTokens, tokensAffiche, boostXpActif, boostXpRestant,
       actionAcheterOrdinateur, actionAcheterTokens, actionExecuterCommande,
+      commandesIllegalesInfo, actionCommandeIllegale, COMMANDES_ILLEGALES,
       messageBlocageCarte,
       panneauOverlay, ouvrirOverlay, fermerOverlay,
       navEcran, quartierEnCours, batimentEnCours, breadcrumb,
@@ -1245,6 +1273,32 @@ export const AppRoot = {
                     <span v-if="id === 'recherche' && boostXpActif" class="ordinateur-boost-badge">🔬 ACTIF {{ boostXpRestant }}s</span>
                     <span class="ordinateur-commande__cout">{{ cmd.tokens }} 🔮</span>
                     <button class="ordinateur-commande__btn" :disabled="state.possessions.tokens < cmd.tokens" @click="actionExecuterCommande(id)">▶</button>
+                  </li>
+                </ul>
+
+                <!-- Commandes illégales -->
+                <div class="ordinateur-section-titre illegales-titre">⚠ Marché noir</div>
+                <ul class="commandes-illegales">
+                  <li v-for="cmd in commandesIllegalesInfo" :key="cmd.id"
+                    class="commande-item"
+                    :class="{
+                      'commande-item--locked':   !cmd.accessible,
+                      'commande-item--cooldown':  cmd.accessible && cmd.enCooldown,
+                    }">
+                    <span class="commande-item__emoji">{{ cmd.emoji }}</span>
+                    <div class="commande-item__info">
+                      <span class="commande-item__label">{{ cmd.label }}</span>
+                      <span class="commande-item__gains">{{ cmd.gainMin.toLocaleString('fr-FR') }}–{{ cmd.gainMax.toLocaleString('fr-FR') }} €
+                        <template v-if="cmd.tokens > 0"> · +{{ cmd.tokens }} 🔮</template>
+                        · Karma {{ cmd.karma }} · Rép. {{ cmd.reputation }}
+                      </span>
+                      <span class="commande-item__couche">Couche {{ cmd.couche }}</span>
+                    </div>
+                    <div class="commande-item__action">
+                      <span v-if="!cmd.accessible" class="commande-item__raison">🔒 {{ cmd.raison }}</span>
+                      <span v-else-if="cmd.enCooldown" class="commande-item__cd">⏳ {{ cmd.cdRestant }}s</span>
+                      <button v-else class="commande-item__btn" @click="actionCommandeIllegale(cmd.id)">▶</button>
+                    </div>
                   </li>
                 </ul>
               </div>
