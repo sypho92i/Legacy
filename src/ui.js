@@ -1,7 +1,7 @@
 // ui.js — composants Vue, handlers d'événements, update UI
 // Règle : ne contient que du Vue réactif — zéro querySelector/getElementById
 import { state }            from './state.js'
-import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, inscrireFormation, etudierFormation, acheterVehicule, vehiculePermetSecteur, declencherEvenementImmo, lancerChantier, calculerGainInfluence, executerCommandeIllegale, COMMANDES_ILLEGALES } from './engine.js'
+import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, inscrireFormation, etudierFormation, acheterVehicule, vehiculePermetSecteur, declencherEvenementImmo, lancerChantier, calculerGainInfluence, executerCommandeIllegale, COMMANDES_ILLEGALES, appliquerEvenement } from './engine.js'
 import { CONFIG }           from './config.js'
 
 // ─── Composant racine ─────────────────────────────────────────────────────────
@@ -64,6 +64,45 @@ export const AppRoot = {
       setTimeout(() => { derniereNotifImmo.value = null }, 4000)
     })
 
+    // ── Événements aléatoires — overlay majeur ────────────────────
+    const evenementOverlay = ref(null)   // event object | null
+
+    window.addEventListener('legacy:evenement', (e) => {
+      const evt = e.detail.event
+      if (evt.gravite === 'majeur') {
+        evenementOverlay.value = evt
+      } else {
+        const emoji  = evt.gravite === 'positif' ? '✨' : '⚠'
+        const classe = evt.gravite === 'positif' ? 'boutique-flottant--positif' : 'boutique-flottant--negatif'
+        ajouterFlottant(`${emoji} ${evt.label} : ${evt.message}`, 2500, classe)
+      }
+    })
+
+    const evenementOverlayInfo = computed(() => {
+      const evt = evenementOverlay.value
+      if (!evt) return null
+      const effetsLisibles = Object.entries(evt.effets).map(([cle, val]) => {
+        const sign = val > 0 ? '+' : ''
+        const textes = {
+          argent:          `${sign}${val.toLocaleString('fr-FR')} € argent`,
+          argentPourcent:  `${val > 0 ? '+' : ''}${Math.round(val * 100)}% argent`,
+          abonnes:         `${sign}${val} abonnés`,
+          abonnesPourcent: `${val > 0 ? '+' : ''}${Math.round(val * 100)}% abonnés`,
+          karma:           `${sign}${val} karma`,
+          bonheur:         `${sign}${val} bonheur`,
+          sante:           `${sign}${val} santé`,
+          hygiene:         `${sign}${val} hygiène`,
+          reputation:      `${sign}${val} réputation`,
+        }
+        return { texte: textes[cle] ?? `${cle}: ${val}`, positif: val > 0 }
+      })
+      return { ...evt, effetsLisibles }
+    })
+
+    function fermerEvenementOverlay() {
+      evenementOverlay.value = null
+    }
+
     // ── Floating texts ────────────────────────────────────────────────────────
     const flottants = ref([])
     let _nextFlottantId = 0
@@ -72,9 +111,9 @@ export const AppRoot = {
     const boutiqueFlottants = ref([])
     let _nextBoutiqueFlottantId = 0
 
-    function ajouterFlottant(texte, duree = 800) {
+    function ajouterFlottant(texte, duree = 800, classe = '') {
       const fid = _nextBoutiqueFlottantId++
-      boutiqueFlottants.value.push({ id: fid, texte })
+      boutiqueFlottants.value.push({ id: fid, texte, classe })
       setTimeout(() => {
         const idx = boutiqueFlottants.value.findIndex(f => f.id === fid)
         if (idx !== -1) boutiqueFlottants.value.splice(idx, 1)
@@ -684,6 +723,7 @@ export const AppRoot = {
       carteZones, spritePosition, spriteClasse,
       formationsCampus, formationActiveInfo, actionInscrireFormation, actionEtudierFormation,
       boutiqueVehicules, vehiculesBatiment, actionAcheterVehicule,
+      evenementOverlay, evenementOverlayInfo, fermerEvenementOverlay,
       derniereNotifImmo, immoPassifBadge,
       chantierProgression, actionLancerChantier,
       influenceAppuiMs, influenceEnAppui, influenceBarrePct, influencePrecisionLabel,
@@ -820,7 +860,7 @@ export const AppRoot = {
             {{ messageBlocageCarte }}
           </div>
           <div class="boutique-flottants" aria-hidden="true">
-            <span v-for="f in boutiqueFlottants" :key="f.id" class="boutique-flottant">{{ f.texte }}</span>
+            <span v-for="f in boutiqueFlottants" :key="f.id" class="boutique-flottant" :class="f.classe">{{ f.texte }}</span>
           </div>
         </div>
 
@@ -1441,6 +1481,24 @@ export const AppRoot = {
             ▶ COMMENCER GÉNÉRATION {{ recapGeneration.generationNumero + 1 }}
           </button>
 
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════ -->
+      <!-- OVERLAY ÉVÉNEMENT MAJEUR                                  -->
+      <!-- ══════════════════════════════════════════════════════════ -->
+      <div v-if="evenementOverlay && panneauOverlay !== 'mort'" class="overlay-evenement">
+        <div class="overlay-evenement__card" v-if="evenementOverlayInfo">
+          <div class="overlay-evenement__titre">⚡ {{ evenementOverlayInfo.label }}</div>
+          <p class="overlay-evenement__message">{{ evenementOverlayInfo.message }}</p>
+          <ul class="overlay-evenement__effets">
+            <li
+              v-for="(ef, i) in evenementOverlayInfo.effetsLisibles"
+              :key="i"
+              :class="ef.positif ? 'evt-effet--positif' : 'evt-effet--negatif'"
+            >{{ ef.texte }}</li>
+          </ul>
+          <button class="overlay-evenement__btn" @click="fermerEvenementOverlay">Continuer →</button>
         </div>
       </div>
 

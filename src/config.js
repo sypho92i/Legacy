@@ -311,6 +311,79 @@ export const CONFIG = {
     },
   },
 
+  // Événements aléatoires
+  EVENEMENTS: {
+    TICK_VERIFICATION:    25,    // toutes les 25 ticks (5s) on tente un tirage
+    PROBA_PAR_TIRAGE:   0.04,    // 4% de chance au tirage → ~1 événement / 2 min
+    COOLDOWN_GLOBAL_TICKS: 150,  // 30s minimum entre deux événements
+
+    LISTE: [
+      // === vertueux (karma >= 60) ===
+      { id: 'don_anonyme',          label: 'Don anonyme',
+        message: "Un inconnu reconnaissant t'a laissé une enveloppe.",
+        conditions: { karmaMin: 60 },               poids: 3,
+        effets: { argent: 500, bonheur: 5 },        gravite: 'positif' },
+      { id: 'reconnaissance_publique', label: 'Reconnaissance publique',
+        message: "Un article élogieux paraît sur toi.",
+        conditions: { karmaMin: 75, abonnesMin: 1000 }, poids: 2,
+        effets: { reputation: 10, abonnes: 500 },   gravite: 'positif' },
+
+      // === neutre (40–80 karma) ===
+      { id: 'opportunite_business',  label: 'Opportunité business',
+        message: "Un contact te propose un coup rapide.",
+        conditions: { karmaMin: 40, karmaMax: 80 }, poids: 4,
+        effets: { argent: 300 },                    gravite: 'positif' },
+      { id: 'panne_imprevue',        label: 'Panne imprévue',
+        message: "Quelque chose s'est cassé. Réparation obligatoire.",
+        conditions: { argentMin: 200 },             poids: 4,
+        effets: { argent: -200 },                   gravite: 'negatif' },
+
+      // === louche (karma < 40) ===
+      { id: 'controle_fiscal',       label: 'Contrôle fiscal',
+        message: "Le fisc a remarqué tes comptes.",
+        conditions: { karmaMax: 40, argentMin: 5000 }, poids: 5,
+        effets: { argentPourcent: -0.15 },          gravite: 'majeur' },
+      { id: 'racket_concurrent',     label: "Racket d'un concurrent",
+        message: "Un rival t'oblige à payer pour la paix.",
+        conditions: { karmaMax: 50, coucheIllegalMin: 1 }, poids: 3,
+        effets: { argent: -800, reputation: -5 },   gravite: 'negatif' },
+
+      // === criminel (karma < 20) ===
+      { id: 'descente_police',       label: 'Descente de police',
+        message: "Les flics ont fouillé. Saisie de matériel.",
+        conditions: { karmaMax: 20, coucheIllegalMin: 2 }, poids: 4,
+        effets: { argentPourcent: -0.25, reputation: -15 }, gravite: 'majeur' },
+      { id: 'scandale_media',        label: 'Scandale médiatique',
+        message: "Un scandale éclate à ton sujet.",
+        conditions: { karmaMax: 30, abonnesMin: 5000 }, poids: 3,
+        effets: { abonnesPourcent: -0.30, reputation: -20, karma: -5 }, gravite: 'majeur' },
+
+      // === secteur ===
+      { id: 'boom_immo',             label: 'Boom immobilier',
+        message: "Le marché immobilier explose.",
+        conditions: { secteurActif: 'immobilier' }, poids: 2,
+        effets: { argentPourcent: 0.10 },           gravite: 'positif' },
+      { id: 'bug_critique',          label: 'Bug critique',
+        message: "Un bug majeur dans ton code. Perte de temps.",
+        conditions: { secteurActif: 'tech', niveauMin: 2 }, poids: 3,
+        effets: { argent: -500, bonheur: -10 },     gravite: 'negatif' },
+      { id: 'krach_boursier',        label: 'Krach boursier',
+        message: "Le marché s'effondre.",
+        conditions: { secteurActif: 'finance', niveauMin: 2 }, poids: 3,
+        effets: { argentPourcent: -0.20 },          gravite: 'majeur' },
+
+      // === lifestyle ===
+      { id: 'rencontre_inspirante',  label: 'Rencontre inspirante',
+        message: "Tu croises quelqu'un qui te motive.",
+        conditions: {},                             poids: 2,
+        effets: { bonheur: 15, sante: 5 },         gravite: 'positif' },
+      { id: 'maladie_passagere',     label: 'Maladie passagère',
+        message: "Tu tombes malade. Repos forcé.",
+        conditions: { hygieneMax: 50 },             poids: 4,
+        effets: { sante: -20, bonheur: -5 },        gravite: 'negatif' },
+    ],
+  },
+
   METIERS: {
     commerce: {
       revenuBase: 1,

@@ -92,4 +92,8 @@ export const state = reactive({
   formationActive: null,        // { id, secteur, label, dureeRestante, dureeInitiale, gainXP } | null
   formations: [],               // slugs secteurs débloqués par formation — reset à chaque génération
   secteursVisites: ['commerce'],// secteurs ayant déjà payé le coût d'installation
+
+  // Événements aléatoires
+  _dernierEvenementTick: 0,     // tick auquel s'est déclenché le dernier événement
+  _ticksDepuisVerifEvenement: 0,// compteur vers le prochain tirage
 })

@@ -786,6 +786,46 @@
     .formation-en-cours { font-size: 0.78em; color: #60a5fa; border: 1px solid #3b82f6;
                           padding: 1px 6px; border-radius: 3px; }
 
+    /* Floating texts — variantes événements */
+    .boutique-flottant--positif { color: #4caf50; }
+    .boutique-flottant--negatif { color: #f97316; }
+
+    /* Overlay événement majeur */
+    .overlay-evenement {
+      position: fixed; inset: 0;
+      background: rgba(0, 0, 0, 0.82);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 90;
+    }
+    .overlay-evenement__card {
+      background: #0d0d0d; border: 1px solid #78350f; border-radius: 8px;
+      padding: 28px 32px; width: 100%; max-width: 480px;
+      display: flex; flex-direction: column; gap: 16px;
+      font-family: monospace;
+    }
+    .overlay-evenement__titre {
+      font-size: 1.25em; font-weight: bold; color: #fbbf24;
+      border-bottom: 1px solid #292524; padding-bottom: 10px;
+    }
+    .overlay-evenement__message {
+      color: #d1d5db; font-size: 0.95em; line-height: 1.5;
+    }
+    .overlay-evenement__effets {
+      list-style: none; display: flex; flex-direction: column; gap: 6px;
+    }
+    .overlay-evenement__effets li {
+      padding: 5px 10px; background: #111; border-radius: 3px;
+      font-size: 0.88em; font-weight: bold;
+    }
+    .evt-effet--positif { color: #4caf50; border-left: 3px solid #4caf50; }
+    .evt-effet--negatif { color: #ef4444; border-left: 3px solid #ef4444; }
+    .overlay-evenement__btn {
+      padding: 10px 20px; font-family: monospace; font-size: 0.95em; font-weight: bold;
+      cursor: pointer; background: #1c1008; color: #f59e0b;
+      border: 1px solid #78350f; border-radius: 5px; align-self: flex-end;
+    }
+    .overlay-evenement__btn:hover { background: #2d1a0a; border-color: #fbbf24; }
+
   </style>
 </head>
 <body>

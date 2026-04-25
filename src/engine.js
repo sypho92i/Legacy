@@ -618,6 +618,9 @@ export function initialiserNouvelleGeneration(boostChoisi = null) {
   state.formationActive          = null
   state.formations               = []
   state.secteursVisites          = ['commerce']
+  state._dernierEvenementTick    = 0
+  state._ticksDepuisVerifEvenement = 0
+  _tickTotal                     = 0
 
   for (const key of Object.keys(state.jauges)) {
     state.jauges[key] = CONFIG.JAUGE_DEPART
@@ -729,6 +732,7 @@ function tickImmo() {
 }
 
 let _mortDeclenchee = false
+let _tickTotal      = 0        // compteur absolu de ticks — reset à chaque génération
 
 function verifierMort() {
   if (_mortDeclenchee) return
@@ -753,6 +757,55 @@ function onMort() {
   window._recapGeneration = heritage
   stopEngine()
   window.dispatchEvent(new CustomEvent('legacy:mort', { detail: { heritage } }))
+}
+
+// ─── Événements aléatoires ───────────────────────────────────────────────────
+
+function evaluerConditions(cond) {
+  if (!cond) return true
+  if (cond.karmaMin        !== undefined && state.karma                   < cond.karmaMin)        return false
+  if (cond.karmaMax        !== undefined && state.karma                   > cond.karmaMax)        return false
+  if (cond.argentMin       !== undefined && state.argent                  < cond.argentMin)       return false
+  if (cond.abonnesMin      !== undefined && state.abonnes                 < cond.abonnesMin)      return false
+  if (cond.hygieneMax      !== undefined && state.jauges.hygiene          > cond.hygieneMax)      return false
+  if (cond.secteurActif    !== undefined && state.secteurActif           !== cond.secteurActif)   return false
+  if (cond.coucheIllegalMin !== undefined && state.coucheIllegalMax       < cond.coucheIllegalMin) return false
+  if (cond.niveauMin       !== undefined && calculerNiveau(state.secteurActif) < cond.niveauMin) return false
+  return true
+}
+
+export function appliquerEvenement(event) {
+  const e = event.effets
+  if (e.argent         !== undefined) state.argent   = Math.max(0, state.argent + e.argent)
+  if (e.argentPourcent !== undefined) state.argent   = Math.max(0, state.argent * (1 + e.argentPourcent))
+  if (e.abonnes        !== undefined) state.abonnes  = Math.max(0, state.abonnes + e.abonnes)
+  if (e.abonnesPourcent !== undefined) state.abonnes = Math.max(0, Math.floor(state.abonnes * (1 + e.abonnesPourcent)))
+  if (e.karma          !== undefined) state.karma    = Math.max(0, Math.min(100, state.karma + e.karma))
+  for (const jauge of ['bonheur', 'sante', 'hygiene', 'reputation']) {
+    if (e[jauge] !== undefined) state.jauges[jauge] = clampJauge(state.jauges[jauge] + e[jauge])
+  }
+  state._dernierEvenementTick = _tickTotal
+  window.dispatchEvent(new CustomEvent('legacy:evenement', { detail: { event } }))
+}
+
+function tickEvenements() {
+  if (_mortDeclenchee) return
+  _tickTotal++
+  state._ticksDepuisVerifEvenement++
+  if (state._ticksDepuisVerifEvenement < CONFIG.EVENEMENTS.TICK_VERIFICATION) return
+  state._ticksDepuisVerifEvenement = 0
+  if (_tickTotal - state._dernierEvenementTick < CONFIG.EVENEMENTS.COOLDOWN_GLOBAL_TICKS) return
+  if (Math.random() > CONFIG.EVENEMENTS.PROBA_PAR_TIRAGE) return
+
+  const eligibles = CONFIG.EVENEMENTS.LISTE.filter(ev => evaluerConditions(ev.conditions))
+  if (eligibles.length === 0) return
+
+  const total = eligibles.reduce((s, ev) => s + ev.poids, 0)
+  let r = Math.random() * total
+  let choisi = eligibles[0]
+  for (const ev of eligibles) { r -= ev.poids; if (r <= 0) { choisi = ev; break } }
+
+  appliquerEvenement(choisi)
 }
 
 // ─── Boucle principale ────────────────────────────────────────────────────────
@@ -785,6 +838,7 @@ function tick() {
   tickAge()
   tickKarma()
   tickEvenementsKarma()
+  tickEvenements()
   calculerCashflowNet()
   verifierMort()
 }
@@ -810,4 +864,5 @@ Object.assign(window, {
   declencherEvenementImmo,
   calculerGainInfluence,
   executerCommandeIllegale,
+  appliquerEvenement,
 })
