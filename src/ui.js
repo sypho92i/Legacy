@@ -536,7 +536,9 @@ export const AppRoot = {
         let raison = null
         if (!accessible) raison = `Couche ${cmd.couche} — karma ou niveau insuffisant`
         else if (enCooldown) raison = `Cooldown ${cdRestant}s`
-        return { id, ...cmd, accessible, enCooldown, cdRestant, coucheMax, raison }
+        // T32 : malus rendement si réputation trop élevée
+        const malusReputation = state.jauges.reputation >= CONFIG.REPUTATION_ILLEGAL.MALUS_GAIN_ILLEGAL_REPUTATION_MIN
+        return { id, ...cmd, accessible, enCooldown, cdRestant, coucheMax, raison, malusReputation }
       })
     )
 
@@ -544,7 +546,8 @@ export const AppRoot = {
       const result = executerCommandeIllegale(id)
       if (!result.ok) return
       const cmd = COMMANDES_ILLEGALES[id]
-      ajouterFlottant(`${cmd.emoji} +${result.gain.toLocaleString('fr-FR')} €`, 1200)
+      const classe = result.malusReputation ? 'boutique-flottant--negatif' : ''
+      ajouterFlottant(`${cmd.emoji} +${result.gain.toLocaleString('fr-FR')} €`, 1200, classe)
     }
 
     // ── Carte — computeds ─────────────────────────────────────────────────────
@@ -779,6 +782,11 @@ export const AppRoot = {
       else if (gain.immuniteEvenementsS)    texte = '🛡 Immunité active'
       ajouterFlottant(texte, 2000, 'boutique-flottant--positif')
     }
+
+    // T32 — scandale après commande illégale exposée
+    window.addEventListener('legacy:scandale-illegal', () => {
+      ajouterFlottant('📰 Scandale ! Réputation en chute.', 2000, 'boutique-flottant--negatif')
+    })
 
     // ── Réputation — palier et badge ─────────────────────────────────────────
     const palierReputation = computed(() => getPalierReputation())
@@ -1463,6 +1471,7 @@ export const AppRoot = {
                         · Karma {{ cmd.karma }} · Rép. {{ cmd.reputation }}
                       </span>
                       <span class="commande-item__couche">Couche {{ cmd.couche }}</span>
+                      <span v-if="cmd.malusReputation" class="commande-malus-rep">⚠ Rendement −15%</span>
                     </div>
                     <div class="commande-item__action">
                       <span v-if="!cmd.accessible" class="commande-item__raison">🔒 {{ cmd.raison }}</span>
@@ -1504,6 +1513,10 @@ export const AppRoot = {
               <!-- Statut immunité -->
               <div v-if="immuniteRestanteS > 0" class="mn-immunite">
                 🛡 Immunité active — {{ _formatMMSS ? '' : '' }}{{ Math.floor(immuniteRestanteS / 60) }}:{{ (immuniteRestanteS % 60).toString().padStart(2, '0') }} restantes
+              </div>
+              <!-- T32 — avertissement réputation élevée -->
+              <div v-if="state.jauges.reputation >= CONFIG.REPUTATION_ILLEGAL.DEALS_DISCRETS_REPUTATION_MAX" class="mn-rep-avert">
+                👁 Ta réputation attire trop l'attention — certains deals discrets sont inaccessibles.
               </div>
 
               <!-- Deals actifs -->

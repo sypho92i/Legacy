@@ -304,19 +304,34 @@ export function executerCommandeIllegale(id) {
     return { ok: false, raison: 'cooldown' }
 
   // Appliquer effets
-  const gain = Math.round(Math.random() * (cmd.gainMax - cmd.gainMin) + cmd.gainMin)
+  let gain = Math.round(Math.random() * (cmd.gainMax - cmd.gainMin) + cmd.gainMin)
+
+  // T32 : malus rendement si réputation trop élevée (trop exposé pour agir discrètement)
+  const malusReputation = state.jauges.reputation >= CONFIG.REPUTATION_ILLEGAL.MALUS_GAIN_ILLEGAL_REPUTATION_MIN
+  if (malusReputation) gain = Math.round(gain * CONFIG.REPUTATION_ILLEGAL.MALUS_GAIN_ILLEGAL_MULT)
+
   state.argent += gain
-  state.karma           = Math.max(0, Math.min(100, state.karma + cmd.karma))
+  state.karma             = Math.max(0, Math.min(100, state.karma + cmd.karma))
   state.jauges.reputation = clampJauge(state.jauges.reputation + cmd.reputation)
   if (cmd.tokens > 0) state.possessions.tokens += cmd.tokens
 
   // Mise à jour couche max atteinte
   if (cmd.couche > state.coucheIllegalMax) state.coucheIllegalMax = cmd.couche
 
+  // T32 : risque de scandale si réputation élevée
+  if (state.jauges.reputation >= CONFIG.REPUTATION_ILLEGAL.RISQUE_SCANDALE_REPUTATION_MIN
+      && Math.random() < CONFIG.REPUTATION_ILLEGAL.RISQUE_SCANDALE_PROBA) {
+    state.jauges.reputation = clampJauge(state.jauges.reputation + CONFIG.REPUTATION_ILLEGAL.SCANDALE_REPUTATION)
+    state.jauges.bonheur    = clampJauge(state.jauges.bonheur    + CONFIG.REPUTATION_ILLEGAL.SCANDALE_BONHEUR)
+    window.dispatchEvent(new CustomEvent('legacy:scandale-illegal', {
+      detail: { label: 'Scandale', cmd: id }
+    }))
+  }
+
   // Cooldown — même pattern que telephoneCooldowns
   state.telephoneCooldowns[cooldownKey] = now + cmd.cooldown * 1000
 
-  return { ok: true, gain }
+  return { ok: true, gain, malusReputation }
 }
 
 // ─── Véhicules ────────────────────────────────────────────────────────────────

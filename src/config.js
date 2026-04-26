@@ -47,6 +47,17 @@ export const CONFIG = {
     ],
   },
 
+  // Réputation × illégal — seuils et paramètres (T32)
+  REPUTATION_ILLEGAL: {
+    DEALS_DISCRETS_REPUTATION_MAX:   60,   // deals discrets inaccessibles au-dessus de ce seuil
+    MALUS_GAIN_ILLEGAL_REPUTATION_MIN: 70, // au-dessus → gains illégaux réduits
+    MALUS_GAIN_ILLEGAL_MULT:          0.85, // multiplicateur appliqué aux gains (−15%)
+    RISQUE_SCANDALE_REPUTATION_MIN:   75,  // au-dessus → risque de scandale après commande illégale
+    RISQUE_SCANDALE_PROBA:            0.25, // probabilité par commande illégale exécutée
+    SCANDALE_REPUTATION:             -8,   // perte réputation si scandale
+    SCANDALE_BONHEUR:               -10,   // perte bonheur si scandale
+  },
+
   // Jauges
   JAUGE_MIN:    0,
   JAUGE_MAX:  100,
@@ -341,7 +352,7 @@ export const CONFIG = {
       // === argent contre karma ===
       { id: 'blanchiment',            label: 'Blanchiment rapide',
         description: 'Transforme du cash sale en propre. Commission prélevée.',
-        conditions: { argentMin: 5000, coucheMin: 2 }, poids: 4,
+        conditions: { argentMin: 5000, coucheMin: 2, reputationMax: 60 }, poids: 4,
         cout: { argentPourcent: 0.20 },
         gain: { karma: -8 } },
       { id: 'achat_abonnes',          label: 'Faux abonnés en masse',
@@ -351,7 +362,7 @@ export const CONFIG = {
         gain: { abonnes: 8000, reputation: -10, karma: -5 } },
       { id: 'corruption_fonctionnaire', label: 'Fonctionnaire corrompu',
         description: "Il oublie certains de tes dossiers fiscaux.",
-        conditions: { argentMin: 8000, coucheMin: 2 }, poids: 2,
+        conditions: { argentMin: 8000, coucheMin: 2, reputationMax: 60 }, poids: 2,
         cout: { argent: 8000 },
         gain: { karma: 10, reputation: -5 } },
 
@@ -370,12 +381,12 @@ export const CONFIG = {
       // === couche 3 uniquement ===
       { id: 'contrat_douteux',        label: 'Contrat à hauts risques',
         description: 'Gain énorme. Conséquences imprévisibles.',
-        conditions: { coucheMin: 3, argentMin: 2000 }, poids: 3,
+        conditions: { coucheMin: 3, argentMin: 2000, reputationMax: 60 }, poids: 3,
         cout: { argent: 2000 },
         gain: { argentAleatoire: [15000, 50000], karma: -20, reputation: -15 } },
       { id: 'protection_criminelle',  label: 'Protection du milieu',
         description: "Plus d'événements négatifs pendant 10 min.",
-        conditions: { coucheMin: 3, argentMin: 12000 }, poids: 2,
+        conditions: { coucheMin: 3, argentMin: 12000, reputationMax: 60 }, poids: 2,
         cout: { argent: 12000, karma: -5 },
         gain: { immuniteEvenementsS: 600 } },
       { id: 'tuyau_boursier',         label: 'Tuyau boursier illégal',
