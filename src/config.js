@@ -329,6 +329,20 @@ export const CONFIG = {
     supercar: { label: 'Supercar', emoji: '🏎', prix: 80000, chargeMensuelle: 1100, karma: -10, reputation: 25, bonusClic: 20, vehiculeRequis: null }, // T27: 1500→1100, charge écrasait juste après l'achat 80k€
   },
 
+  // Immobilier avancé — achat-revente (T33)
+  IMMOBILIER_AVANCE: {
+    VARIATION_MIN:     -0.08,  // −8% de variation par réévaluation
+    VARIATION_MAX:      0.12,  //+12% de variation par réévaluation (légère tendance haussière)
+    TICKS_PAR_REEVAL:     75,  // 75 ticks = 1 an de jeu = réévaluation annuelle
+    BONUS_NIVEAU_PAR_NV: 0.01, // +1% de bonus à la variation par niveau immo au-dessus du niveau 1
+    BIENS: [
+      { id: 'parking',  label: 'Place de parking',  prix: 12000,  revenuPassif: 4  },
+      { id: 'studio',   label: 'Studio locatif',    prix: 45000,  revenuPassif: 12 },
+      { id: 'local',    label: 'Local commercial',  prix: 120000, revenuPassif: 28 },
+      { id: 'immeuble', label: 'Petit immeuble',    prix: 350000, revenuPassif: 75 },
+    ],
+  },
+
   // Immobilier — événements aléatoires
   IMMOBILIER: {
     EVENEMENTS: {

@@ -497,10 +497,17 @@ export function getTauxPassifTotal() {
   }, 0)
 }
 
+// T33 — revenus passifs des biens d'investissement (affectés par _immoPassifMulti comme les autres immo)
+function getTauxInvestImmo() {
+  if (state.investissementsImmobiliers.length === 0) return 0
+  const base = state.investissementsImmobiliers.reduce((s, inv) => s + inv.revenuPassif, 0)
+  return base * (state._immoPassifMulti ?? 1.0)
+}
+
 // ─── Cashflow ─────────────────────────────────────────────────────────────────
 
 export function calculerCashflowNet() {
-  const totalRevenus   = getTauxPassifTotal()
+  const totalRevenus   = getTauxPassifTotal() + getTauxInvestImmo()
   const chargeLogement = CONFIG.LOGEMENTS[state.possessions.logement]?.charge ?? 0
   const chargeVehicule = state.possessions.vehicule
     ? (CONFIG.VEHICULES[state.possessions.vehicule]?.chargeMensuelle ?? 0)
@@ -511,7 +518,7 @@ export function calculerCashflowNet() {
 // ─── Étapes du tick ───────────────────────────────────────────────────────────
 
 function tickPassifs() {
-  const tauxTotal = getTauxPassifTotal()
+  const tauxTotal = getTauxPassifTotal() + getTauxInvestImmo()
   const taux = state.jauges.bonheur < 20
     ? Math.max(0, tauxTotal - CONFIG.MALUS_PASSIF_TICK)
     : tauxTotal
@@ -558,10 +565,13 @@ function tickKarma() {
 export function calculerHeritage() {
   const secteurPrincipal = Object.entries(state.xpSecteurs)
     .reduce((max, [s, xp]) => xp > max[1] ? [s, xp] : max, ['commerce', 0])[0]
+  // T33 : les biens d'investissement sont liquidés à leur valeur courante avant calcul de l'héritage
+  const valeurInvestissements = state.investissementsImmobiliers
+    .reduce((s, inv) => s + inv.valeurCourante, 0)
   return {
     nom:               state.nomPersonnage,
     age_mort:          state.age,
-    argent_transmis:   Math.floor(state.argent * 0.5),
+    argent_transmis:   Math.floor((state.argent + valeurInvestissements) * 0.5),
     karma_final:       state.karma,
     couche_illegale_max: state.coucheIllegalMax,
     secteurPrincipal,
@@ -652,6 +662,8 @@ export function initialiserNouvelleGeneration(boostChoisi = null) {
   state.marcheNoir.dealsActifs      = []
   state.marcheNoir._dernierRefreshS = 0
   state.marcheNoir._immuniteExpiry  = 0
+  state.investissementsImmobiliers  = []
+  _ticksImmoReeval                  = 0
 
   for (const key of Object.keys(state.jauges)) {
     state.jauges[key] = CONFIG.JAUGE_DEPART
@@ -762,8 +774,9 @@ function tickImmo() {
   }
 }
 
-let _mortDeclenchee = false
-let _tickTotal      = 0        // compteur absolu de ticks — reset à chaque génération
+let _mortDeclenchee    = false
+let _tickTotal         = 0   // compteur absolu de ticks — reset à chaque génération
+let _ticksImmoReeval   = 0   // compteur réévaluation biens investissement — reset à chaque génération
 
 function verifierMort() {
   if (_mortDeclenchee) return
@@ -966,6 +979,57 @@ function tickMarcheNoir() {
     genererDeals()
 }
 
+// ─── Immobilier avancé — achat-revente (T33) ─────────────────────────────────
+
+export function acheterInvestissementImmobilier(idBien) {
+  const bien = CONFIG.IMMOBILIER_AVANCE.BIENS.find(b => b.id === idBien)
+  if (!bien) return { ok: false, raison: 'unknown' }
+  if (state.argent < bien.prix) return { ok: false, raison: 'argent' }
+  state.argent -= bien.prix
+  state.investissementsImmobiliers.push({
+    idInstance:     Math.random().toString(36).slice(2),
+    idBien:         bien.id,
+    label:          bien.label,
+    prixAchat:      bien.prix,
+    valeurCourante: bien.prix,
+    revenuPassif:   bien.revenuPassif,
+  })
+  return { ok: true }
+}
+
+export function revendreInvestissementImmobilier(idInstance) {
+  const idx = state.investissementsImmobiliers.findIndex(i => i.idInstance === idInstance)
+  if (idx === -1) return { ok: false, raison: 'introuvable' }
+  const inv       = state.investissementsImmobiliers[idx]
+  const gain      = Math.round(inv.valeurCourante)
+  const plusValue = gain - inv.prixAchat
+  state.argent   += gain
+  state.investissementsImmobiliers.splice(idx, 1)
+  return { ok: true, gain, plusValue }
+}
+
+function tickInvestissementsImmobiliers() {
+  if (state.investissementsImmobiliers.length === 0) return
+  _ticksImmoReeval++
+  if (_ticksImmoReeval < CONFIG.IMMOBILIER_AVANCE.TICKS_PAR_REEVAL) return
+  _ticksImmoReeval = 0
+
+  const niveauImmo   = calculerNiveau('immobilier')
+  const bonusNiveau  = Math.max(0, (niveauImmo - 1) * CONFIG.IMMOBILIER_AVANCE.BONUS_NIVEAU_PAR_NV)
+  const variation_range = CONFIG.IMMOBILIER_AVANCE.VARIATION_MAX - CONFIG.IMMOBILIER_AVANCE.VARIATION_MIN
+
+  for (const inv of state.investissementsImmobiliers) {
+    const variation = CONFIG.IMMOBILIER_AVANCE.VARIATION_MIN
+      + Math.random() * variation_range
+      + bonusNiveau
+    // Plancher : l'investissement ne peut pas descendre sous 40% du prix d'achat
+    inv.valeurCourante = Math.max(
+      Math.round(inv.prixAchat * 0.4),
+      Math.round(inv.valeurCourante * (1 + variation))
+    )
+  }
+}
+
 // ─── Boucle principale ────────────────────────────────────────────────────────
 
 let _intervalId = null
@@ -998,6 +1062,7 @@ function tick() {
   tickEvenementsKarma()
   tickEvenements()
   tickMarcheNoir()
+  tickInvestissementsImmobiliers()
   calculerCashflowNet()
   verifierMort()
 }
@@ -1027,4 +1092,6 @@ Object.assign(window, {
   genererDeals,
   accepterDeal,
   getPalierReputation,
+  acheterInvestissementImmobilier,
+  revendreInvestissementImmobilier,
 })

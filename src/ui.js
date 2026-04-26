@@ -1,7 +1,7 @@
 // ui.js — composants Vue, handlers d'événements, update UI
 // Règle : ne contient que du Vue réactif — zéro querySelector/getElementById
 import { state }            from './state.js'
-import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, inscrireFormation, etudierFormation, acheterVehicule, vehiculePermetSecteur, declencherEvenementImmo, lancerChantier, calculerGainInfluence, executerCommandeIllegale, COMMANDES_ILLEGALES, appliquerEvenement, accepterDeal, getPalierReputation } from './engine.js'
+import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, inscrireFormation, etudierFormation, acheterVehicule, vehiculePermetSecteur, declencherEvenementImmo, lancerChantier, calculerGainInfluence, executerCommandeIllegale, COMMANDES_ILLEGALES, appliquerEvenement, accepterDeal, getPalierReputation, acheterInvestissementImmobilier, revendreInvestissementImmobilier } from './engine.js'
 import { CONFIG }           from './config.js'
 
 // ─── Composant racine ─────────────────────────────────────────────────────────
@@ -783,6 +783,38 @@ export const AppRoot = {
       ajouterFlottant(texte, 2000, 'boutique-flottant--positif')
     }
 
+    // ── Immobilier avancé — T33 ───────────────────────────────────────────────
+
+    const biensImmobiliersDisponibles = computed(() =>
+      CONFIG.IMMOBILIER_AVANCE.BIENS.map(bien => ({
+        ...bien,
+        abordable: state.argent >= bien.prix,
+      }))
+    )
+
+    const investissementsImmobiliersInfo = computed(() =>
+      state.investissementsImmobiliers.map(inv => {
+        const delta    = Math.round(inv.valeurCourante - inv.prixAchat)
+        const deltaPct = Math.round((delta / inv.prixAchat) * 100)
+        return { ...inv, delta, deltaPct }
+      })
+    )
+
+    function actionAcheterInvestissement(idBien) {
+      const result = acheterInvestissementImmobilier(idBien)
+      if (!result.ok) { ajouterFlottant('❌ Fonds insuffisants', 1200, 'boutique-flottant--negatif'); return }
+      const bien = CONFIG.IMMOBILIER_AVANCE.BIENS.find(b => b.id === idBien)
+      ajouterFlottant(`🏢 ${bien?.label ?? ''} acquis !`, 1500, 'boutique-flottant--positif')
+    }
+
+    function actionRevendreInvestissement(idInstance) {
+      const result = revendreInvestissementImmobilier(idInstance)
+      if (!result.ok) return
+      const classe = result.plusValue >= 0 ? 'boutique-flottant--positif' : 'boutique-flottant--negatif'
+      const sign   = result.plusValue >= 0 ? '+' : ''
+      ajouterFlottant(`💰 Vendu · ${sign}${result.plusValue.toLocaleString('fr-FR')} €`, 2000, classe)
+    }
+
     // T32 — scandale après commande illégale exposée
     window.addEventListener('legacy:scandale-illegal', () => {
       ajouterFlottant('📰 Scandale ! Réputation en chute.', 2000, 'boutique-flottant--negatif')
@@ -833,6 +865,8 @@ export const AppRoot = {
       evenementOverlay, evenementOverlayInfo, fermerEvenementOverlay,
       marcheNoirDisponible, dealsEnrichis, immuniteRestanteS, prochainRefreshS, actionAccepterDeal,
       palierReputation,
+      biensImmobiliersDisponibles, investissementsImmobiliersInfo,
+      actionAcheterInvestissement, actionRevendreInvestissement,
       derniereNotifImmo, immoPassifBadge,
       chantierProgression, actionLancerChantier,
       influenceAppuiMs, influenceEnAppui, influenceBarrePct, influencePrecisionLabel,
@@ -1054,6 +1088,41 @@ export const AppRoot = {
               </ul>
             </div>
             <button class="btn-entrer-secteur" @click="entrerDansSecteur(CONFIG.BATIMENTS?.[batimentEnCours]?.secteur)">▶ Travailler ici</button>
+
+            <!-- Investissements immobiliers — Agence Immo uniquement -->
+            <template v-if="batimentEnCours === 'agence_immo'">
+              <div class="invest-section">
+                <div class="invest-section__titre">📈 Investissements — Biens disponibles</div>
+                <div v-for="bien in biensImmobiliersDisponibles" :key="bien.id" class="invest-card invest-card--achat">
+                  <div class="invest-card__header">
+                    <span class="invest-card__label">{{ bien.label }}</span>
+                    <span class="invest-card__prix">{{ bien.prix.toLocaleString('fr-FR') }} €</span>
+                  </div>
+                  <div class="invest-card__meta">+{{ bien.revenuPassif }} €/s passif</div>
+                  <button class="invest-card__btn" :disabled="!bien.abordable" @click="actionAcheterInvestissement(bien.id)">
+                    Investir
+                  </button>
+                </div>
+
+                <template v-if="investissementsImmobiliersInfo.length > 0">
+                  <div class="invest-section__titre" style="margin-top:10px;">📂 Portefeuille détenu</div>
+                  <div v-for="inv in investissementsImmobiliersInfo" :key="inv.idInstance" class="invest-card">
+                    <div class="invest-card__header">
+                      <span class="invest-card__label">{{ inv.label }}</span>
+                      <span class="invest-card__value">{{ Math.round(inv.valeurCourante).toLocaleString('fr-FR') }} €</span>
+                    </div>
+                    <div class="invest-card__meta">+{{ inv.revenuPassif }} €/s · achat {{ inv.prixAchat.toLocaleString('fr-FR') }} €</div>
+                    <div class="invest-card__delta" :class="inv.delta >= 0 ? 'invest-card__delta--positif' : 'invest-card__delta--negatif'">
+                      {{ inv.delta >= 0 ? '+' : '' }}{{ inv.delta.toLocaleString('fr-FR') }} €
+                      ({{ inv.deltaPct >= 0 ? '+' : '' }}{{ inv.deltaPct }}%)
+                    </div>
+                    <button class="invest-card__btn" @click="actionRevendreInvestissement(inv.idInstance)">
+                      Revendre
+                    </button>
+                  </div>
+                </template>
+              </div>
+            </template>
           </template>
 
           <!-- Boutique -->

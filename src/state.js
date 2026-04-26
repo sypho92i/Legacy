@@ -103,4 +103,7 @@ export const state = reactive({
     _dernierRefreshS: 0,    // timestamp (s) du dernier refresh complet
     _immuniteExpiry:  0,    // timestamp (s) fin d'immunité événements négatifs
   },
+
+  // Immobilier avancé — biens d'investissement détenus
+  investissementsImmobiliers: [], // [{ idInstance, idBien, label, prixAchat, valeurCourante, revenuPassif }]
 })
