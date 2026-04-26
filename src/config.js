@@ -456,6 +456,19 @@ export const CONFIG = {
         message: "Un post viral te ridiculise. La communauté se retourne.",
         conditions: { reputationMax: 30, abonnesMin: 1000 },     poids: 3,
         effets: { abonnesPourcent: -0.15, reputation: -5 },      gravite: 'negatif' },
+      // T31 — événements réputation dédiés
+      { id: 'invitation_media',      label: 'Invitation média',
+        message: "Un média local te met en avant. Ton audience grimpe.",
+        conditions: { reputationMin: 60 },                       poids: 2,
+        effets: { abonnes: 300, bonheur: 8 },                    gravite: 'positif' },
+      { id: 'bad_buzz_expo',         label: 'Bad buzz',
+        message: "Une polémique éclate autour de ton nom.",
+        conditions: { reputationMin: 50, abonnesMin: 500 },      poids: 2,
+        effets: { abonnesPourcent: -0.10, bonheur: -10 },        gravite: 'negatif' },
+      { id: 'controle_renforce',     label: 'Contrôle renforcé',
+        message: "Ton image te ferme des portes et attire l'attention.",
+        conditions: { reputationMax: 25 },                       poids: 3,
+        effets: { argent: -300, bonheur: -5 },                   gravite: 'negatif' },
 
       // === lifestyle ===
       { id: 'rencontre_inspirante',  label: 'Rencontre inspirante',
