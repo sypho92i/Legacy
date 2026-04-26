@@ -69,8 +69,8 @@ STATE = {
 
   // Progression secteurs
   secteursVisites: ['commerce'],   // commerce visité par défaut — reset à chaque génération
-  formations: [],                  // slugs secteurs débloqués par formation — reset à chaque génération
-  formationActive: null,           // { id, secteur, label, dureeRestante, dureeInitiale, gainXP } | null
+  niveauFormation: { commerce:0, finance:0, tech:0, immobilier:0, btp:0, influence:0 }, // permanent comme boostCompetences
+  formationActive: null,           // { id, secteur, label, dureeRestante, dureeInitiale, gainNiveaux } | null
 
   // Illégal
   coucheIllegalMax: number,        // 0 | 1 | 2 | 3
@@ -231,39 +231,32 @@ Raisons : `'same'` | `'vehicule'` | `'possessions'`
 
 > Note : `state.secteursVisites` existe dans le state mais n'est pas utilisé comme gate dans `changerSecteur` — il est simplement resetté à chaque génération.
 
-### Formations — accès aux secteurs et mécanique
+### Formations — mécanique (T35 : refaisables)
 
-Les formations s'achètent et se suivent au Campus (bâtiment `ecole`). Elles débloquent l'accès aux secteurs et donnent un boost XP.
+Les formations s'achètent au Campus (bâtiment `ecole`) ou via l'overlay sidebar `🎓 Formations`. Elles sont **refaisables** et accumulent des niveaux permanents qui boostent l'XP/clic.
 
 **Mécanique :**
-- Le joueur paie le coût → `formationActive` démarre avec un timer
-- Le bouton "Étudier" dans la vue Campus accélère le timer (comme BTP)
-- Une seule formation à la fois (`state.formationActive`)
-- À la fin du timer : `gainXP` crédité dans `state.xpSecteurs[secteur]` + slug pushé dans `state.formations[]`
-- Reset complet (`formationActive = null`, `formations = []`) à chaque nouvelle génération
+- 3 formations par secteur (courte/moyenne/longue), 18 au total
+- `demarrerFormation(id)` : vérifie argent + pas de formationActive → déduit coût → set `state.formationActive` (durée en ticks)
+- `tickFormation()` : décrémente `dureeRestante` de 1 par tick → à 0 : `state.niveauFormation[secteur] += gainNiveaux` + dispatch `legacy:formation-terminee`
+- `state.niveauFormation` est **permanent** (jamais resetté entre générations, comme `boostCompetences`)
+- `formationActive` seul est resetté à chaque génération
+- Bonus XP : `getBonusFormation(secteur) = 1 + niveauFormation[secteur] × FORMATIONS_BONUS_BASE` → branché dans `calculerXpClic()`
+- Badge `📚 +X% XP` sous la barre XP si bonus > 0
+- Deal `faux_diplome` → +1 niveauFormation à un secteur aléatoire
 
 ```js
-// CONFIG.FORMATIONS est un array (prix T27)
-CONFIG.FORMATIONS = [
-  { id: 'f_com_1', emoji: '📦', label: 'Vente — Initiation',         secteur: 'commerce',   cout: 400,  gainXP: 80,  duree: 120 },
-  { id: 'f_com_2', emoji: '📦', label: 'Vente — Avancé',             secteur: 'commerce',   cout: 2000, gainXP: 350, duree: 300 },
-  { id: 'f_fin_1', emoji: '💹', label: 'Finance — Initiation',       secteur: 'finance',    cout: 600,  gainXP: 80,  duree: 120 },
-  { id: 'f_fin_2', emoji: '💹', label: 'Finance — Avancé',           secteur: 'finance',    cout: 2500, gainXP: 350, duree: 300 },
-  { id: 'f_tec_1', emoji: '💻', label: 'Tech — Initiation',          secteur: 'tech',       cout: 500,  gainXP: 80,  duree: 120 },
-  { id: 'f_tec_2', emoji: '💻', label: 'Tech — Avancé',              secteur: 'tech',       cout: 2200, gainXP: 350, duree: 300 },
-  { id: 'f_imm_1', emoji: '🏢', label: 'Immobilier — Initiation',    secteur: 'immobilier', cout: 550,  gainXP: 80,  duree: 120 },
-  { id: 'f_imm_2', emoji: '🏢', label: 'Immobilier — Avancé',        secteur: 'immobilier', cout: 2400, gainXP: 350, duree: 300 },
-  { id: 'f_btp_1', emoji: '🏗', label: 'BTP — Initiation',           secteur: 'btp',        cout: 200,  gainXP: 80,  duree: 120 },
-  { id: 'f_inf_1', emoji: '🎙', label: 'Influence — Initiation',     secteur: 'influence',  cout: 800,  gainXP: 80,  duree: 120 },
-  { id: 'f_inf_2', emoji: '🎙', label: 'Influence — Avancé',         secteur: 'influence',  cout: 3000, gainXP: 350, duree: 300 },
-]
+CONFIG.FORMATIONS_BONUS_BASE = 0.08   // +8% XP/clic par niveau dans un secteur
+
+// CONFIG.FORMATIONS — 18 entrées (duree en ticks : 300/900/2000)
+// ex: { id:'f_com_1', emoji:'📦', label:'Vente — Fondamentaux', secteur:'commerce', cout:400, gainNiveaux:1, duree:300 }
+// 300 ticks = 60s · 900 ticks = 180s · 2000 ticks = 400s
 ```
 
 Fonctions engine.js :
-- `inscrireFormation(id)` : vérifie argent + pas de formationActive → déduit coût → set `state.formationActive`
-- `etudierFormation()` : appelée par clic "Étudier" → réduit `dureeRestante` de 2s par clic
-- `tickFormation()` : décrémente `dureeRestante` par tick → à 0 : crédite XP + push formations + dispatch `legacy:formation-complete`
-- Zone verrouillée par formation manquante affiche 🎓 sur la carte
+- `demarrerFormation(id)` exportée — `getBonusFormation(secteur)` exportée
+- `tickFormation()` privée — décrémente de 1 tick par tick
+- `terminerFormation()` privée — incrémente `niveauFormation`, dispatch `legacy:formation-terminee`
 
 ### Véhicules requis par secteur
 
@@ -475,7 +468,7 @@ Fonctions de navigation :
 - `'boutique'` → items boutique consommables
 - `'logements'` → logements filtrés par `gamme`
 - `'vehicules'` → liste véhicules achetables
-- `'formations'` → liste formations + timer si `formationActive` + bouton "Étudier"
+- `'formations'` → formations groupées par secteur + timer si `formationActive` en cours (bouton "Démarrer")
 
 ### Bouton d'action
 `.action-wrap` : centré horizontalement, `flex-shrink: 0`. Contient :
@@ -567,8 +560,8 @@ Hold-to-release gaussien (cible 5s). Abonnés → monétisation. Accès : télé
 ### UI-R1 — Refonte layout ✅
 Grid 2 colonnes. Sprite CSS. Sidebar-nav. `.btn-travailler` centré dans zone centrale. `panneauOverlay` drawer. `navEcran` + vue quartier façades RPG. `max-width: 580px` contenu central.
 
-### T22 — Suppression cooldown + Formations ✅
-Cooldown changement secteur supprimé. `CONFIG.FORMATIONS` array avec duree. `inscrireFormation()` remplace `acheterFormation()`. `secteursVisites` et `formations` ajoutés dans state (reset par génération). Campus + ecole ajoutés.
+### T22 — Suppression cooldown + Campus + ecole ✅
+Cooldown changement secteur supprimé. `CONFIG.FORMATIONS` array initial. `secteursVisites` ajouté dans state. Campus + ecole ajoutés.
 
 ### UI-R2 — Recentrage bouton d'action + bande finances sticky ✅
 `.action-wrap` flex-shrink:0 sous la carte. `.bande-finances` sticky bottom:0, font-size agrandie. `.panneau-upgrades` scrollable. Zone centrale restructurée en flex-column.
@@ -640,6 +633,13 @@ Quartier Immobilier supprimé de la carte. CONFIG.QUARTIERS/BATIMENTS refactoris
 - engine.js : `getBoostLignee(secteur)` exportée — `1 + min(boostCompetences[secteur], 5) × 0.10`. Branché dans `calculerXpClic()` après le boost recherche (multiplicatif). Exposée via `Object.assign`.
 - ui.js : import `getBoostLignee`. Computed `boostLigneeSecteurActif`. Badge `⚡ Lignée +X% XP` sous la barre XP si boost > 0 (class `.boost-lignee-badge`). `recapGeneration` enrichit chaque boost card de `bonusAffiche` (ex: `"+20% XP"`). `.boost-card__bonus` affiché dans l'overlay mort.
 - index.html : CSS `.boost-lignee-badge` (amber) + `.boost-card__bonus` (amber 0.75em).
+
+### T35 — Système de formations refaisables
+- config.js : `FORMATIONS_BONUS_BASE:0.08` (+8% XP/clic par niveau). `CONFIG.FORMATIONS` remplacé : 18 entrées (3 par secteur, courte/moyenne/longue), durée en ticks (300/900/2000), champ `gainNiveaux` (1/2/3) remplace `gainXP`.
+- state.js : `formations: []` remplacé par `niveauFormation: { commerce:0, ... }` (permanent comme `boostCompetences` — pas de reset entre générations). `formationActive.gainXP` → `gainNiveaux`.
+- engine.js : `getBonusFormation(secteur)` exportée — `1 + niveauFormation[secteur] × 0.08`. Branché dans `calculerXpClic()` (multiplicatif). `demarrerFormation(id)` remplace `inscrireFormation`. `terminerFormation()` incrémente `niveauFormation` + dispatch `legacy:formation-terminee`. `tickFormation` décrémente de 1 tick (plus de décrémentation en secondes). Deal `faux_diplome` : donne +1 niveauFormation à un secteur aléatoire. `etudierFormation` supprimée.
+- ui.js : Computeds `formationsDisponibles` (groupées par secteur) + `formationEnCours` + `bonusFormationSecteurActif`. Overlay sidebar `🎓 Formations` + badge `📚 +X% XP` sous la barre XP. Vue ecole et overlay utilisent les nouveaux computeds. Event `legacy:formation-terminee`.
+- index.html : CSS `.bonus-formation-badge` (vert) + `.formations-overlay`, `.formation-groupe`, `.formation-cards-row`, `.formation-mini-card` + variantes.
 
 ---
 *Ne jamais lire le GDD pour coder — toutes les infos techniques sont ici.*
