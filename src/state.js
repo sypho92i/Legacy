@@ -88,9 +88,9 @@ export const state = reactive({
   // Influence — hold-to-release
   _influenceAppuiDebut: 0,      // timestamp ms du début d'appui (0 = pas d'appui)
 
-  // Formations
-  formationActive: null,        // { id, secteur, label, dureeRestante, dureeInitiale, gainXP } | null
-  formations: [],               // slugs secteurs débloqués par formation — reset à chaque génération
+  // Formations (T35 — refaisables, niveauFormation permanent comme boostCompetences)
+  formationActive: null,        // { id, secteur, label, dureeRestante, dureeInitiale, gainNiveaux } | null
+  niveauFormation: { commerce: 0, finance: 0, tech: 0, immobilier: 0, btp: 0, influence: 0 },
   secteursVisites: ['commerce'],// secteurs ayant déjà payé le coût d'installation
 
   // Événements aléatoires

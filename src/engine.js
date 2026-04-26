@@ -42,6 +42,11 @@ export function getBoostLignee(secteur) {
   return 1 + points * CONFIG.BOOST_COMPETENCE_PAR_POINT
 }
 
+export function getBonusFormation(secteur) {
+  const niveau = state.niveauFormation[secteur] ?? 0
+  return 1 + niveau * CONFIG.FORMATIONS_BONUS_BASE
+}
+
 export function calculerXpClic() {
   const base = Math.max(0.1,
     1 * getModifKarma(state.karma) * getModifBonheur(state.jauges.bonheur)
@@ -49,7 +54,7 @@ export function calculerXpClic() {
   const boost = Date.now() < state._boostXpExpiry
     ? CONFIG.ORDINATEUR.COMMANDES.recherche.effet.boostXpMulti
     : 1
-  return base * boost * getBoostLignee(state.secteurActif)
+  return base * boost * getBoostLignee(state.secteurActif) * getBonusFormation(state.secteurActif)
 }
 
 export function calculerNiveau(secteur) {
@@ -404,9 +409,9 @@ export function changerSecteur(secteurCible) {
   return { ok: true }
 }
 
-// ─── Campus — formations ──────────────────────────────────────────────────────
+// ─── Campus — formations (T35 : refaisables, timer en ticks, niveauFormation permanent) ──────────
 
-export function inscrireFormation(id) {
+export function demarrerFormation(id) {
   const f = CONFIG.FORMATIONS.find(f => f.id === id)
   if (!f) return { ok: false, raison: 'unknown' }
   if (state.formationActive) return { ok: false, raison: 'en_cours' }
@@ -416,34 +421,26 @@ export function inscrireFormation(id) {
     id:            f.id,
     secteur:       f.secteur,
     label:         f.label,
-    dureeRestante: f.duree,
-    dureeInitiale: f.duree,
-    gainXP:        f.gainXP,
+    dureeRestante: f.duree,   // en ticks
+    dureeInitiale: f.duree,   // en ticks
+    gainNiveaux:   f.gainNiveaux,
   }
-  return { ok: true }
-}
-
-export function etudierFormation() {
-  if (!state.formationActive) return { ok: false }
-  state.formationActive.dureeRestante = Math.max(0, state.formationActive.dureeRestante - 2)
-  if (state.formationActive.dureeRestante === 0) terminerFormation()
   return { ok: true }
 }
 
 function terminerFormation() {
   const f = state.formationActive
   if (!f) return
-  state.xpSecteurs[f.secteur] = (state.xpSecteurs[f.secteur] ?? 0) + f.gainXP
-  if (!state.formations.includes(f.secteur)) state.formations.push(f.secteur)
+  state.niveauFormation[f.secteur] = (state.niveauFormation[f.secteur] ?? 0) + f.gainNiveaux
   state.formationActive = null
-  window.dispatchEvent(new CustomEvent('legacy:formation-complete', {
-    detail: { secteur: f.secteur, gainXP: f.gainXP, label: f.label },
+  window.dispatchEvent(new CustomEvent('legacy:formation-terminee', {
+    detail: { secteur: f.secteur, gainNiveaux: f.gainNiveaux, label: f.label },
   }))
 }
 
 function tickFormation() {
   if (!state.formationActive) return
-  state.formationActive.dureeRestante -= CONFIG.TICK_MS / 1000
+  state.formationActive.dureeRestante -= 1   // 1 tick par tick
   if (state.formationActive.dureeRestante <= 0) {
     state.formationActive.dureeRestante = 0
     terminerFormation()
@@ -659,7 +656,7 @@ export function initialiserNouvelleGeneration(boostChoisi = null) {
   state._influenceAppuiDebut     = 0
   state.secteurActif             = 'commerce'
   state.formationActive          = null
-  state.formations               = []
+  // niveauFormation n'est PAS resetté — permanent comme boostCompetences
   state.secteursVisites          = ['commerce']
   state._dernierEvenementTick    = 0
   state._ticksDepuisVerifEvenement = 0
@@ -925,10 +922,10 @@ export function accepterDeal(idInstance) {
     state.marcheNoir._immuniteExpiry = now + gain.immuniteEvenementsS
 
   if (gain.formationOfferte) {
-    const disponibles = Object.keys(state.xpSecteurs).filter(s => !state.formations.includes(s))
-    if (disponibles.length > 0)
-      state.formations.push(disponibles[Math.floor(Math.random() * disponibles.length)])
-    // Si toutes déjà obtenues : coût payé, rien de gagné — comportement attendu
+    // T35 : donne +1 niveau dans un secteur aléatoire (niveauFormation permanent)
+    const secteurs = Object.keys(state.niveauFormation)
+    const cible = secteurs[Math.floor(Math.random() * secteurs.length)]
+    state.niveauFormation[cible] = (state.niveauFormation[cible] ?? 0) + 1
   }
 
   if (gain.vehiculeOffert) {
@@ -1086,8 +1083,8 @@ Object.assign(window, {
   acheterVehicule,
   vehiculePermetSecteur,
   changerSecteur,
-  inscrireFormation,
-  etudierFormation,
+  demarrerFormation,
+  getBonusFormation,
   lancerChantier,
   terminerChantier,
   declencherEvenementImmo,

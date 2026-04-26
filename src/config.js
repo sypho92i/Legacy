@@ -96,6 +96,9 @@ export const CONFIG = {
   BOOST_COMPETENCE_PAR_POINT:  0.10,  // +10% XP par point
   BOOST_COMPETENCE_MAX_POINTS: 5,     // plafond à 5 points (+50% max)
 
+  // Formations — bonus XP sectoriel (T35)
+  FORMATIONS_BONUS_BASE: 0.08,        // +8% XP/clic par niveau de formation dans un secteur
+
   // Verbe affiché sur le bouton de clic selon le métier actif
   VERBE_METIER: {
     vendeur:     'Conclure une vente',
@@ -273,19 +276,32 @@ export const CONFIG = {
     },
   },
 
-  // Campus — formations disponibles à l'achat
+  // Campus — formations refaisables (T35 : 3 par secteur, durée en ticks, gainNiveaux cumulables)
   FORMATIONS: [
-    { id: 'f_com_1',  emoji: '📦', label: 'Vente — Initiation',          secteur: 'commerce',   cout: 400,   gainXP: 80,  duree: 120 },
-    { id: 'f_com_2',  emoji: '📦', label: 'Vente — Avancé',              secteur: 'commerce',   cout: 2000,  gainXP: 350, duree: 300 },
-    { id: 'f_fin_1',  emoji: '💹', label: 'Finance — Initiation',        secteur: 'finance',    cout: 600,   gainXP: 80,  duree: 120 },
-    { id: 'f_fin_2',  emoji: '💹', label: 'Finance — Avancé',            secteur: 'finance',    cout: 2500,  gainXP: 350, duree: 300 },
-    { id: 'f_tec_1',  emoji: '💻', label: 'Tech — Initiation',           secteur: 'tech',       cout: 500,   gainXP: 80,  duree: 120 },
-    { id: 'f_tec_2',  emoji: '💻', label: 'Tech — Avancé',               secteur: 'tech',       cout: 2200,  gainXP: 350, duree: 300 },
-    { id: 'f_imm_1',  emoji: '🏢', label: 'Immobilier — Initiation',     secteur: 'immobilier', cout: 550,   gainXP: 80,  duree: 120 },
-    { id: 'f_imm_2',  emoji: '🏢', label: 'Immobilier — Avancé',         secteur: 'immobilier', cout: 2400,  gainXP: 350, duree: 300 },
-    { id: 'f_btp_1',  emoji: '🏗', label: 'BTP — Initiation',            secteur: 'btp',        cout: 200,   gainXP: 80,  duree: 120 }, // T27: 300→200, BTP est le seul secteur sans véhicule requis, formation entry-level doit rester accessible
-    { id: 'f_inf_1',  emoji: '🎙', label: 'Influence — Initiation',      secteur: 'influence',  cout: 800,   gainXP: 80,  duree: 120 },
-    { id: 'f_inf_2',  emoji: '🎙', label: 'Influence — Avancé',          secteur: 'influence',  cout: 3000,  gainXP: 350, duree: 300 },
+    // === Commerce ===
+    { id: 'f_com_1', emoji: '📦', label: 'Vente — Fondamentaux',    secteur: 'commerce',   cout: 400,   gainNiveaux: 1, duree: 300  },
+    { id: 'f_com_2', emoji: '📦', label: 'Vente — Méthodes',         secteur: 'commerce',   cout: 1500,  gainNiveaux: 2, duree: 900  },
+    { id: 'f_com_3', emoji: '📦', label: 'Vente — Maîtrise',         secteur: 'commerce',   cout: 4000,  gainNiveaux: 3, duree: 2000 },
+    // === Finance ===
+    { id: 'f_fin_1', emoji: '💹', label: 'Finance — Fondamentaux',   secteur: 'finance',    cout: 600,   gainNiveaux: 1, duree: 300  },
+    { id: 'f_fin_2', emoji: '💹', label: 'Finance — Marchés',         secteur: 'finance',    cout: 2000,  gainNiveaux: 2, duree: 900  },
+    { id: 'f_fin_3', emoji: '💹', label: 'Finance — Maîtrise',        secteur: 'finance',    cout: 5000,  gainNiveaux: 3, duree: 2000 },
+    // === Tech ===
+    { id: 'f_tec_1', emoji: '💻', label: 'Tech — Fondamentaux',      secteur: 'tech',       cout: 500,   gainNiveaux: 1, duree: 300  },
+    { id: 'f_tec_2', emoji: '💻', label: 'Tech — Architecture',       secteur: 'tech',       cout: 1800,  gainNiveaux: 2, duree: 900  },
+    { id: 'f_tec_3', emoji: '💻', label: 'Tech — Maîtrise',           secteur: 'tech',       cout: 4500,  gainNiveaux: 3, duree: 2000 },
+    // === Immobilier ===
+    { id: 'f_imm_1', emoji: '🏢', label: 'Immo — Fondamentaux',      secteur: 'immobilier', cout: 550,   gainNiveaux: 1, duree: 300  },
+    { id: 'f_imm_2', emoji: '🏢', label: 'Immo — Investissement',     secteur: 'immobilier', cout: 2000,  gainNiveaux: 2, duree: 900  },
+    { id: 'f_imm_3', emoji: '🏢', label: 'Immo — Maîtrise',           secteur: 'immobilier', cout: 4800,  gainNiveaux: 3, duree: 2000 },
+    // === BTP ===
+    { id: 'f_btp_1', emoji: '🏗', label: 'BTP — Fondamentaux',       secteur: 'btp',        cout: 200,   gainNiveaux: 1, duree: 300  },
+    { id: 'f_btp_2', emoji: '🏗', label: 'BTP — Chantiers',           secteur: 'btp',        cout: 800,   gainNiveaux: 2, duree: 900  },
+    { id: 'f_btp_3', emoji: '🏗', label: 'BTP — Maîtrise',            secteur: 'btp',        cout: 2500,  gainNiveaux: 3, duree: 2000 },
+    // === Influence ===
+    { id: 'f_inf_1', emoji: '🎙', label: 'Influence — Fondamentaux', secteur: 'influence',   cout: 800,   gainNiveaux: 1, duree: 300  },
+    { id: 'f_inf_2', emoji: '🎙', label: 'Influence — Stratégie',     secteur: 'influence',   cout: 2500,  gainNiveaux: 2, duree: 900  },
+    { id: 'f_inf_3', emoji: '🎙', label: 'Influence — Maîtrise',      secteur: 'influence',   cout: 6000,  gainNiveaux: 3, duree: 2000 },
   ],
 
   QUARTIERS: {

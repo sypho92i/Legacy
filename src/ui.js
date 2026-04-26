@@ -1,7 +1,7 @@
 // ui.js — composants Vue, handlers d'événements, update UI
 // Règle : ne contient que du Vue réactif — zéro querySelector/getElementById
 import { state }            from './state.js'
-import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, inscrireFormation, etudierFormation, acheterVehicule, vehiculePermetSecteur, declencherEvenementImmo, lancerChantier, calculerGainInfluence, executerCommandeIllegale, COMMANDES_ILLEGALES, appliquerEvenement, accepterDeal, getPalierReputation, getBoostLignee, acheterInvestissementImmobilier, revendreInvestissementImmobilier } from './engine.js'
+import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, demarrerFormation, getBonusFormation, acheterVehicule, vehiculePermetSecteur, declencherEvenementImmo, lancerChantier, calculerGainInfluence, executerCommandeIllegale, COMMANDES_ILLEGALES, appliquerEvenement, accepterDeal, getPalierReputation, getBoostLignee, acheterInvestissementImmobilier, revendreInvestissementImmobilier } from './engine.js'
 import { CONFIG }           from './config.js'
 
 // ─── Composant racine ─────────────────────────────────────────────────────────
@@ -576,42 +576,48 @@ export const AppRoot = {
       })
     )
 
-    // ── Campus — formations ───────────────────────────────────────────────────
+    // ── Campus — formations (T35) ─────────────────────────────────────────────
 
-    const formationsCampus = computed(() =>
-      CONFIG.FORMATIONS.map(f => ({
-        ...f,
-        estTerminee: state.formations?.includes(f.secteur) ?? false,
-        enCours:     state.formationActive?.id === f.id,
-        disabled:    state.argent < f.cout || (!!state.formationActive && state.formationActive.id !== f.id),
-      }))
-    )
+    // Formations groupées par secteur avec niveauFormation courant
+    const formationsDisponibles = computed(() => {
+      const SECTEURS_EMOJIS = { commerce: '📦', finance: '💹', tech: '💻', immobilier: '🏢', btp: '🏗', influence: '🎙' }
+      return Object.keys(state.niveauFormation).map(secteur => {
+        const niveau = state.niveauFormation[secteur] ?? 0
+        const bonus  = Math.round(niveau * CONFIG.FORMATIONS_BONUS_BASE * 100)
+        const formations = CONFIG.FORMATIONS
+          .filter(f => f.secteur === secteur)
+          .map(f => ({
+            ...f,
+            enCours:      state.formationActive?.id === f.id,
+            disabled:     state.argent < f.cout || !!state.formationActive,
+            dureeAffiche: formatMmSs(f.duree * CONFIG.TICK_MS),
+          }))
+        return { secteur, niveau, bonus, formations, emoji: SECTEURS_EMOJIS[secteur] ?? '' }
+      })
+    })
 
-    const formationActiveInfo = computed(() => {
+    const formationEnCours = computed(() => {
       const f = state.formationActive
       if (!f) return null
       const duree = Math.max(0, f.dureeRestante)
       return {
         ...f,
-        pourcent:    Math.min(100, Math.round((1 - duree / f.dureeInitiale) * 100)),
-        tempsAffiche: formatMmSs(duree * 1000),
+        pourcent:     Math.min(100, Math.round((1 - duree / f.dureeInitiale) * 100)),
+        tempsAffiche: formatMmSs(duree * CONFIG.TICK_MS),
       }
     })
 
-    function actionInscrireFormation(id) {
-      const result = inscrireFormation(id)
+    const bonusFormationSecteurActif = computed(() => getBonusFormation(state.secteurActif))
+
+    function actionDemarrerFormation(id) {
+      const result = demarrerFormation(id)
       if (!result.ok) return
-      const f = CONFIG.FORMATIONS.find(f => f.id === id)
-      ajouterFlottant(`📚 Formation démarrée`)
-      void f
+      ajouterFlottant('📚 Formation démarrée', 1200)
     }
 
-    function actionEtudierFormation() {
-      etudierFormation()
-    }
-
-    window.addEventListener('legacy:formation-complete', (e) => {
-      ajouterFlottant(`🎓 +${e.detail.gainXP} XP ${e.detail.secteur} !`, 2000)
+    window.addEventListener('legacy:formation-terminee', (e) => {
+      const pct = Math.round(e.detail.gainNiveaux * CONFIG.FORMATIONS_BONUS_BASE * 100)
+      ajouterFlottant(`🎓 +${e.detail.gainNiveaux} niveau ${e.detail.secteur} (+${pct}% XP) !`, 2500, 'boutique-flottant--positif')
     })
 
     // ── Compétences au décès ───────────────────────────────────────────────────
@@ -870,7 +876,7 @@ export const AppRoot = {
       navEcran, quartierEnCours, batimentEnCours, breadcrumb,
       retourCarte, retourQuartier, ouvrirBatiment, entrerDansSecteur, ouvrirQuartier,
       carteZones, spritePosition, spriteClasse,
-      formationsCampus, formationActiveInfo, actionInscrireFormation, actionEtudierFormation,
+      formationsDisponibles, formationEnCours, bonusFormationSecteurActif, actionDemarrerFormation,
       boutiqueVehicules, vehiculesBatiment, actionAcheterVehicule,
       evenementOverlay, evenementOverlayInfo, fermerEvenementOverlay,
       marcheNoirDisponible, dealsEnrichis, immuniteRestanteS, prochainRefreshS, actionAccepterDeal,
@@ -956,6 +962,11 @@ export const AppRoot = {
             :class="{ 'sidebar-nav__btn--actif': panneauOverlay === 'vehicules' }"
             @click="ouvrirOverlay('vehicules')"
           >🚗 Véhicules</button>
+          <button
+            class="sidebar-nav__btn"
+            :class="{ 'sidebar-nav__btn--actif': panneauOverlay === 'formations' }"
+            @click="ouvrirOverlay('formations')"
+          >🎓 Formations</button>
           <button
             v-if="marcheNoirDisponible"
             class="sidebar-nav__btn btn-contact"
@@ -1192,38 +1203,33 @@ export const AppRoot = {
           <!-- Formations (ecole) -->
           <template v-else-if="CONFIG.BATIMENTS?.[batimentEnCours]?.contenu === 'formations'">
             <div class="formations-vue">
-              <div v-if="formationActiveInfo" class="formation-active-card">
+              <div v-if="formationEnCours" class="formation-active-card">
                 <div class="formation-active-header">
-                  📚 {{ formationActiveInfo.label }}
-                  <span class="formation-timer">{{ formationActiveInfo.tempsAffiche }}</span>
+                  📚 {{ formationEnCours.label }}
+                  <span class="formation-timer">{{ formationEnCours.tempsAffiche }}</span>
                 </div>
                 <div class="formation-barre">
-                  <div class="formation-barre-fill" :style="{ width: formationActiveInfo.pourcent + '%' }"></div>
+                  <div class="formation-barre-fill" :style="{ width: formationEnCours.pourcent + '%' }"></div>
                 </div>
-                <button class="btn-etudier" @click="actionEtudierFormation">⚡ Étudier (−2s)</button>
+                <span style="font-size:0.75em; color:#60a5fa;">+{{ formationEnCours.gainNiveaux }} niveau{{ formationEnCours.gainNiveaux > 1 ? 'x' : '' }} {{ formationEnCours.secteur }}</span>
               </div>
-              <p style="color:#888; font-size:0.85em; margin:0 0 10px;">Développez vos compétences pour accéder aux secteurs.</p>
-              <ul class="formation-liste">
-                <li v-for="f in formationsCampus" :key="f.id" class="formation-item"
-                  :class="{
-                    'formation-item--terminee': f.estTerminee,
-                    'formation-item--en-cours': f.enCours,
-                  }">
-                  <div class="formation-item__header">
-                    <span>{{ f.emoji }} {{ f.label }}</span>
-                    <span v-if="f.estTerminee" class="formation-check">✓</span>
-                    <span v-else-if="f.enCours" class="formation-en-cours">En cours</span>
+              <p style="color:#888; font-size:0.85em; margin:0 0 10px;">Formations refaisables — chaque completion améliore vos gains XP.</p>
+              <div v-for="groupe in formationsDisponibles" :key="groupe.secteur" class="formation-groupe">
+                <div class="formation-groupe__header">
+                  <span>{{ groupe.emoji }} {{ groupe.secteur }}</span>
+                  <span v-if="groupe.niveau > 0" class="formation-groupe__niveau">Niv. {{ groupe.niveau }} · +{{ groupe.bonus }}% XP</span>
+                </div>
+                <div class="formation-cards-row">
+                  <div v-for="f in groupe.formations" :key="f.id" class="formation-mini-card"
+                    :class="{ 'formation-mini-card--en-cours': f.enCours, 'formation-mini-card--disabled': f.disabled && !f.enCours }">
+                    <div class="formation-mini-card__label">{{ f.label.split('—')[1]?.trim() ?? f.label }}</div>
+                    <div class="formation-mini-card__meta">{{ f.cout.toLocaleString('fr-FR') }} € · {{ f.dureeAffiche }}</div>
+                    <div class="formation-mini-card__gain">+{{ f.gainNiveaux }} niv.</div>
+                    <span v-if="f.enCours" class="formation-en-cours">En cours</span>
+                    <button v-else class="boutique-item__btn" :disabled="f.disabled" @click="actionDemarrerFormation(f.id)">Démarrer</button>
                   </div>
-                  <div class="formation-item__meta">
-                    <span>+{{ f.gainXP }} XP {{ f.secteur }}</span>
-                    <span>{{ f.cout.toLocaleString('fr-FR') }} €</span>
-                    <span>⏱ {{ f.duree }}s</span>
-                  </div>
-                  <button v-if="!f.estTerminee && !f.enCours"
-                    class="boutique-item__btn" :disabled="f.disabled"
-                    @click="actionInscrireFormation(f.id)">S'inscrire</button>
-                </li>
-              </ul>
+                </div>
+              </div>
             </div>
           </template>
         </div>
@@ -1297,6 +1303,9 @@ export const AppRoot = {
             <span v-if="boostLigneeSecteurActif > 1" class="boost-lignee-badge">
               ⚡ Lignée +{{ Math.round((boostLigneeSecteurActif - 1) * 100) }}% XP
             </span>
+            <span v-if="bonusFormationSecteurActif > 1" class="bonus-formation-badge">
+              📚 Formation +{{ Math.round((bonusFormationSecteurActif - 1) * 100) }}% XP
+            </span>
           </div>
 
           <!-- BTP chantier actif -->
@@ -1357,6 +1366,7 @@ export const AppRoot = {
                : panneauOverlay === 'telephone'  ? '📱 Téléphone'
                : panneauOverlay === 'ordinateur'  ? '💻 Ordinateur'
                : panneauOverlay === 'marche_noir' ? '🕵️ Réseau'
+               : panneauOverlay === 'formations'  ? '🎓 Formations'
                :                                   '🚗 Véhicules' }}
             </span>
             <button class="panneau-overlay__fermer" @click="fermerOverlay">✕</button>
@@ -1639,6 +1649,58 @@ export const AppRoot = {
               <div v-if="dealsEnrichis.length > 0" class="mn-footer">
                 Refresh dans {{ prochainRefreshS }}s
               </div>
+            </div>
+          </template>
+
+          <!-- Formations -->
+          <template v-else-if="panneauOverlay === 'formations'">
+            <div class="formations-overlay">
+
+              <!-- Formation en cours -->
+              <div v-if="formationEnCours" class="formation-active-card">
+                <div class="formation-active-header">
+                  📚 {{ formationEnCours.label }}
+                  <span class="formation-timer">{{ formationEnCours.tempsAffiche }}</span>
+                </div>
+                <div class="formation-barre">
+                  <div class="formation-barre-fill" :style="{ width: formationEnCours.pourcent + '%' }"></div>
+                </div>
+                <span style="font-size:0.75em; color:#60a5fa;">+{{ formationEnCours.gainNiveaux }} niveau{{ formationEnCours.gainNiveaux > 1 ? 'x' : '' }} {{ formationEnCours.secteur }}</span>
+              </div>
+
+              <!-- Secteurs -->
+              <div
+                v-for="groupe in formationsDisponibles"
+                :key="groupe.secteur"
+                class="formation-groupe"
+              >
+                <div class="formation-groupe__header">
+                  <span>{{ groupe.emoji }} {{ groupe.secteur }}</span>
+                  <span v-if="groupe.niveau > 0" class="formation-groupe__niveau">
+                    Niv. {{ groupe.niveau }} · +{{ groupe.bonus }}% XP
+                  </span>
+                </div>
+                <div class="formation-cards-row">
+                  <div
+                    v-for="f in groupe.formations"
+                    :key="f.id"
+                    class="formation-mini-card"
+                    :class="{ 'formation-mini-card--en-cours': f.enCours, 'formation-mini-card--disabled': f.disabled && !f.enCours }"
+                  >
+                    <div class="formation-mini-card__label">{{ f.label.split('—')[1]?.trim() ?? f.label }}</div>
+                    <div class="formation-mini-card__meta">
+                      {{ f.cout.toLocaleString('fr-FR') }} € · {{ f.dureeAffiche }}
+                    </div>
+                    <div class="formation-mini-card__gain">+{{ f.gainNiveaux }} niv.</div>
+                    <span v-if="f.enCours" class="formation-en-cours">En cours</span>
+                    <button v-else class="boutique-item__btn"
+                      :disabled="f.disabled"
+                      @click="actionDemarrerFormation(f.id)"
+                    >Démarrer</button>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </template>
 

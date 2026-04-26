@@ -912,6 +912,38 @@
     }
     .btn-contact:hover { background: #1a0d20 !important; border-color: #7c3aed !important; }
 
+    /* Badge formation XP (T35) */
+    .bonus-formation-badge {
+      font-size: 0.8em; padding: 2px 8px;
+      background: #001a0f; border: 1px solid #065f46; color: #34d399;
+    }
+
+    /* Formations overlay — groupes par secteur (T35) */
+    .formations-overlay { display: flex; flex-direction: column; gap: 14px; }
+
+    .formation-groupe { display: flex; flex-direction: column; gap: 6px; }
+    .formation-groupe__header {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.78em; text-transform: capitalize; letter-spacing: 0.06em;
+      color: #888; border-bottom: 1px solid #1e1e1e; padding-bottom: 4px;
+    }
+    .formation-groupe__niveau { color: #34d399; font-size: 0.9em; text-transform: none; letter-spacing: 0; }
+
+    .formation-cards-row {
+      display: flex; gap: 6px; flex-wrap: wrap;
+    }
+    .formation-mini-card {
+      flex: 1; min-width: 80px; max-width: 120px;
+      display: flex; flex-direction: column; gap: 4px;
+      padding: 8px; border: 1px solid #2a2a2a; border-radius: 4px;
+      background: #0d0d0d; font-size: 0.78em;
+    }
+    .formation-mini-card--en-cours { border-color: #3b82f6; background: #060f1e; }
+    .formation-mini-card--disabled { opacity: 0.45; }
+    .formation-mini-card__label { font-weight: bold; color: #ccc; font-size: 0.95em; }
+    .formation-mini-card__meta  { color: #666; }
+    .formation-mini-card__gain  { color: #34d399; }
+
   </style>
 </head>
 <body>
