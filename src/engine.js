@@ -10,6 +10,18 @@ export function getPalierKarma(karma) {
     ?? CONFIG.PALIERS_KARMA.find(p => p.palier === 'neutre')
 }
 
+export function getPalierReputation() {
+  const rep = state.jauges.reputation
+  return CONFIG.REPUTATION.find(p => rep >= p.min)
+    ?? CONFIG.REPUTATION[CONFIG.REPUTATION.length - 1]
+}
+
+function getModificateurReputationInfluence() {
+  const rep = state.jauges.reputation
+  const entry = CONFIG.REPUTATION_EFFETS.INFLUENCE_MULT.find(e => rep >= e.min)
+  return entry?.valeur ?? 1.0
+}
+
 export function getModifKarma(karma) {
   return 1 + getPalierKarma(karma).modifProductivite
 }
@@ -173,11 +185,11 @@ export function executerActionTelephone(id) {
     return { ok: false, raison: 'En cooldown' }
   }
 
-  // Effet abonnés
+  // Effet abonnés — bonus karma vertueux + modificateur réputation
   if (action.effetAbonnes) {
     const palier = getPalierKarma(state.karma)
-    const bonus = palier.palier === 'vertueux' ? 2 : 1
-    state.abonnes += action.effetAbonnes * bonus
+    const bonusKarma = palier.palier === 'vertueux' ? 2 : 1
+    state.abonnes += Math.round(action.effetAbonnes * bonusKarma * getModificateurReputationInfluence())
   }
 
   // Effet bonheur temporaire
@@ -351,6 +363,7 @@ export function calculerGainInfluence(dureeSeconde) {
   const gainAbonnesBase = Math.round(50 + state.abonnes * 0.01)
   const gainAbonnes = Math.round(
     gainAbonnesBase * (1 + bonusUpgradesInfluence)
+    * getModificateurReputationInfluence()
     * Math.exp(-((dureeSeconde - CONFIG.INFLUENCE.CIBLE_SECONDES) ** 2)
       / (2 * CONFIG.INFLUENCE.SIGMA ** 2))
   )
@@ -771,6 +784,8 @@ function evaluerConditions(cond) {
   if (cond.argentMin       !== undefined && state.argent                  < cond.argentMin)       return false
   if (cond.abonnesMin      !== undefined && state.abonnes                 < cond.abonnesMin)      return false
   if (cond.hygieneMax      !== undefined && state.jauges.hygiene          > cond.hygieneMax)      return false
+  if (cond.reputationMin   !== undefined && state.jauges.reputation       < cond.reputationMin)   return false
+  if (cond.reputationMax   !== undefined && state.jauges.reputation       > cond.reputationMax)   return false
   if (cond.secteurActif    !== undefined && state.secteurActif           !== cond.secteurActif)   return false
   if (cond.coucheIllegalMin !== undefined && state.coucheIllegalMax       < cond.coucheIllegalMin) return false
   if (cond.coucheMin       !== undefined && state.coucheIllegalMax       < cond.coucheMin)        return false
@@ -996,4 +1011,5 @@ Object.assign(window, {
   appliquerEvenement,
   genererDeals,
   accepterDeal,
+  getPalierReputation,
 })

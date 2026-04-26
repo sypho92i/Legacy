@@ -1,14 +1,14 @@
 // ui.js — composants Vue, handlers d'événements, update UI
 // Règle : ne contient que du Vue réactif — zéro querySelector/getElementById
 import { state }            from './state.js'
-import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, inscrireFormation, etudierFormation, acheterVehicule, vehiculePermetSecteur, declencherEvenementImmo, lancerChantier, calculerGainInfluence, executerCommandeIllegale, COMMANDES_ILLEGALES, appliquerEvenement, accepterDeal } from './engine.js'
+import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, inscrireFormation, etudierFormation, acheterVehicule, vehiculePermetSecteur, declencherEvenementImmo, lancerChantier, calculerGainInfluence, executerCommandeIllegale, COMMANDES_ILLEGALES, appliquerEvenement, accepterDeal, getPalierReputation } from './engine.js'
 import { CONFIG }           from './config.js'
 
 // ─── Composant racine ─────────────────────────────────────────────────────────
 
 export const AppRoot = {
   setup() {
-    const { ref, computed } = Vue
+    const { ref, computed, watch } = Vue
 
     // ── Écran de fin de génération ────────────────────────────────────────────
     const recapData       = ref(null)
@@ -780,6 +780,20 @@ export const AppRoot = {
       ajouterFlottant(texte, 2000, 'boutique-flottant--positif')
     }
 
+    // ── Réputation — palier et badge ─────────────────────────────────────────
+    const palierReputation = computed(() => getPalierReputation())
+
+    // Notification flottante si le palier change
+    watch(() => palierReputation.value.label, (nouveau, ancien) => {
+      if (!ancien || nouveau === ancien) return
+      const palierIdx = CONFIG.REPUTATION.findIndex(p => p.label === nouveau)
+      const ancienIdx = CONFIG.REPUTATION.findIndex(p => p.label === ancien)
+      const classe = palierIdx < ancienIdx
+        ? 'boutique-flottant--positif'   // palier amélioré (index plus petit = min plus haut)
+        : 'boutique-flottant--negatif'
+      ajouterFlottant(`⭐ Réputation : ${nouveau}`, 1500, classe)
+    })
+
     // ── Immobilier — badge passif multi ──────────────────────────────────────
     const immoPassifBadge = computed(() => {
       if (state._immoPassifMulti === 1.0) return null
@@ -810,6 +824,7 @@ export const AppRoot = {
       boutiqueVehicules, vehiculesBatiment, actionAcheterVehicule,
       evenementOverlay, evenementOverlayInfo, fermerEvenementOverlay,
       marcheNoirDisponible, dealsEnrichis, immuniteRestanteS, prochainRefreshS, actionAccepterDeal,
+      palierReputation,
       derniereNotifImmo, immoPassifBadge,
       chantierProgression, actionLancerChantier,
       influenceAppuiMs, influenceEnAppui, influenceBarrePct, influencePrecisionLabel,
@@ -844,6 +859,11 @@ export const AppRoot = {
             :max="CONFIG.JAUGE_MAX"
           />
         </section>
+
+        <!-- Badge réputation -->
+        <div class="reputation-badge" :style="{ color: palierReputation.couleur, borderColor: palierReputation.couleur }">
+          ⭐ {{ palierReputation.label }}
+        </div>
 
         <!-- Karma -->
         <div class="sidebar-karma">Karma : {{ state.karma }} ({{ state.palierKarma }})</div>

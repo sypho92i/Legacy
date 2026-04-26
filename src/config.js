@@ -28,6 +28,25 @@ export const CONFIG = {
     { palier: 'ennemiPublic', min: 0,   max: 4,   modifProductivite: -0.60 },
   ],
 
+  // Réputation — paliers (ordre décroissant, find s'arrête au premier match)
+  REPUTATION: [
+    { min: 80, label: 'Célébrité', couleur: '#ffd700' },
+    { min: 60, label: 'Respecté',  couleur: '#4caf50' },
+    { min: 40, label: 'Connu',     couleur: '#9e9e9e' },
+    { min: 20, label: 'Mal vu',    couleur: '#b85c00' },
+    { min: 0,  label: 'Paria',     couleur: '#8b0000' },
+  ],
+
+  // Réputation — effets sur la production d'influence (abonnés)
+  REPUTATION_EFFETS: {
+    INFLUENCE_MULT: [
+      { min: 80, valeur: 1.30 },
+      { min: 60, valeur: 1.15 },
+      { min: 20, valeur: 1.00 },
+      { min: 0,  valeur: 0.80 },
+    ],
+  },
+
   // Jauges
   JAUGE_MIN:    0,
   JAUGE_MAX:  100,
@@ -427,6 +446,16 @@ export const CONFIG = {
         message: "Le marché s'effondre.",
         conditions: { secteurActif: 'finance', niveauMin: 2 }, poids: 3,
         effets: { argentPourcent: -0.20 },          gravite: 'majeur' },
+
+      // === réputation ===
+      { id: 'opportunite_media',     label: 'Opportunité médiatique',
+        message: "Un journaliste t'a repéré. Bonne couverture presse.",
+        conditions: { reputationMin: 60, abonnesMin: 2000 },    poids: 2,
+        effets: { abonnes: 1000, argent: 500 },                  gravite: 'positif' },
+      { id: 'bad_buzz',              label: 'Bad buzz',
+        message: "Un post viral te ridiculise. La communauté se retourne.",
+        conditions: { reputationMax: 30, abonnesMin: 1000 },     poids: 3,
+        effets: { abonnesPourcent: -0.15, reputation: -5 },      gravite: 'negatif' },
 
       // === lifestyle ===
       { id: 'rencontre_inspirante',  label: 'Rencontre inspirante',
