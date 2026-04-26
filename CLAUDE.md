@@ -739,6 +739,12 @@ Restructurer `<main class="zone-centrale">` :
 - ui.js : inchangé — `effetsLisibles` couvre tous les types d'effets utilisés.
 - index.html : inchangé.
 
+### T32 — Réputation × Marché noir / illégal
+- config.js : `CONFIG.REPUTATION_ILLEGAL` (DEALS_DISCRETS_REPUTATION_MAX:60, MALUS_GAIN_ILLEGAL_REPUTATION_MIN:70, MALUS_GAIN_ILLEGAL_MULT:0.85, RISQUE_SCANDALE_REPUTATION_MIN:75, PROBA:0.25, effets scandale). `reputationMax:60` ajouté aux conditions de 4 deals discrets : `blanchiment`, `corruption_fonctionnaire`, `contrat_douteux`, `protection_criminelle`.
+- engine.js : `executerCommandeIllegale` — malus ×0.85 sur gain si réputation ≥ 70, risque scandale 25% si réputation ≥ 75 (−8 rép, −10 bonheur, dispatch `legacy:scandale-illegal`). Retourne `malusReputation` bool.
+- ui.js : listener `legacy:scandale-illegal` → flottant rouge. `commandesIllegalesInfo` enrichi de `malusReputation`. Badge "⚠ Rendement −15%" dans la liste commandes illégales. Bandeau `mn-rep-avert` dans overlay marché noir si réputation ≥ 60.
+- index.html : CSS `.mn-rep-avert` (amber, fond sombre) + `.commande-malus-rep` (amber, petit texte).
+
 ---
 *Ne jamais lire le GDD pour coder — toutes les infos techniques sont ici.*
 *Mettre à jour "Sessions terminées" à chaque fin de ticket.*
