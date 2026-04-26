@@ -54,7 +54,6 @@ STATE = {
   // Renommée
   abonnes: number,
   telephoneCooldowns: {},
-  _bonheurTempExpiry: 0,
 
   // Possessions
   possessions: {
@@ -88,10 +87,10 @@ STATE = {
   _immoEvenementExpiry: 0,
   _immoPassifMulti: 1.0,
   _immoPassifMultiExpiry: 0,
-  _influenceAppuiDebut: 0,
-  _ticksDepuisLoyer: 0,
   _bonheurTempExpiry: 0,
   _boostXpExpiry: 0,
+  _influenceAppuiDebut: 0,
+  _ticksDepuisLoyer: 0,
   _dernierEvenementTick: 0,        // tick du dernier événement aléatoire
   _ticksDepuisVerifEvenement: 0,   // compteur vers le prochain tirage
 
@@ -222,13 +221,15 @@ Commandes ordinateur illégales (engine.js `COMMANDES_ILLEGALES`) : `fraude_fisc
 
 ### Changement de secteur — règles
 
-**Aucun cooldown.** Le changement est libre sous trois conditions :
-1. **Formation requise** : certains secteurs exigent une formation achetée au Campus
-2. **Véhicule requis** : chaque secteur peut exiger un véhicule minimum
-3. **Coût d'installation** : `CONFIG.MAP.COUT_INSTALLATION` (2000€) débité une seule fois à la première visite — Commerce est déjà visité par défaut
+**Aucun cooldown, aucun coût.** `changerSecteur(slug)` vérifie dans l'ordre :
+1. **Même secteur** → `{ ok: false, raison: 'same' }`
+2. **Possessions manquantes** (influence : téléphone + ordinateur requis) → `{ ok: false, raison: 'possessions', message }`
+3. **Véhicule insuffisant** → `{ ok: false, raison: 'vehicule', message }`
+4. Sinon → `{ ok: true }`, `state.secteurActif = slug`
 
-`changerSecteur(slug)` retourne `{ ok, raison?, message? }`.
-Raisons : `'meme_secteur'` | `'formation'` | `'vehicule'` | `'possessions'` | `'argent'`
+Raisons : `'same'` | `'vehicule'` | `'possessions'`
+
+> Note : `state.secteursVisites` existe dans le state mais n'est pas utilisé comme gate dans `changerSecteur` — il est simplement resetté à chaque génération.
 
 ### Formations — accès aux secteurs et mécanique
 
@@ -256,7 +257,6 @@ CONFIG.FORMATIONS = [
   { id: 'f_inf_1', emoji: '🎙', label: 'Influence — Initiation',     secteur: 'influence',  cout: 800,  gainXP: 80,  duree: 120 },
   { id: 'f_inf_2', emoji: '🎙', label: 'Influence — Avancé',         secteur: 'influence',  cout: 3000, gainXP: 350, duree: 300 },
 ]
-CONFIG.MAP.COUT_INSTALLATION = 2000
 ```
 
 Fonctions engine.js :
@@ -567,8 +567,8 @@ Hold-to-release gaussien (cible 5s). Abonnés → monétisation. Accès : télé
 ### UI-R1 — Refonte layout ✅
 Grid 2 colonnes. Sprite CSS. Sidebar-nav. `.btn-travailler` centré dans zone centrale. `panneauOverlay` drawer. `navEcran` + vue quartier façades RPG. `max-width: 580px` contenu central.
 
-### T22 — Suppression cooldown + Formations + Coût installation ✅
-Cooldown changement secteur supprimé. `CONFIG.FORMATIONS` array avec duree. `inscrireFormation()` remplace `acheterFormation()`. `secteursVisites`, `formations` dans state. `COUT_INSTALLATION` 2000€ à la première visite. Campus + ecole ajoutés.
+### T22 — Suppression cooldown + Formations ✅
+Cooldown changement secteur supprimé. `CONFIG.FORMATIONS` array avec duree. `inscrireFormation()` remplace `acheterFormation()`. `secteursVisites` et `formations` ajoutés dans state (reset par génération). Campus + ecole ajoutés.
 
 ### UI-R2 — Recentrage bouton d'action + bande finances sticky ✅
 `.action-wrap` flex-shrink:0 sous la carte. `.bande-finances` sticky bottom:0, font-size agrandie. `.panneau-upgrades` scrollable. Zone centrale restructurée en flex-column.
@@ -628,18 +628,18 @@ Quartier Immobilier supprimé de la carte. CONFIG.QUARTIERS/BATIMENTS refactoris
 - ui.js : listener `legacy:scandale-illegal` → flottant rouge. `commandesIllegalesInfo` enrichi de `malusReputation`. Badge "⚠ Rendement −15%" dans la liste commandes illégales. Bandeau `mn-rep-avert` dans overlay marché noir si réputation ≥ 60.
 - index.html : CSS `.mn-rep-avert` (amber, fond sombre) + `.commande-malus-rep` (amber, petit texte).
 
-### T34 — Boosts compétences lignée — effet XP réel
-- config.js : `BOOST_COMPETENCE_PAR_POINT:0.10`, `BOOST_COMPETENCE_MAX_POINTS:5`. 1 point = +10% XP/clic, plafond 5 points (+50%).
-- engine.js : `getBoostLignee(secteur)` exportée — `1 + min(boostCompetences[secteur], 5) × 0.10`. Branché dans `calculerXpClic()` après le boost recherche (multiplicatif). Exposée via `Object.assign`.
-- ui.js : import `getBoostLignee`. Computed `boostLigneeSecteurActif`. Badge `⚡ Lignée +X% XP` sous la barre XP si boost > 0 (class `.boost-lignee-badge`). `recapGeneration` enrichit chaque boost card de `bonusAffiche` (ex: `"+20% XP"`). `.boost-card__bonus` affiché dans l'overlay mort.
-- index.html : CSS `.boost-lignee-badge` (amber) + `.boost-card__bonus` (amber 0.75em).
-
 ### T33 — Immobilier avancé / achat-revente
 - config.js : `CONFIG.IMMOBILIER_AVANCE` — 4 biens (parking 12k, studio 45k, local 120k, immeuble 350k€), `VARIATION_MIN:-0.08 / MAX:+0.12`, `TICKS_PAR_REEVAL:75` (1 an de jeu), `BONUS_NIVEAU_PAR_NV:0.01`.
 - state.js : `investissementsImmobiliers: []` — tableau `[{ idInstance, idBien, label, prixAchat, valeurCourante, revenuPassif }]`.
 - engine.js : `acheterInvestissementImmobilier(idBien)`, `revendreInvestissementImmobilier(idInstance)`, `tickInvestissementsImmobiliers()` (rééval annuelle + bonus niveau immo, plancher 40%). `getTauxInvestImmo()` intégré dans `tickPassifs()` et `calculerCashflowNet()`. `calculerHeritage()` inclut valeurCourante des investissements dans l'argent transmis. Reset + `_ticksImmoReeval` à chaque génération.
 - ui.js : computeds `biensImmobiliersDisponibles` + `investissementsImmobiliersInfo` (delta, deltaPct). Handlers `actionAcheterInvestissement`, `actionRevendreInvestissement`. Section investissement dans template `agence_immo` (liste achat + portefeuille + delta coloré vert/rouge).
 - index.html : CSS `.invest-card`, `.invest-card--achat`, `.invest-card__header/label/prix/value/meta/delta`, `.invest-card__delta--positif/--negatif`, `.invest-card__btn`.
+
+### T34 — Boosts compétences lignée — effet XP réel
+- config.js : `BOOST_COMPETENCE_PAR_POINT:0.10`, `BOOST_COMPETENCE_MAX_POINTS:5`. 1 point = +10% XP/clic, plafond 5 points (+50%).
+- engine.js : `getBoostLignee(secteur)` exportée — `1 + min(boostCompetences[secteur], 5) × 0.10`. Branché dans `calculerXpClic()` après le boost recherche (multiplicatif). Exposée via `Object.assign`.
+- ui.js : import `getBoostLignee`. Computed `boostLigneeSecteurActif`. Badge `⚡ Lignée +X% XP` sous la barre XP si boost > 0 (class `.boost-lignee-badge`). `recapGeneration` enrichit chaque boost card de `bonusAffiche` (ex: `"+20% XP"`). `.boost-card__bonus` affiché dans l'overlay mort.
+- index.html : CSS `.boost-lignee-badge` (amber) + `.boost-card__bonus` (amber 0.75em).
 
 ---
 *Ne jamais lire le GDD pour coder — toutes les infos techniques sont ici.*
