@@ -745,6 +745,13 @@ Restructurer `<main class="zone-centrale">` :
 - ui.js : listener `legacy:scandale-illegal` → flottant rouge. `commandesIllegalesInfo` enrichi de `malusReputation`. Badge "⚠ Rendement −15%" dans la liste commandes illégales. Bandeau `mn-rep-avert` dans overlay marché noir si réputation ≥ 60.
 - index.html : CSS `.mn-rep-avert` (amber, fond sombre) + `.commande-malus-rep` (amber, petit texte).
 
+### T33 — Immobilier avancé / achat-revente
+- config.js : `CONFIG.IMMOBILIER_AVANCE` — 4 biens (parking 12k, studio 45k, local 120k, immeuble 350k€), `VARIATION_MIN:-0.08 / MAX:+0.12`, `TICKS_PAR_REEVAL:75` (1 an de jeu), `BONUS_NIVEAU_PAR_NV:0.01`.
+- state.js : `investissementsImmobiliers: []` — tableau `[{ idInstance, idBien, label, prixAchat, valeurCourante, revenuPassif }]`.
+- engine.js : `acheterInvestissementImmobilier(idBien)`, `revendreInvestissementImmobilier(idInstance)`, `tickInvestissementsImmobiliers()` (rééval annuelle + bonus niveau immo, plancher 40%). `getTauxInvestImmo()` intégré dans `tickPassifs()` et `calculerCashflowNet()`. `calculerHeritage()` inclut valeurCourante des investissements dans l'argent transmis. Reset + `_ticksImmoReeval` à chaque génération.
+- ui.js : computeds `biensImmobiliersDisponibles` + `investissementsImmobiliersInfo` (delta, deltaPct). Handlers `actionAcheterInvestissement`, `actionRevendreInvestissement`. Section investissement dans template `agence_immo` (liste achat + portefeuille + delta coloré vert/rouge).
+- index.html : CSS `.invest-card`, `.invest-card--achat`, `.invest-card__header/label/prix/value/meta/delta`, `.invest-card__delta--positif/--negatif`, `.invest-card__btn`.
+
 ---
 *Ne jamais lire le GDD pour coder — toutes les infos techniques sont ici.*
 *Mettre à jour "Sessions terminées" à chaque fin de ticket.*
