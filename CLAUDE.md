@@ -726,6 +726,19 @@ Restructurer `<main class="zone-centrale">` :
 - ui.js : `marcheNoirDisponible` computed. `_formatMMSS(s)` helper. `dealsEnrichis` computed (tempsRestantS, tempsAffiche, expire, abordable, coutAffiche, gainAffiche). `immuniteRestanteS` + `prochainRefreshS` computeds. `actionAccepterDeal(idInstance)`. Bouton sidebar `🕵️ Contact` conditionnel. Overlay `marche_noir` : immunité badge, deal cards avec timers colorés, coût/gain, bouton accept, footer refresh.
 - index.html : CSS `.overlay-marche-noir`, `.mn-immunite`, `.mn-vide`, `.deal-card`, `.deal-card--expired`, `.deal-card__header`, `.deal-card__label`, `.deal-timer--rouge/--orange`, `.deal-cout`, `.deal-gain`, `.deal-card__btn`, `.mn-footer`, `.btn-contact`.
 
+### T30 — Système de réputation
+- config.js : `CONFIG.REPUTATION` array 5 paliers (Paria/Mal vu/Connu/Respecté/Célébrité, couleurs), `CONFIG.REPUTATION_EFFETS.INFLUENCE_MULT` (×0.8→×1.3). 2 nouveaux événements LISTE : `opportunite_media` (reputationMin:60, abonnesMin:2000) + `bad_buzz` (reputationMax:30, abonnesMin:1000).
+- engine.js : `getPalierReputation()` exportée. `getModificateurReputationInfluence()` privée. `evaluerConditions` étendue (reputationMin/reputationMax). Modificateur branché sur `calculerGainInfluence` (gainAbonnes) et `executerActionTelephone` (effetAbonnes).
+- ui.js : import `getPalierReputation`. `watch` destructuré depuis Vue. Computed `palierReputation`. Watch label → `ajouterFlottant` coloré au changement de palier. Badge `<div class="reputation-badge">` après section jauges.
+- index.html : CSS `.reputation-badge` (border coloré dynamique, monospace, discret).
+- Aucune modification state.js. Zéro régression.
+
+### T31 — Événements réputation dédiés
+- config.js : ajout de 3 événements dans `CONFIG.EVENEMENTS.LISTE` (`invitation_media` reputationMin:60, `bad_buzz_expo` reputationMin:50+abonnesMin:500, `controle_renforce` reputationMax:25). Effets sobres : abonnés, abonnesPourcent, bonheur, argent. 18 événements au total, 0 doublon.
+- engine.js : inchangé — `evaluerConditions` et `appliquerEvenement` déjà compatibles depuis T30.
+- ui.js : inchangé — `effetsLisibles` couvre tous les types d'effets utilisés.
+- index.html : inchangé.
+
 ---
 *Ne jamais lire le GDD pour coder — toutes les infos techniques sont ici.*
 *Mettre à jour "Sessions terminées" à chaque fin de ticket.*
