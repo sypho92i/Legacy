@@ -92,6 +92,10 @@ export const CONFIG = {
   // Karma de départ — héritage
   KARMA_DEPART_DEFAUT: 75,
 
+  // Boosts compétences lignée — effet XP/clic (T34)
+  BOOST_COMPETENCE_PAR_POINT:  0.10,  // +10% XP par point
+  BOOST_COMPETENCE_MAX_POINTS: 5,     // plafond à 5 points (+50% max)
+
   // Verbe affiché sur le bouton de clic selon le métier actif
   VERBE_METIER: {
     vendeur:     'Conclure une vente',

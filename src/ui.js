@@ -1,7 +1,7 @@
 // ui.js — composants Vue, handlers d'événements, update UI
 // Règle : ne contient que du Vue réactif — zéro querySelector/getElementById
 import { state }            from './state.js'
-import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, inscrireFormation, etudierFormation, acheterVehicule, vehiculePermetSecteur, declencherEvenementImmo, lancerChantier, calculerGainInfluence, executerCommandeIllegale, COMMANDES_ILLEGALES, appliquerEvenement, accepterDeal, getPalierReputation, acheterInvestissementImmobilier, revendreInvestissementImmobilier } from './engine.js'
+import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, inscrireFormation, etudierFormation, acheterVehicule, vehiculePermetSecteur, declencherEvenementImmo, lancerChantier, calculerGainInfluence, executerCommandeIllegale, COMMANDES_ILLEGALES, appliquerEvenement, accepterDeal, getPalierReputation, getBoostLignee, acheterInvestissementImmobilier, revendreInvestissementImmobilier } from './engine.js'
 import { CONFIG }           from './config.js'
 
 // ─── Composant racine ─────────────────────────────────────────────────────────
@@ -24,13 +24,23 @@ export const AppRoot = {
       if (!recapData.value) return null
       const boostsDisponibles = Object.values(CONFIG.MAP.ZONES)
         .filter(z => z.secteur && z.disponible !== false)
-        .map(z => ({ secteur: z.secteur, label: z.label, emoji: z.emoji }))
+        .map(z => {
+          const pts = Math.min(state.boostCompetences[z.secteur] ?? 0, CONFIG.BOOST_COMPETENCE_MAX_POINTS)
+          return {
+            secteur:      z.secteur,
+            label:        z.label,
+            emoji:        z.emoji,
+            bonusAffiche: pts > 0 ? `+${pts * 10}% XP` : '',
+          }
+        })
       return {
         ...recapData.value,
         boostsDisponibles,
         ligneeComplete: state.lignee,
       }
     })
+
+    const boostLigneeSecteurActif = computed(() => getBoostLignee(state.secteurActif))
 
     function actionNouvelleGeneration() {
       initialiserNouvelleGeneration(boostSelectionne.value)
@@ -865,6 +875,7 @@ export const AppRoot = {
       evenementOverlay, evenementOverlayInfo, fermerEvenementOverlay,
       marcheNoirDisponible, dealsEnrichis, immuniteRestanteS, prochainRefreshS, actionAccepterDeal,
       palierReputation,
+      boostLigneeSecteurActif,
       biensImmobiliersDisponibles, investissementsImmobiliersInfo,
       actionAcheterInvestissement, actionRevendreInvestissement,
       derniereNotifImmo, immoPassifBadge,
@@ -1282,6 +1293,9 @@ export const AppRoot = {
             <div class="xp-label">{{ xpSecteurInfo.current }} / {{ xpSecteurInfo.max }} XP</div>
             <span v-if="immoPassifBadge && state.secteurActif === 'immobilier'" class="immo-passif-badge">
               {{ immoPassifBadge }}
+            </span>
+            <span v-if="boostLigneeSecteurActif > 1" class="boost-lignee-badge">
+              ⚡ Lignée +{{ Math.round((boostLigneeSecteurActif - 1) * 100) }}% XP
             </span>
           </div>
 
@@ -1712,6 +1726,7 @@ export const AppRoot = {
               >
                 <span class="boost-card__emoji">{{ b.emoji }}</span>
                 <span class="boost-card__label">{{ b.secteur }}</span>
+                <span v-if="b.bonusAffiche" class="boost-card__bonus">{{ b.bonusAffiche }}</span>
               </div>
             </div>
             <p v-if="boostSelectionne" style="font-size:0.75em; color:#a78bfa; margin-top:6px;">

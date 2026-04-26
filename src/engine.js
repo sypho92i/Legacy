@@ -37,14 +37,19 @@ export function getMultiplicateurNiveau(secteur) {
     ?? CONFIG.MULTIPLICATEURS_NIVEAU[0]
 }
 
+export function getBoostLignee(secteur) {
+  const points = Math.min(state.boostCompetences[secteur] ?? 0, CONFIG.BOOST_COMPETENCE_MAX_POINTS)
+  return 1 + points * CONFIG.BOOST_COMPETENCE_PAR_POINT
+}
+
 export function calculerXpClic() {
   const base = Math.max(0.1,
     1 * getModifKarma(state.karma) * getModifBonheur(state.jauges.bonheur)
   )
-  if (Date.now() < state._boostXpExpiry) {
-    return base * CONFIG.ORDINATEUR.COMMANDES.recherche.effet.boostXpMulti
-  }
-  return base
+  const boost = Date.now() < state._boostXpExpiry
+    ? CONFIG.ORDINATEUR.COMMANDES.recherche.effet.boostXpMulti
+    : 1
+  return base * boost * getBoostLignee(state.secteurActif)
 }
 
 export function calculerNiveau(secteur) {
@@ -1092,6 +1097,7 @@ Object.assign(window, {
   genererDeals,
   accepterDeal,
   getPalierReputation,
+  getBoostLignee,
   acheterInvestissementImmobilier,
   revendreInvestissementImmobilier,
 })
