@@ -628,6 +628,12 @@ Quartier Immobilier supprimé de la carte. CONFIG.QUARTIERS/BATIMENTS refactoris
 - ui.js : listener `legacy:scandale-illegal` → flottant rouge. `commandesIllegalesInfo` enrichi de `malusReputation`. Badge "⚠ Rendement −15%" dans la liste commandes illégales. Bandeau `mn-rep-avert` dans overlay marché noir si réputation ≥ 60.
 - index.html : CSS `.mn-rep-avert` (amber, fond sombre) + `.commande-malus-rep` (amber, petit texte).
 
+### T34 — Boosts compétences lignée — effet XP réel
+- config.js : `BOOST_COMPETENCE_PAR_POINT:0.10`, `BOOST_COMPETENCE_MAX_POINTS:5`. 1 point = +10% XP/clic, plafond 5 points (+50%).
+- engine.js : `getBoostLignee(secteur)` exportée — `1 + min(boostCompetences[secteur], 5) × 0.10`. Branché dans `calculerXpClic()` après le boost recherche (multiplicatif). Exposée via `Object.assign`.
+- ui.js : import `getBoostLignee`. Computed `boostLigneeSecteurActif`. Badge `⚡ Lignée +X% XP` sous la barre XP si boost > 0 (class `.boost-lignee-badge`). `recapGeneration` enrichit chaque boost card de `bonusAffiche` (ex: `"+20% XP"`). `.boost-card__bonus` affiché dans l'overlay mort.
+- index.html : CSS `.boost-lignee-badge` (amber) + `.boost-card__bonus` (amber 0.75em).
+
 ### T33 — Immobilier avancé / achat-revente
 - config.js : `CONFIG.IMMOBILIER_AVANCE` — 4 biens (parking 12k, studio 45k, local 120k, immeuble 350k€), `VARIATION_MIN:-0.08 / MAX:+0.12`, `TICKS_PAR_REEVAL:75` (1 an de jeu), `BONUS_NIVEAU_PAR_NV:0.01`.
 - state.js : `investissementsImmobiliers: []` — tableau `[{ idInstance, idBien, label, prixAchat, valeurCourante, revenuPassif }]`.
