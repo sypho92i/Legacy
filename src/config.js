@@ -105,7 +105,7 @@ export const CONFIG = {
     tech:        'Livrer une feature',
     finance:     'Passer un ordre',
     immobilier:  'Signer un bail',
-    btp:         'Donner un coup de main',
+    btp:         'Poser des briques',
     influence:   'Créer du contenu',
   },
   VERBE_METIER_DEFAUT: 'Travailler',
@@ -144,9 +144,9 @@ export const CONFIG = {
     PALIERS_BTP: {
       1: 'Ouvrier',
       2: 'Chef de chantier',
-      3: 'Conducteur de travaux',
-      4: 'Entrepreneur',
-      5: 'Groupe BTP',
+      3: 'Artisan',
+      4: 'Entrepreneur BTP',
+      5: 'Promoteur',
     },
     PALIERS_INFLUENCE: {
       1: 'Créateur débutant',
@@ -261,17 +261,17 @@ export const CONFIG = {
   // Carte / Map
   MAP: {
     ZONES: {
-      btp:        { label: 'Zone BTP',              emoji: '🏗', secteur: 'btp',        disponible: true, x: 15, y: 65, vehiculeRequis: null        },
-      commerce:   { label: 'Quartier Commercial',  emoji: '🏪', secteur: 'commerce',   disponible: true, x: 20, y: 30, vehiculeRequis: 'velo'      },
-      campus:     { label: 'Campus',               emoji: '🎓', secteur: null,         disponible: true, x: 10, y: 50, vehiculeRequis: 'velo'      },
-      tech:       { label: 'Quartier Tech',        emoji: '💻', secteur: 'tech',       disponible: true, x: 55, y: 65, vehiculeRequis: 'voiture'   },
-      influence:  { label: 'Studio Influence',     emoji: '🎙', secteur: 'influence',  disponible: true, x: 45, y: 35, vehiculeRequis: 'voiture'   },
-      finance:    { label: 'Quartier Financier',   emoji: '🏦', secteur: 'finance',    disponible: true, x: 60, y: 20, vehiculeRequis: 'supercar'  },
+      commerce:   { label: 'Quartier Commercial',  emoji: '🏪', secteur: 'commerce',   disponible: true, x: 18, y: 15, vehiculeRequis: 'velo'      },
+      finance:    { label: 'Quartier Financier',   emoji: '🏦', secteur: 'finance',    disponible: true, x: 70, y: 15, vehiculeRequis: 'supercar'  },
+      campus:     { label: 'Campus',               emoji: '🎓', secteur: null,         disponible: true, x: 12, y: 45, vehiculeRequis: 'velo'      },
+      tech:       { label: 'Quartier Tech',        emoji: '💻', secteur: 'tech',       disponible: true, x: 62, y: 45, vehiculeRequis: 'voiture'   },
+      btp:        { label: 'Zone BTP',              emoji: '🏗', secteur: 'btp',        disponible: true, x: 18, y: 75, vehiculeRequis: 'voiture'   },
+      influence:  { label: 'Studio Influence',     emoji: '🎙', secteur: 'influence',  disponible: true, x: 50, y: 75, vehiculeRequis: 'voiture'   },
     },
     MESSAGES_BLOCAGE_VEHICULE: {
       finance:    "T'as pas une Supercar ? Retourne au bureau.",
       tech:       "Pour bosser dans la tech, faut au moins avoir la voiture qui va avec. Fais un effort.",
-      btp:        null,
+      btp:        "Il faut une voiture pour aller sur les chantiers.",
       influence:  "Pour créer du contenu pro, faut au moins arriver en voiture.",
     },
   },
@@ -296,8 +296,8 @@ export const CONFIG = {
     { id: 'f_imm_3', emoji: '🏢', label: 'Immo — Maîtrise',           secteur: 'immobilier', cout: 4800,  gainNiveaux: 3, duree: 2000 },
     // === BTP ===
     { id: 'f_btp_1', emoji: '🏗', label: 'BTP — Fondamentaux',       secteur: 'btp',        cout: 200,   gainNiveaux: 1, duree: 300  },
-    { id: 'f_btp_2', emoji: '🏗', label: 'BTP — Chantiers',           secteur: 'btp',        cout: 800,   gainNiveaux: 2, duree: 900  },
-    { id: 'f_btp_3', emoji: '🏗', label: 'BTP — Maîtrise',            secteur: 'btp',        cout: 2500,  gainNiveaux: 3, duree: 2000 },
+    { id: 'f_btp_2', emoji: '🏗', label: 'BTP — Chantiers',           secteur: 'btp',        cout: 600,   gainNiveaux: 2, duree: 900  },
+    { id: 'f_btp_3', emoji: '🏗', label: 'BTP — Maîtrise',            secteur: 'btp',        cout: 1500,  gainNiveaux: 3, duree: 2000 },
     // === Influence ===
     { id: 'f_inf_1', emoji: '🎙', label: 'Influence — Fondamentaux', secteur: 'influence',   cout: 800,   gainNiveaux: 1, duree: 300  },
     { id: 'f_inf_2', emoji: '🎙', label: 'Influence — Stratégie',     secteur: 'influence',   cout: 2500,  gainNiveaux: 2, duree: 900  },
@@ -550,6 +550,17 @@ export const CONFIG = {
     ],
   },
 
+  // BTP — chantiers click-based (T37)
+  BTP: {
+    VEHICULE_REQUIS: 'voiture',
+    CHANTIERS: [
+      { id: 'renovation', nom: 'Rénovation',          clicsRequis: 25,  bonusFinChantier: 400   },
+      { id: 'maison',     nom: 'Maison individuelle',  clicsRequis: 60,  bonusFinChantier: 1800  },
+      { id: 'immeuble',   nom: 'Immeuble résidentiel', clicsRequis: 150, bonusFinChantier: 7000  },
+      { id: 'complexe',   nom: 'Complexe immobilier',  clicsRequis: 400, bonusFinChantier: 28000 },
+    ],
+  },
+
   METIERS: {
     commerce: {
       revenuBase: 1,
@@ -589,16 +600,14 @@ export const CONFIG = {
       ],
     },
     btp: {
-      revenuBase: 3, // T27: 5→3, click 5×1.3=6.5€ violait le ratio BTP < Commerce (1€) en début de partie
-      clicAccelere: 1, // secondes retirées du chantier actif par clic
+      revenuBase: 5,
       upgrades: [
-        { id: 'u_b1', label: 'Rénovation',           prerequis: null,   niveauRequis: 1, duree: 30,  recompense: 500    },
-        { id: 'u_b2', label: 'Pavillon',              prerequis: 'u_b1', niveauRequis: 1, duree: 60,  recompense: 1200   },
-        { id: 'u_b3', label: 'Immeuble résidentiel',  prerequis: 'u_b2', niveauRequis: 2, duree: 120, recompense: 3000   },
-        { id: 'u_b4', label: 'Centre commercial',     prerequis: 'u_b3', niveauRequis: 3, duree: 240, recompense: 8000   },
-        { id: 'u_b5', label: 'Pont',                  prerequis: 'u_b4', niveauRequis: 3, duree: 360, recompense: 15000  },
-        { id: 'u_b6', label: 'Stade',                 prerequis: 'u_b5', niveauRequis: 4, duree: 600, recompense: 35000  },
-        { id: 'u_b7', label: 'Méga-complexe',         prerequis: 'u_b6', niveauRequis: 5, duree: 900, recompense: 100000 },
+        { id: 'u_b1', nom: 'Outils de base',       bonusClic: 3,   prerequis: null, niveauRequis: 1 },
+        { id: 'u_b2', nom: 'Camionnette',           bonusClic: 8,   passifId: 'passif_btp_1', passifValeur: 1,  prerequis: null, niveauRequis: 1 },
+        { id: 'u_b3', nom: 'Équipe de 3',           bonusClic: 18,  prerequis: null, niveauRequis: 2 },
+        { id: 'u_b4', nom: 'Machines lourdes',      bonusClic: 35,  passifId: 'passif_btp_2', passifValeur: 5,  prerequis: null, niveauRequis: 3 },
+        { id: 'u_b5', nom: 'Sous-traitants',        bonusClic: 60,  prerequis: null, niveauRequis: 4 },
+        { id: 'u_b6', nom: 'Promoteur immobilier',  bonusClic: 100, passifId: 'passif_btp_3', passifValeur: 15, prerequis: null, niveauRequis: 5 },
       ],
     },
     influence: {

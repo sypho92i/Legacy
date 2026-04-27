@@ -81,9 +81,13 @@ export const state = reactive({
   _immoPassifMulti: 1.0,        // multiplicateur temporaire passifs immo
   _immoPassifMultiExpiry: 0,    // timestamp fin du multiplicateur immo
 
-  // BTP — chantiers
-  chantierActif: null,          // { id, label, dureeRestante, dureeInitiale, recompense } | null
-  btpCompletes: [],             // ids des chantiers terminés au moins une fois (déblocage chaîne)
+  // BTP — chantiers (T37 : click-based)
+  _btpChantierActif: 'renovation', // id du chantier en cours
+  _btpClicsChantier: 0,            // clics accumulés sur le chantier courant
+
+  // BTP — legacy (conservé pour compatibilité engine interne)
+  chantierActif: null,          // toujours null depuis T37
+  btpCompletes: [],
 
   // Influence — hold-to-release
   _influenceAppuiDebut: 0,      // timestamp ms du début d'appui (0 = pas d'appui)

@@ -648,6 +648,20 @@ Quartier Immobilier supprimé de la carte. CONFIG.QUARTIERS/BATIMENTS refactoris
 - ui.js : import `executerActionPrison`. Listener `legacy:liberation` → flottant vert "Liberté !". Computed `prisonEnCours` (progressionPct, tempsRestantAffiche, actionsAccessibles avec locked/cooldown). Computed `formationsPrison` (FORMATIONS_ILLEGALES enrichies). Handler `actionExecuterActionPrison`. Sidebar nav + bouton clic désactivés si `prison.actif`. Overlay prison full-screen (z-index:95, bloquant) : barre durée, liste actions (🔒/cooldown/▶), formations clandestines, badge deal planifié.
 - index.html : CSS `.overlay-prison`, `.prison-card`, `.prison-header`, `.prison-duree`, `.prison-barre-wrap/barre/duree-label`, `.prison-actions`, `.prison-action` + `--locked`/`--cooldown`, `.prison-action__label/raison/cd/btn`, `.prison-formations`, `.prison-section-titre`, `.prison-deal-badge`.
 
+### T37 — Secteur BTP (refonte click-based)
+- config.js : `VERBE_METIER.btp` → 'Poser des briques'. `PALIERS_BTP` : 3→'Artisan', 4→'Entrepreneur BTP', 5→'Promoteur'. `METIERS.btp` remplacé : revenuBase 5, 6 upgrades plats (u_b1–u_b6, bonusClic + passifs, prerequis:null). `CONFIG.BTP` ajouté : `VEHICULE_REQUIS:'voiture'`, `CHANTIERS` 4 objets (renovation 25c/400€, maison 60c/1800€, immeuble 150c/7000€, complexe 400c/28000€). `MAP.ZONES.btp` : x:60,y:68,vehiculeRequis:'voiture'. `MAP.MESSAGES_BLOCAGE_VEHICULE.btp` : message voiture. `FORMATIONS` f_btp_2 cout 800→600, f_btp_3 cout 2500→1500.
+- state.js : `_btpChantierActif:'renovation'`, `_btpClicsChantier:0` ajoutés. `chantierActif`/`btpCompletes` conservés (legacy).
+- engine.js : Suppression bloc BTP dans `calculerRevenuClic()` (clicAccelere). `_getBtpChantier()`, `_getProchainChantier()` (u_b6→complexe, u_b5→immeuble, u_b3→maison, else→renovation), `getChantierBTPInfo()` exportée. `initialiserNouvelleGeneration()` reset `_btpChantierActif/'renovation'` + `_btpClicsChantier/0`. `Object.assign` : +`getChantierBTPInfo`, +`getProchainChantier:_getProchainChantier`.
+- ui.js : Import `getChantierBTPInfo`. `onClic()` : branch btp → `_btpClicsChantier++`, si ≥ clicsRequis → `argent += bonus`, dispatch `legacy:btp-fin-chantier`, reset clics, `_btpChantierActif = window.getProchainChantier()`. `btpNotif` ref + listener `legacy:btp-fin-chantier` (3s timeout). `chantierBTPInfo` computed (null si secteur ≠ btp). `getUpgradesPourSecteur` : suppression `estBtp` special-casing — BTP traité comme secteur standard (upgrades achetables). Suppression `chantierProgression`, `actionLancerChantier`. Template : `.btp-chantier-wrap` (barre + label) sous bouton, `.btp-notif` global fixed. Upgrade list simplifié (plus de branch estBtp/Lancer).
+- index.html : CSS `.btp-chantier-wrap`, `.btp-barre-piste`, `.btp-barre-fill`, `.btp-barre-label`, `.btp-notif` (fixed top 60px, vert pixel art).
+
+### Fix carte — positions zones sans superposition
+- config.js : `MAP.ZONES` — positions redistribuées en 3 lignes de 2 pour éliminer les superpositions. Layout final : Commerce(18%,15%) · Finance(70%,15%) / Campus(12%,45%) · Tech(62%,45%) / BTP(18%,75%) · Influence(50%,75%). Boutique fixe (85%,78%) conservée dans le template.
+
+### T36 UI Polish — Formation indicateur + HUD lignée
+- ui.js : Suppression bouton `🎓 Formations` du sidebar nav. Computed `formationIndicateur` (`state.formationActive → { label, tempsRestantAffiche (_formatMMSS), progressionPct }`). Computed `cashflowAffiche` (`{ valeur, classe: 'positif'|'negatif'|'neutre' }`). Computed `resumeLignee` (`{ generation, karma, palier }`). Exposés dans return. Template : `<div class="formation-indicateur" v-if="formationIndicateur">` avec label + timer + mini barre de progression, inséré sous le `€/clic`. Bande finances mise à jour : cashflow utilise `.hud__cashflow--[classe]`, ajout span `.hud__lignee` (`Gén.X · [palier]`).
+- index.html : CSS `.formation-indicateur` (amber, monospace, 0.78em, barre 4px orange). `.hud__cashflow--positif/negatif/neutre`. `.hud__lignee` (gris discret, 0.78em).
+
 ---
 *Ne jamais lire le GDD pour coder — toutes les infos techniques sont ici.*
 *Mettre à jour "Sessions terminées" à chaque fin de ticket.*

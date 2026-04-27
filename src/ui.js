@@ -1,7 +1,7 @@
 // ui.js — composants Vue, handlers d'événements, update UI
 // Règle : ne contient que du Vue réactif — zéro querySelector/getElementById
 import { state }            from './state.js'
-import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, demarrerFormation, getBonusFormation, acheterVehicule, vehiculePermetSecteur, declencherEvenementImmo, lancerChantier, calculerGainInfluence, executerCommandeIllegale, COMMANDES_ILLEGALES, appliquerEvenement, accepterDeal, getPalierReputation, getBoostLignee, acheterInvestissementImmobilier, revendreInvestissementImmobilier, executerActionPrison } from './engine.js'
+import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, demarrerFormation, getBonusFormation, acheterVehicule, vehiculePermetSecteur, declencherEvenementImmo, calculerGainInfluence, executerCommandeIllegale, COMMANDES_ILLEGALES, appliquerEvenement, accepterDeal, getPalierReputation, getBoostLignee, acheterInvestissementImmobilier, revendreInvestissementImmobilier, executerActionPrison, getChantierBTPInfo } from './engine.js'
 import { CONFIG }           from './config.js'
 
 // ─── Composant racine ─────────────────────────────────────────────────────────
@@ -130,10 +130,6 @@ export const AppRoot = {
       }, duree)
     }
 
-    // ── Notif achèvement chantier BTP ─────────────────────────────────────────
-    window.addEventListener('legacy:btp-complete', (e) => {
-      ajouterFlottant(`🏗 +${e.detail.gain.toLocaleString('fr-FR')} €`, 2000)
-    })
 
     // ── Horloge pour cooldowns ────────────────────────────────────────────────
     const now = ref(Date.now())
@@ -210,6 +206,19 @@ export const AppRoot = {
       state.argent += gain
       state.xpSecteurs[state.secteurActif] += calculerXpClic()
 
+      // T37 — avancement du chantier BTP
+      if (state.secteurActif === 'btp') {
+        state._btpClicsChantier++
+        const info = getChantierBTPInfo()
+        if (info && state._btpClicsChantier >= info.clicsRequis) {
+          state.argent += info.bonusFinChantier
+          const { nom, bonusFinChantier: bonus } = info
+          state._btpClicsChantier = 0
+          state._btpChantierActif = window.getProchainChantier()
+          window.dispatchEvent(new CustomEvent('legacy:btp-fin-chantier', { detail: { nom, bonus } }))
+        }
+      }
+
       let classe = ''
       if (state.secteurActif === 'finance') {
         if      (state._dernierGainClic > 20) classe = 'flottant--positif'
@@ -263,41 +272,28 @@ export const AppRoot = {
       const metier = CONFIG.METIERS[secteur]
       if (!metier?.upgrades) return []
       const niveauAtteint = calculerNiveau(secteur)
-      const estBtp        = secteur === 'btp'
       return metier.upgrades.map((upg, idx) => {
-        const cout = estBtp
-          ? 0
-          : (upg.prix !== undefined ? upg.prix : Math.round(100 * Math.pow(2.8, idx)))
-        const estAchete = estBtp
-          ? false
-          : state.upgrades.some(u => u.id === upg.id)
-        const prerequisRempli = estBtp
-          ? (upg.prerequis === null || state.btpCompletes.includes(upg.prerequis))
-          : (upg.prerequis === null || state.upgrades.some(u => u.id === upg.prerequis))
-        const niveauOk = !upg.niveauRequis || niveauAtteint >= upg.niveauRequis
-        const enCours  = estBtp && state.chantierActif?.id === upg.id
+        const cout            = upg.prix !== undefined ? upg.prix : Math.round(100 * Math.pow(2.8, idx))
+        const estAchete       = state.upgrades.some(u => u.id === upg.id)
+        const prerequisRempli = upg.prerequis === null || state.upgrades.some(u => u.id === upg.prerequis)
+        const niveauOk        = !upg.niveauRequis || niveauAtteint >= upg.niveauRequis
         let etat
-        if (estBtp) {
-          if (!prerequisRempli || !niveauOk) etat = 'verrouille'
-          else if (state.chantierActif)      etat = 'trop-cher'
-          else                               etat = 'disponible'
-        } else {
-          if (estAchete)                          etat = 'achete'
-          else if (!prerequisRempli || !niveauOk) etat = 'verrouille'
-          else if (state.argent < cout)           etat = 'trop-cher'
-          else                                    etat = 'disponible'
-        }
+        if (estAchete)                          etat = 'achete'
+        else if (!prerequisRempli || !niveauOk) etat = 'verrouille'
+        else if (state.argent < cout)           etat = 'trop-cher'
+        else                                    etat = 'disponible'
         const effetTexte = (() => {
-          if (estBtp) return `⏱ ${upg.duree}s → +${upg.recompense.toLocaleString('fr-FR')} €`
-          const e = upg.effet
+          const bonusClic    = upg.effet?.bonusClic    ?? upg.bonusClic
+          const passifValeur = upg.effet?.passifValeur ?? upg.passifValeur
+          const bonusAbonnes = upg.effet?.bonusAbonnes
+          const e            = upg.effet
+          if (bonusClic)    return `+€${bonusClic} / clic`
+          if (bonusAbonnes) return `+${Math.round(bonusAbonnes * 100)}% abonnés`
+          if (upg.effet?.passifId || upg.passifId) return `+${passifValeur} €/s passif`
           if (typeof e === 'string') return e
-          if (!e) return ''
-          if (e.bonusClic)    return `+€${e.bonusClic} / clic`
-          if (e.bonusAbonnes) return `+${Math.round(e.bonusAbonnes * 100)}% abonnés`
-          if (e.passifId)     return `+${e.passifValeur} €/s passif`
           return ''
         })()
-        return { ...upg, cout, etat, effetTexte, estBtp, enCours }
+        return { ...upg, cout, etat, effetTexte }
       })
     }
 
@@ -681,29 +677,12 @@ export const AppRoot = {
       return `⬇ Relâche !`
     })
 
-    // ── BTP — chantier ────────────────────────────────────────────────────────
+    // ── BTP — chantier click-based (T37) ─────────────────────────────────────
 
-    const chantierProgression = computed(() => {
-      const _ = now.value
-      const c = state.chantierActif
-      if (!c) return null
-      const duree = Math.max(0, c.dureeRestante)
-      return {
-        label:         c.label,
-        recompense:    c.recompense,
-        dureeRestante: duree,
-        dureeInitiale: c.dureeInitiale,
-        pourcent:      Math.min(100, Math.round((1 - duree / c.dureeInitiale) * 100)),
-        tempsAffiche:  formatMmSs(duree * 1000),
-      }
+    const chantierBTPInfo = computed(() => {
+      if (state.secteurActif !== 'btp') return null
+      return getChantierBTPInfo()
     })
-
-    function actionLancerChantier(id) {
-      const result = lancerChantier(id)
-      if (!result.ok) return
-      const cfg = CONFIG.METIERS.btp.upgrades.find(u => u.id === id)
-      ajouterFlottant(`🏗 ${cfg?.label ?? id} lancé !`)
-    }
 
     // ── Sprite — classe selon l'âge ───────────────────────────────────────────
     const spriteClasse = computed(() => {
@@ -841,6 +820,15 @@ export const AppRoot = {
       ajouterFlottant('🕊 Liberté !', 2500, 'boutique-flottant--positif')
     })
 
+    // T37 — fin de chantier BTP
+    const btpNotif = ref(null)
+    let _btpNotifTimeout = null
+    window.addEventListener('legacy:btp-fin-chantier', (e) => {
+      btpNotif.value = e.detail
+      clearTimeout(_btpNotifTimeout)
+      _btpNotifTimeout = setTimeout(() => { btpNotif.value = null }, 3000)
+    })
+
     // ── Réputation — palier et badge ─────────────────────────────────────────
     const palierReputation = computed(() => getPalierReputation())
 
@@ -906,6 +894,34 @@ export const AppRoot = {
       else if (id === 'planifier_coup')     ajouterFlottant('🗺 Coup planifié !', 1500, 'boutique-flottant--positif')
     }
 
+    // ── UI Polish (T36) ──────────────────────────────────────────────────────
+
+    const formationIndicateur = computed(() => {
+      const f = state.formationActive
+      if (!f) return null
+      const secs = Math.ceil(f.dureeRestante * CONFIG.TICK_MS / 1000)
+      return {
+        label:              f.label,
+        tempsRestantAffiche: _formatMMSS(secs),
+        progressionPct:     Math.min(100, Math.round((1 - f.dureeRestante / f.dureeInitiale) * 100)),
+      }
+    })
+
+    const cashflowAffiche = computed(() => {
+      const v = state.cashflowNet
+      const signe = v > 0 ? '+' : ''
+      return {
+        valeur: `${signe}${v.toFixed(2)} €/s`,
+        classe: v > 0 ? 'positif' : v < 0 ? 'negatif' : 'neutre',
+      }
+    })
+
+    const resumeLignee = computed(() => ({
+      generation: state.generation,
+      karma:      state.karma,
+      palier:     state.palierKarma,
+    }))
+
     return {
       state, CONFIG, flottants, boutiqueFlottants,
       verbeBouton, revenuClicAffiche, multiplicateurActuel,
@@ -934,10 +950,11 @@ export const AppRoot = {
       biensImmobiliersDisponibles, investissementsImmobiliersInfo,
       actionAcheterInvestissement, actionRevendreInvestissement,
       derniereNotifImmo, immoPassifBadge,
-      chantierProgression, actionLancerChantier,
+      chantierBTPInfo, btpNotif,
       influenceAppuiMs, influenceEnAppui, influenceBarrePct, influencePrecisionLabel,
       onInfluenceDebut, onInfluenceFin,
       prisonEnCours, formationsPrison, actionExecuterActionPrison,
+      formationIndicateur, cashflowAffiche, resumeLignee,
     }
   },
 
@@ -1017,12 +1034,6 @@ export const AppRoot = {
             :class="{ 'sidebar-nav__btn--actif': panneauOverlay === 'vehicules' }"
             @click="ouvrirOverlay('vehicules')"
           >🚗 Véhicules</button>
-          <button
-            class="sidebar-nav__btn"
-            :disabled="state.prison.actif"
-            :class="{ 'sidebar-nav__btn--actif': panneauOverlay === 'formations' }"
-            @click="ouvrirOverlay('formations')"
-          >🎓 Formations</button>
           <button
             v-if="marcheNoirDisponible"
             class="sidebar-nav__btn btn-contact"
@@ -1330,6 +1341,24 @@ export const AppRoot = {
             @touchend.prevent="!state.prison.actif && state.secteurActif === 'influence' && onInfluenceFin()"
           >{{ state.prison.actif ? '🔒 Incarcéré' : verbeBouton }}</button>
           <p class="revenu-par-clic">{{ revenuClicAffiche.toFixed(2) }} €/clic</p>
+          <!-- Indicateur chantier BTP actif (T37) -->
+          <div v-if="chantierBTPInfo" class="btp-chantier-wrap">
+            <div class="btp-barre-piste">
+              <div class="btp-barre-fill" :style="{ width: chantierBTPInfo.pct + '%' }"></div>
+            </div>
+            <div class="btp-barre-label">
+              🏗 {{ chantierBTPInfo.nom }} — {{ chantierBTPInfo.clicsActuels }}/{{ chantierBTPInfo.clicsRequis }} clics · +{{ chantierBTPInfo.bonusFinChantier.toLocaleString('fr-FR') }} €
+            </div>
+          </div>
+
+          <!-- Indicateur formation active -->
+          <div v-if="formationIndicateur" class="formation-indicateur">
+            <span class="formation-indicateur__label">📚 {{ formationIndicateur.label }}</span>
+            <span class="formation-indicateur__temps">{{ formationIndicateur.tempsRestantAffiche }}</span>
+            <div class="formation-indicateur__barre-wrap">
+              <div class="formation-indicateur__barre" :style="{ width: formationIndicateur.progressionPct + '%' }"></div>
+            </div>
+          </div>
         </div>
 
         <!-- ── Bande finances ─────────────────────────────────────── -->
@@ -1338,10 +1367,10 @@ export const AppRoot = {
           <span class="bande-finances__sep">|</span>
           <span
             class="bande-finances__passifs"
-            :class="state.cashflowNet >= 0 ? 'cashflow-positif' : 'cashflow-negatif'"
-          >
-            {{ state.cashflowNet >= 0 ? '+' : '' }}{{ state.cashflowNet.toFixed(2) }} €/s
-          </span>
+            :class="'hud__cashflow--' + cashflowAffiche.classe"
+          >{{ cashflowAffiche.valeur }}</span>
+          <span class="bande-finances__sep">|</span>
+          <span class="hud__lignee">Gén.{{ resumeLignee.generation }} · {{ resumeLignee.palier }}</span>
         </div>
 
         <!-- ── Upgrades (uniquement en vue carte) ────────────────── -->
@@ -1366,18 +1395,6 @@ export const AppRoot = {
             </span>
           </div>
 
-          <!-- BTP chantier actif -->
-          <div v-if="state.secteurActif === 'btp' && chantierProgression" class="btp-chantier-actif">
-            <div class="btp-chantier-header">
-              🏗 {{ chantierProgression.label }}
-              <span class="btp-chantier-timer">{{ chantierProgression.tempsAffiche }}</span>
-              <span class="btp-chantier-recompense">+{{ chantierProgression.recompense.toLocaleString('fr-FR') }}€</span>
-            </div>
-            <div class="btp-progress-bar">
-              <div class="btp-progress-fill" :style="{ width: chantierProgression.pourcent + '%' }"></div>
-            </div>
-            <div class="btp-clic-hint">Clique sur Travailler pour accélérer ⚡</div>
-          </div>
 
           <p v-if="renderUpgradesSecteur.length === 0" class="finances-vide">
             Aucune amélioration disponible dans ce secteur.
@@ -1390,25 +1407,16 @@ export const AppRoot = {
             >
               <div class="upgrade-header">
                 <span class="upgrade-nom">{{ upg.nom ?? upg.label }}</span>
-                <span v-if="!upg.estBtp" class="upgrade-cout" :class="{ 'upgrade-cout--rouge': upg.etat === 'trop-cher' }">{{ upg.cout }} €</span>
+                <span class="upgrade-cout" :class="{ 'upgrade-cout--rouge': upg.etat === 'trop-cher' }">{{ upg.cout }} €</span>
               </div>
               <div class="upgrade-footer">
                 <span class="upgrade-effet">
                   {{ upg.effetTexte }}
-                  <span v-if="upg.prix !== undefined && !upg.estBtp" class="upgrade-prix">{{ upg.prix.toLocaleString('fr-FR') }} €</span>
+                  <span v-if="upg.prix !== undefined" class="upgrade-prix">{{ upg.prix.toLocaleString('fr-FR') }} €</span>
                 </span>
-                <template v-if="upg.estBtp">
-                  <span v-if="upg.etat === 'verrouille'" class="upgrade-cadenas">🔒</span>
-                  <template v-else>
-                    <span v-if="upg.enCours" class="upgrade-check" style="color:#facc15;">⚡ En cours</span>
-                    <button v-else class="upgrade-btn" :disabled="upg.etat !== 'disponible'" @click="actionLancerChantier(upg.id)">Lancer</button>
-                  </template>
-                </template>
-                <template v-else>
-                  <span v-if="upg.etat === 'verrouille'" class="upgrade-cadenas">🔒</span>
-                  <span v-else-if="upg.etat === 'achete'" class="upgrade-check">✓</span>
-                  <button v-else class="upgrade-btn" :disabled="upg.etat !== 'disponible'" @click="acheterUpgrade(upg.id)">Acheter</button>
-                </template>
+                <span v-if="upg.etat === 'verrouille'" class="upgrade-cadenas">🔒</span>
+                <span v-else-if="upg.etat === 'achete'" class="upgrade-check">✓</span>
+                <button v-else class="upgrade-btn" :disabled="upg.etat !== 'disponible'" @click="acheterUpgrade(upg.id)">Acheter</button>
               </div>
             </li>
           </ul>
@@ -1959,6 +1967,11 @@ export const AppRoot = {
           </ul>
           <button class="overlay-evenement__btn" @click="fermerEvenementOverlay">Continuer →</button>
         </div>
+      </div>
+
+      <!-- Notification fin de chantier BTP (T37) -->
+      <div v-if="btpNotif" class="btp-notif">
+        ✅ {{ btpNotif.nom }} terminé ! +{{ btpNotif.bonus.toLocaleString('fr-FR') }} €
       </div>
 
     </div>

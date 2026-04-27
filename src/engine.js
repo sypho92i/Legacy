@@ -87,17 +87,6 @@ export function calculerRevenuClic() {
     * getModifBonheur(state.jauges.bonheur)
   )
   state._dernierGainClic = gain
-
-  // BTP : chaque clic accélère le chantier actif
-  if (state.secteurActif === 'btp' && state.chantierActif) {
-    state.chantierActif.dureeRestante = Math.max(0,
-      state.chantierActif.dureeRestante - CONFIG.METIERS.btp.clicAccelere
-    )
-    if (state.chantierActif.dureeRestante === 0) {
-      terminerChantier()
-    }
-  }
-
   return gain
 }
 
@@ -656,6 +645,8 @@ export function initialiserNouvelleGeneration(boostChoisi = null) {
   state._immoEvenementExpiry     = 0
   state._immoPassifMulti         = 1.0
   state._immoPassifMultiExpiry   = 0
+  state._btpChantierActif        = 'renovation'
+  state._btpClicsChantier        = 0
   state.chantierActif            = null
   state.btpCompletes             = []
   state._influenceAppuiDebut     = 0
@@ -1141,6 +1132,32 @@ function tickPrison() {
   }
 }
 
+// ─── BTP — chantiers click-based (T37) ───────────────────────────────────────
+
+function _getBtpChantier() {
+  return CONFIG.BTP.CHANTIERS.find(c => c.id === state._btpChantierActif)
+}
+
+function _getProchainChantier() {
+  const ids = state.upgrades.map(u => u.id)
+  if (ids.includes('u_b6')) return 'complexe'
+  if (ids.includes('u_b5')) return 'immeuble'
+  if (ids.includes('u_b3')) return 'maison'
+  return 'renovation'
+}
+
+export function getChantierBTPInfo() {
+  const c = _getBtpChantier()
+  if (!c) return null
+  return {
+    nom:              c.nom,
+    clicsRequis:      c.clicsRequis,
+    clicsActuels:     state._btpClicsChantier,
+    pct:              Math.min(100, Math.round(state._btpClicsChantier / c.clicsRequis * 100)),
+    bonusFinChantier: c.bonusFinChantier,
+  }
+}
+
 // ─── Boucle principale ────────────────────────────────────────────────────────
 
 let _intervalId = null
@@ -1209,4 +1226,6 @@ Object.assign(window, {
   acheterInvestissementImmobilier,
   revendreInvestissementImmobilier,
   executerActionPrison,
+  getChantierBTPInfo,
+  getProchainChantier: _getProchainChantier,
 })
