@@ -1051,6 +1051,73 @@
       border: 1px solid #2a5a2a;
     }
 
+    /* ── T40 — Logement overlay simplifié ───────────────────────────────────── */
+    .logement-actuel-vue {
+      display: flex; flex-direction: column; gap: 8px;
+      padding: 14px; background: #1a1a1a; border: 1px solid #444; border-radius: 6px;
+    }
+    .logement-actuel-vue__nom { font-size: 1.1em; font-weight: bold; color: #e0e0e0; }
+    .logement-actuel-vue__statut { font-size: 0.85em; color: #a0a0a0; }
+    .logement-actuel-vue__charge { font-size: 0.85em; color: #f59e0b; }
+    .logement-actuel-vue__bonus { font-size: 0.85em; color: #4caf50; }
+    .btn-changer-logement {
+      margin-top: 8px; padding: 8px 12px; font-family: monospace; font-size: 0.85em;
+      background: #1a1033; color: #a78bfa; border: 1px solid #7c3aed;
+      border-radius: 4px; cursor: pointer; width: 100%;
+    }
+    .btn-changer-logement:hover { background: #221044; }
+
+    /* ── T40 — Épargne ───────────────────────────────────────────────────────── */
+    .epargne-section { display: flex; flex-direction: column; gap: 10px; }
+    .epargne-solde {
+      display: flex; justify-content: space-between; align-items: baseline;
+      padding: 10px 12px; background: #1a2a1a; border: 1px solid #2a4a2a; border-radius: 6px;
+    }
+    .epargne-solde__label { font-size: 0.85em; color: #888; }
+    .epargne-solde__montant { font-size: 1.1em; font-weight: bold; color: #4caf50; font-family: monospace; }
+    .epargne-taux { font-size: 0.78em; color: #555; font-family: monospace; }
+    .epargne-input-row { display: flex; gap: 6px; }
+    .epargne-input {
+      flex: 1; padding: 6px 8px; font-family: monospace; font-size: 0.9em;
+      background: #111; color: #ccc; border: 1px solid #333; border-radius: 4px;
+    }
+    .epargne-input:focus { outline: none; border-color: #555; }
+    .epargne-actions { display: flex; gap: 6px; }
+    .epargne-btn {
+      flex: 1; padding: 7px; font-family: monospace; font-size: 0.82em;
+      border-radius: 4px; cursor: pointer; border: 1px solid;
+    }
+    .epargne-btn--depot { background: #1a2a1a; color: #4caf50; border-color: #2a4a2a; }
+    .epargne-btn--depot:hover:not(:disabled) { background: #1e3a1e; }
+    .epargne-btn--retrait { background: #2a1a1a; color: #f59e0b; border-color: #4a2a2a; }
+    .epargne-btn--retrait:hover:not(:disabled) { background: #3a1e1e; }
+    .epargne-btn:disabled { cursor: not-allowed; opacity: 0.4; }
+
+    /* ── T40 — Prêts ─────────────────────────────────────────────────────────── */
+    .pret-card {
+      padding: 10px 12px; background: #1a1a2a; border: 1px solid #2a2a4a;
+      border-radius: 6px; display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px;
+    }
+    .pret-card--locked { opacity: 0.55; border-color: #222; }
+    .pret-card__header { display: flex; justify-content: space-between; align-items: baseline; }
+    .pret-card__label { font-size: 0.92em; font-weight: bold; color: #c0c0ff; }
+    .pret-card__montant { font-size: 1em; font-family: monospace; color: #60a5fa; }
+    .pret-card__meta { font-size: 0.78em; color: #888; font-family: monospace; }
+    .pret-card__raison { font-size: 0.78em; color: #666; }
+    .pret-card__btn {
+      padding: 6px 10px; font-family: monospace; font-size: 0.82em;
+      background: #1a1033; color: #a78bfa; border: 1px solid #7c3aed;
+      border-radius: 4px; cursor: pointer; align-self: flex-end;
+    }
+    .pret-card__btn:hover:not(:disabled) { background: #221044; }
+    .pret-card__btn:disabled { cursor: not-allowed; opacity: 0.4; }
+    .pret-actif {
+      padding: 12px; background: #1a1a2a; border: 1px solid #3a3a6a;
+      border-radius: 6px; display: flex; flex-direction: column; gap: 8px;
+    }
+    .pret-actif__titre { font-size: 0.9em; font-weight: bold; color: #a78bfa; margin-bottom: 4px; }
+    .pret-actif__ligne { display: flex; justify-content: space-between; font-size: 0.85em; color: #aaa; }
+
   </style>
 </head>
 <body>

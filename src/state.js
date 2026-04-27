@@ -22,7 +22,7 @@ export const state = reactive({
   bonusUpgrades: 0,      // cumul additif des bonus clic achetés
 
   // XP par secteur
-  secteurActif: 'commerce',
+  secteurActif: 'btp',
   xpSecteurs: {
     commerce:    0,
     finance:     0,
@@ -62,7 +62,12 @@ export const state = reactive({
     tokens:         0,
     animaux:        [],
     items:          [],
+    compteBancaire: false,
+    epargne:        0,
   },
+
+  // Prêt bancaire actif
+  pret: null,  // { montant, mensualite, dureeRestante } | null
 
   // Téléphone & réseaux sociaux
   abonnes: 0,
@@ -95,7 +100,7 @@ export const state = reactive({
   // Formations (T35 — refaisables, niveauFormation permanent comme boostCompetences)
   formationActive: null,        // { id, secteur, label, dureeRestante, dureeInitiale, gainNiveaux } | null
   niveauFormation: { commerce: 0, finance: 0, tech: 0, immobilier: 0, btp: 0, influence: 0 },
-  secteursVisites: ['commerce'],// secteurs ayant déjà payé le coût d'installation
+  secteursVisites: ['btp'],     // secteurs ayant déjà payé le coût d'installation
 
   // Événements aléatoires
   _dernierEvenementTick: 0,     // tick auquel s'est déclenché le dernier événement

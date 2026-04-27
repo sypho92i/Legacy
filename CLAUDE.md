@@ -65,7 +65,12 @@ STATE = {
     tokens: number,
     animaux: [],
     items: [],
+    compteBancaire: boolean,  // T40 — débloqué via upgrade banque
+    epargne: number,          // T40 — solde épargne rémunéré à 0.5%/an
   },
+
+  // Prêt bancaire (T40)
+  pret: null,  // { montant, mensualite, dureeRestante } | null — un seul actif à la fois
 
   // Progression secteurs
   secteursVisites: ['commerce'],   // commerce visité par défaut — reset à chaque génération
@@ -262,18 +267,21 @@ Fonctions engine.js :
 
 ```js
 CONFIG.MAP.ZONES = {
-  btp:      { label: 'Zone BTP',            emoji: '🏗', x: 15, y: 65, vehiculeRequis: null,       disponible: true },
+  btp:      { label: 'Zone Industrielle',    emoji: '🏗', x: 18, y: 75, vehiculeRequis: null,       disponible: true },
   commerce: { label: 'Quartier Commercial', emoji: '🏪', x: 20, y: 30, vehiculeRequis: 'velo',     disponible: true },
   campus:   { label: 'Campus',              emoji: '🎓', x: 10, y: 50, vehiculeRequis: 'velo',     disponible: true },
   tech:     { label: 'Quartier Tech',       emoji: '💻', x: 55, y: 65, vehiculeRequis: 'voiture',  disponible: true },
-  influence:{ label: 'Studio Influence',    emoji: '🎙', x: 45, y: 35, vehiculeRequis: 'voiture',  disponible: true },
   finance:  { label: 'Quartier Financier',  emoji: '🏦', x: 60, y: 20, vehiculeRequis: 'supercar', disponible: true },
+  // influence : surCarte:false — n'apparaît pas sur la carte, accessible via le Studio dans Quartier Tech
+  // vehiculeRequis:'voiture' conservé pour que changerSecteur('influence') hérite du check voiture
+  influence:{ label: 'Studio Influence',    emoji: '🎙', x: 50, y: 75, vehiculeRequis: 'voiture',  disponible: true, surCarte: false },
 }
 // BTP seul accessible sans véhicule — point de départ absolu
 // Commerce + Campus : vélo minimum
-// Tech + Influence : voiture minimum
+// Tech (+ Influence via Studio dans Tech) : voiture minimum
 // Finance : supercar
 // Zones grisées sur la carte si vehiculeRequis non satisfait — affiche l'emoji du véhicule requis
+// surCarte:false → filtré dans carteZones computed (ui.js) — zone non visible sur la carte
 ```
 
 ---
@@ -282,13 +290,13 @@ CONFIG.MAP.ZONES = {
 
 ```js
 CONFIG.QUARTIERS = {
-  btp:      { label: 'Zone BTP',           batiments: ['chantiers', 'logements_bas', 'garage'] },
+  btp:      { label: 'Zone Industrielle',   batiments: ['chantiers', 'logements_bas', 'garage'] },
   commerce: { label: 'Quartier Commercial',batiments: ['bureau', 'boutique_upgrades', 'agence_immo', 'logements_moyens'] },
   finance:  { label: 'Quartier Financier', batiments: ['banque', 'bourse', 'logements_haut', 'concessionnaire'] },
-  tech:     { label: 'Quartier Tech',      batiments: ['coworking', 'startup'] },
-  influence:{ label: 'Studio Influence',   batiments: ['studio'] },
+  tech:     { label: 'Quartier Tech',      batiments: ['coworking', 'startup', 'studio'] },  // studio = accès secteur Influence
   campus:   { label: 'Campus',             batiments: ['ecole'] },
 }
+// Influence n'est plus un quartier indépendant — son Studio est dans Quartier Tech (T41)
 
 // Pas de quartier Immobilier — agence dans Commerce, logements répartis dans BTP/Commerce/Finance
 // Garage (BTP) = vélo + scooter | Concessionnaire (Finance) = voiture + berline + supercar
@@ -423,7 +431,13 @@ Deals filtrés par `reputationMax` pour les deals discrets (seuil 60).
 - Identité : nom + âge + génération
 - 6 jauges `<JaugeBar />`
 - Badge réputation `⭐ [label]` coloré dynamiquement
-- `.sidebar-nav` : boutons vers overlays (finances, logement, téléphone, ordi, véhicules, 🕵️ Contact si couche ≥ 2)
+- `.sidebar-nav` : boutons conditionnels vers overlays (T40) — chaque bouton s'affiche uniquement si la possession existe :
+  - 📊 Finances : `possessions.compteBancaire`
+  - 🏠 Logement : `logement !== 'squat'`
+  - 📱 Téléphone : `possessions.telephone`
+  - 💻 Ordinateur : `possessions.ordinateur`
+  - 🚗 Véhicule : `possessions.vehicule !== null`
+  - 🕵️ Contact : `coucheIllegalMax ≥ 2`
 
 ### Zone centrale
 Contenu contraint : `max-width: 580px`, centré via `align-self: center`.
@@ -661,6 +675,37 @@ Quartier Immobilier supprimé de la carte. CONFIG.QUARTIERS/BATIMENTS refactoris
 ### T36 UI Polish — Formation indicateur + HUD lignée
 - ui.js : Suppression bouton `🎓 Formations` du sidebar nav. Computed `formationIndicateur` (`state.formationActive → { label, tempsRestantAffiche (_formatMMSS), progressionPct }`). Computed `cashflowAffiche` (`{ valeur, classe: 'positif'|'negatif'|'neutre' }`). Computed `resumeLignee` (`{ generation, karma, palier }`). Exposés dans return. Template : `<div class="formation-indicateur" v-if="formationIndicateur">` avec label + timer + mini barre de progression, inséré sous le `€/clic`. Bande finances mise à jour : cashflow utilise `.hud__cashflow--[classe]`, ajout span `.hud__lignee` (`Gén.X · [palier]`).
 - index.html : CSS `.formation-indicateur` (amber, monospace, 0.78em, barre 4px orange). `.hud__cashflow--positif/negatif/neutre`. `.hud__lignee` (gris discret, 0.78em).
+
+### T38 — Renommage Zone BTP → Zone Industrielle
+- config.js : `MAP.ZONES.btp.label` → `'Zone Industrielle'`. `MAP.ZONES.btp.vehiculeRequis` → `null` (revert T37 — BTP reste point de départ sans véhicule). `QUARTIERS.btp.label` → `'Zone Industrielle'`.
+- ui.js / index.html : aucun changement — les labels sont entièrement data-driven via CONFIG.
+- CLAUDE.md : références `Zone BTP` → `Zone Industrielle` dans la doc MAP.ZONES et QUARTIERS.
+
+### Fix départ BTP — secteur initial corrigé
+- state.js : `secteurActif: 'commerce'` → `'btp'` · `secteursVisites: ['commerce']` → `['btp']`.
+- engine.js `initialiserNouvelleGeneration()` : idem, les deux champs forcés à `'btp'` / `['btp']` au reset.
+- ui.js : aucun changement — le marqueur "ici" sur la carte est déjà 100 % dynamique (`zone.secteur === state.secteurActif`).
+
+### T39 — BTP clic simple aux niveaux 1-2, jauge chantier au niveau 3+
+- config.js : `CONFIG.BTP.NIVEAU_DEBLOCAGE_CHANTIER: 3`.
+- engine.js : `calculerRevenuClic()` — branche BTP ajoutée avant le chemin générique : si `calculerNiveau('btp') >= 3`, retourne 0 (le chantier gère le gain différé). Niveaux 1-2 tombent dans le chemin standard (revenuBase×multiplicateurs).
+- ui.js : `onClic()` — la logique chantier (incrément `_btpClicsChantier`, dispatch `legacy:btp-fin-chantier`) conditionnée à `niveauBtp >= CONFIG.BTP.NIVEAU_DEBLOCAGE_CHANTIER` + `return` précoce pour court-circuiter le floating text (gain=0). `chantierBTPInfo` computed : retourne null si niveau btp < 3, donc `.btp-chantier-wrap` masqué aux niveaux 1-2.
+- index.html : aucun changement CSS.
+
+### T40 — Compte bancaire, épargne, prêts
+- config.js : `CONFIG.COMPTE_BANCAIRE` (`cout:500, chargeMensuelle:15`). `CONFIG.PRETS` (3 paliers : petit 5k/12 mois/450€/mois niv.1, moyen 20k/24 mois/900€/mois niv.3, grand 80k/36 mois/2500€/mois niv.5). `CONFIG.EPARGNE_TAUX_ANNUEL:0.005`. Upgrade `compte_bancaire` ajouté en tête de `CONFIG.METIERS.finance.upgrades` (prix:500, effet string 'Accès épargne & prêts').
+- state.js : `possessions.compteBancaire:false` + `possessions.epargne:0` + `pret:null` à la racine.
+- engine.js : `deposerEpargne(montant)` / `retirerEpargne(montant)` / `prendreUnPret(id)` exportées. `tickEpargne()` — intérêts 0.5% tous les 75 ticks. `tickPret()` — mensualité tous les ~6 ticks (1 mois de jeu), `state.pret = null` en fin de remboursement + dispatch `legacy:pret-rembourse`. `calculerCashflowNet()` étendu : soustraît chargeMensuelle compte bancaire + mensualité prêt actif. `acheterUpgrade` : flag spécial `id === 'compte_bancaire'` → `possessions.compteBancaire = true`. `initialiserNouvelleGeneration` reset `pret`, `possessions.compteBancaire/epargne`, `_ticksEpargne`, `_ticksPretMensuel`.
+- ui.js : Sidebar — 5 boutons conditionnels (v-if). Overlay logement remplacé par vue simplifiée (nom, statut, charge, bonheur + bouton "Changer" → `allerVersLogements()` navigue directement vers le bâtiment logement adapté). Overlay finances — onglets étendus à 5 : `['revenus', 'charges', 'bilan', 'epargne', 'pret']`. Charges : `financesChargesEtendues` (logement + véhicule + compte + prêt). Onglet Épargne : solde, taux, input montant, boutons Déposer/Retirer. Onglet Prêt : si prêt actif → recap remboursement ; sinon → 3 cards conditionnées par niveauFinance + réputation ≥ 40.
+- index.html : CSS `.logement-actuel-vue`, `.btn-changer-logement`, `.epargne-section`, `.epargne-input`, `.epargne-btn`, `.pret-card`, `.pret-actif`.
+
+### T41 — Influence intégré dans le Quartier Tech
+- config.js : `MAP.ZONES.influence` → ajout `surCarte: false` (la zone est conservée pour que `vehiculePermetSecteur('influence')` hérite du check voiture ; elle est simplement masquée de la carte). `QUARTIERS.tech.batiments` → `['coworking', 'startup', 'studio']`. `QUARTIERS.influence` supprimé.
+- ui.js : `carteZones` computed — `.filter(([, zone]) => zone.surCarte !== false)` ajouté avant le `.map(...)` pour exclure la zone influence du rendu carte.
+- engine.js : aucune modification — `changerSecteur('influence')` fonctionne sans changement : check possessions (téléphone + ordi) puis `vehiculePermetSecteur` qui lit `MAP.ZONES.influence.vehiculeRequis = 'voiture'`.
+- index.html : aucun changement — le marqueur influence était 100% data-driven via `carteZones`.
+- Breadcrumb studio : `Ville > Quartier Tech > Studio` (automatique — `quartierEnCours` sera `'tech'`).
+- "Travailler ici" dans le Studio : appelle `entrerDansSecteur('influence')` via `CONFIG.BATIMENTS.studio.secteur`.
 
 ---
 *Ne jamais lire le GDD pour coder — toutes les infos techniques sont ici.*

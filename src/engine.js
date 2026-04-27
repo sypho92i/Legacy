@@ -79,6 +79,10 @@ export function calculerRevenuClic() {
     state._dernierGainClic = gain
     return gain
   }
+  if (state.secteurActif === 'btp' && calculerNiveau('btp') >= CONFIG.BTP.NIVEAU_DEBLOCAGE_CHANTIER) {
+    state._dernierGainClic = 0
+    return 0
+  }
   const revenuBase = CONFIG.METIERS[state.secteurActif]?.revenuBase ?? CONFIG.REVENU_BASE_CLIC
   const gain = (
     (revenuBase + state.bonusUpgrades + vehiculeBonus)
@@ -112,6 +116,9 @@ export function acheterUpgrade(id) {
 
   // Activer l'upgrade
   state.upgrades.push({ id })
+
+  // Flag spécial : compte bancaire
+  if (id === 'compte_bancaire') state.possessions.compteBancaire = true
 
   // Appliquer l'effet — supporte structure plate ET imbriquée { effet: { ... } }
   const bonusClic   = upgrade.effet?.bonusClic   ?? upgrade.bonusClic
@@ -498,15 +505,48 @@ function getTauxInvestImmo() {
   return base * (state._immoPassifMulti ?? 1.0)
 }
 
+// ─── Épargne & prêt (T40) ────────────────────────────────────────────────────
+
+export function deposerEpargne(montant) {
+  if (!state.possessions.compteBancaire) return { ok: false, raison: 'no_compte' }
+  montant = Math.floor(montant)
+  if (montant <= 0 || state.argent < montant) return { ok: false, raison: 'argent' }
+  state.argent -= montant
+  state.possessions.epargne += montant
+  return { ok: true }
+}
+
+export function retirerEpargne(montant) {
+  if (!state.possessions.compteBancaire) return { ok: false, raison: 'no_compte' }
+  montant = Math.floor(montant)
+  if (montant <= 0 || state.possessions.epargne < montant) return { ok: false, raison: 'argent' }
+  state.possessions.epargne -= montant
+  state.argent += montant
+  return { ok: true }
+}
+
+export function prendreUnPret(id) {
+  if (state.pret !== null) return { ok: false, raison: 'pret_actif' }
+  const cfg = CONFIG.PRETS.find(p => p.id === id)
+  if (!cfg) return { ok: false, raison: 'unknown' }
+  if (calculerNiveau('finance') < cfg.niveauFinanceMin) return { ok: false, raison: 'niveau' }
+  if (state.jauges.reputation < 40) return { ok: false, raison: 'reputation' }
+  state.argent += cfg.montant
+  state.pret = { montant: cfg.montant, mensualite: cfg.mensualite, dureeRestante: cfg.duree }
+  return { ok: true }
+}
+
 // ─── Cashflow ─────────────────────────────────────────────────────────────────
 
 export function calculerCashflowNet() {
-  const totalRevenus   = getTauxPassifTotal() + getTauxInvestImmo()
-  const chargeLogement = CONFIG.LOGEMENTS[state.possessions.logement]?.charge ?? 0
-  const chargeVehicule = state.possessions.vehicule
+  const totalRevenus      = getTauxPassifTotal() + getTauxInvestImmo()
+  const chargeLogement    = CONFIG.LOGEMENTS[state.possessions.logement]?.charge ?? 0
+  const chargeVehicule    = state.possessions.vehicule
     ? (CONFIG.VEHICULES[state.possessions.vehicule]?.chargeMensuelle ?? 0)
     : 0
-  state.cashflowNet = totalRevenus - chargeLogement - chargeVehicule
+  const chargeCompteBanc  = state.possessions.compteBancaire ? CONFIG.COMPTE_BANCAIRE.chargeMensuelle : 0
+  const chargePret        = state.pret?.mensualite ?? 0
+  state.cashflowNet = totalRevenus - chargeLogement - chargeVehicule - chargeCompteBanc - chargePret
 }
 
 // ─── Étapes du tick ───────────────────────────────────────────────────────────
@@ -636,6 +676,8 @@ export function initialiserNouvelleGeneration(boostChoisi = null) {
     tokens:         0,
     animaux:        [],
     items:          [],
+    compteBancaire: false,
+    epargne:        0,
   }
 
   state.abonnes                  = 0
@@ -650,10 +692,10 @@ export function initialiserNouvelleGeneration(boostChoisi = null) {
   state.chantierActif            = null
   state.btpCompletes             = []
   state._influenceAppuiDebut     = 0
-  state.secteurActif             = 'commerce'
+  state.secteurActif             = 'btp'
   state.formationActive          = null
   // niveauFormation n'est PAS resetté — permanent comme boostCompetences
-  state.secteursVisites          = ['commerce']
+  state.secteursVisites          = ['btp']
   state._dernierEvenementTick    = 0
   state._ticksDepuisVerifEvenement = 0
   _tickTotal                     = 0
@@ -664,9 +706,39 @@ export function initialiserNouvelleGeneration(boostChoisi = null) {
   _ticksImmoReeval                  = 0
   // T36 : reset prison
   state.prison = { actif: false, couche: 0, dureeInitiale: 0, dureeRestante: 0, bonneConduiteAccumulee: 0, dealPrisonExpiry: 0 }
+  // T40 : reset prêt et compteurs épargne/prêt
+  state.pret      = null
+  _ticksEpargne   = 0
+  _ticksPretMensuel = 0
 
   for (const key of Object.keys(state.jauges)) {
     state.jauges[key] = CONFIG.JAUGE_DEPART
+  }
+}
+
+// ─── Tick épargne & prêt (T40) ───────────────────────────────────────────────
+
+function tickEpargne() {
+  if (!state.possessions.compteBancaire || state.possessions.epargne <= 0) return
+  _ticksEpargne++
+  if (_ticksEpargne < CONFIG.TICKS_PAR_AN) return
+  _ticksEpargne = 0
+  state.possessions.epargne += state.possessions.epargne * CONFIG.EPARGNE_TAUX_ANNUEL
+}
+
+const _TICKS_PAR_MOIS = Math.round(CONFIG.TICKS_PAR_AN / 12)   // ~6
+
+function tickPret() {
+  if (!state.pret) return
+  _ticksPretMensuel++
+  if (_ticksPretMensuel < _TICKS_PAR_MOIS) return
+  _ticksPretMensuel = 0
+  const mensualite = state.pret.mensualite
+  state.argent = Math.max(0, state.argent - mensualite)
+  state.pret.dureeRestante -= 1
+  if (state.pret.dureeRestante <= 0) {
+    state.pret = null
+    window.dispatchEvent(new CustomEvent('legacy:pret-rembourse'))
   }
 }
 
@@ -777,6 +849,8 @@ function tickImmo() {
 let _mortDeclenchee    = false
 let _tickTotal         = 0   // compteur absolu de ticks — reset à chaque génération
 let _ticksImmoReeval   = 0   // compteur réévaluation biens investissement — reset à chaque génération
+let _ticksEpargne      = 0   // compteur intérêts épargne (75 ticks = 1 an)
+let _ticksPretMensuel  = 0   // compteur mensualité prêt (~6 ticks = 1 mois)
 
 function verifierMort() {
   if (_mortDeclenchee) return
@@ -1193,6 +1267,8 @@ function tick() {
   tickInvestissementsImmobiliers()
   tickArrestation()
   tickPrison()
+  tickEpargne()
+  tickPret()
   calculerCashflowNet()
   verifierMort()
 }
@@ -1228,4 +1304,7 @@ Object.assign(window, {
   executerActionPrison,
   getChantierBTPInfo,
   getProchainChantier: _getProchainChantier,
+  deposerEpargne,
+  retirerEpargne,
+  prendreUnPret,
 })

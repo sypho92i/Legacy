@@ -1,7 +1,7 @@
 // ui.js — composants Vue, handlers d'événements, update UI
 // Règle : ne contient que du Vue réactif — zéro querySelector/getElementById
 import { state }            from './state.js'
-import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, demarrerFormation, getBonusFormation, acheterVehicule, vehiculePermetSecteur, declencherEvenementImmo, calculerGainInfluence, executerCommandeIllegale, COMMANDES_ILLEGALES, appliquerEvenement, accepterDeal, getPalierReputation, getBoostLignee, acheterInvestissementImmobilier, revendreInvestissementImmobilier, executerActionPrison, getChantierBTPInfo } from './engine.js'
+import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, demarrerFormation, getBonusFormation, acheterVehicule, vehiculePermetSecteur, declencherEvenementImmo, calculerGainInfluence, executerCommandeIllegale, COMMANDES_ILLEGALES, appliquerEvenement, accepterDeal, getPalierReputation, getBoostLignee, acheterInvestissementImmobilier, revendreInvestissementImmobilier, executerActionPrison, getChantierBTPInfo, deposerEpargne, retirerEpargne, prendreUnPret } from './engine.js'
 import { CONFIG }           from './config.js'
 
 // ─── Composant racine ─────────────────────────────────────────────────────────
@@ -206,8 +206,9 @@ export const AppRoot = {
       state.argent += gain
       state.xpSecteurs[state.secteurActif] += calculerXpClic()
 
-      // T37 — avancement du chantier BTP
-      if (state.secteurActif === 'btp') {
+      // T37/T39 — avancement du chantier BTP (niveau ≥ 3 seulement)
+      const niveauBtp = calculerNiveau('btp')
+      if (state.secteurActif === 'btp' && niveauBtp >= CONFIG.BTP.NIVEAU_DEBLOCAGE_CHANTIER) {
         state._btpClicsChantier++
         const info = getChantierBTPInfo()
         if (info && state._btpClicsChantier >= info.clicsRequis) {
@@ -217,6 +218,7 @@ export const AppRoot = {
           state._btpChantierActif = window.getProchainChantier()
           window.dispatchEvent(new CustomEvent('legacy:btp-fin-chantier', { detail: { nom, bonus } }))
         }
+        return
       }
 
       let classe = ''
@@ -426,6 +428,99 @@ export const AppRoot = {
     function actionLouer(slug) { louerLogement(slug) }
     function actionAcheter(slug) { acheterLogement(slug) }
 
+    // ── Logement — navigation vers bâtiment adapté ────────────────────────────
+
+    function allerVersLogements() {
+      fermerOverlay()
+      // Choisit le bâtiment logement le plus adapté selon les fonds disponibles
+      if (state.argent >= 150000) {
+        quartierEnCours.value = 'finance'
+        batimentEnCours.value = 'logements_haut'
+      } else if (state.argent >= 500) {
+        quartierEnCours.value = 'commerce'
+        batimentEnCours.value = 'logements_moyens'
+      } else {
+        quartierEnCours.value = 'btp'
+        batimentEnCours.value = 'logements_bas'
+      }
+      navEcran.value = 'batiment'
+    }
+
+    // ── Épargne & Prêt (T40) ──────────────────────────────────────────────────
+
+    const montantEpargneInput = ref('')
+
+    function actionDeposerEpargne() {
+      const montant = parseFloat(montantEpargneInput.value)
+      if (isNaN(montant) || montant <= 0) return
+      const result = deposerEpargne(montant)
+      if (!result.ok) { ajouterFlottant('❌ Fonds insuffisants', 1200, 'boutique-flottant--negatif'); return }
+      ajouterFlottant(`💰 +${montant.toLocaleString('fr-FR')} € épargnés`, 1200, 'boutique-flottant--positif')
+      montantEpargneInput.value = ''
+    }
+
+    function actionRetirerEpargne() {
+      const montant = parseFloat(montantEpargneInput.value)
+      if (isNaN(montant) || montant <= 0) return
+      const result = retirerEpargne(montant)
+      if (!result.ok) { ajouterFlottant('❌ Épargne insuffisante', 1200, 'boutique-flottant--negatif'); return }
+      ajouterFlottant(`💸 −${montant.toLocaleString('fr-FR')} € retirés`, 1200)
+      montantEpargneInput.value = ''
+    }
+
+    const pretsDisponibles = computed(() => {
+      const niveauFinance = calculerNiveau('finance')
+      return CONFIG.PRETS.map(p => ({
+        ...p,
+        accessible: niveauFinance >= p.niveauFinanceMin && state.jauges.reputation >= 40 && !state.pret,
+        raison: state.pret
+          ? 'Prêt déjà actif'
+          : niveauFinance < p.niveauFinanceMin
+          ? `Niv. Finance ${p.niveauFinanceMin} requis`
+          : state.jauges.reputation < 40
+          ? 'Réputation 40+ requise'
+          : null,
+      }))
+    })
+
+    function actionPrendreUnPret(id) {
+      const result = prendreUnPret(id)
+      if (!result.ok) {
+        const msgs = {
+          pret_actif:  '❌ Prêt déjà actif',
+          niveau:      '❌ Niveau finance insuffisant',
+          reputation:  '❌ Réputation 40+ requise',
+        }
+        ajouterFlottant(msgs[result.raison] ?? '❌ Erreur', 1500, 'boutique-flottant--negatif')
+        return
+      }
+      const cfg = CONFIG.PRETS.find(p => p.id === id)
+      ajouterFlottant(`💰 +${cfg.montant.toLocaleString('fr-FR')} € accordé !`, 2000, 'boutique-flottant--positif')
+    }
+
+    window.addEventListener('legacy:pret-rembourse', () => {
+      ajouterFlottant('✅ Prêt intégralement remboursé !', 2500, 'boutique-flottant--positif')
+    })
+
+    // ── Finances — charges étendues (compte bancaire + prêt) ──────────────────
+
+    const financesChargesEtendues = computed(() => {
+      const charges = []
+      const log = CONFIG.LOGEMENTS[state.possessions.logement]
+      if (log && log.charge > 0) charges.push({ nom: `Loyer — ${log.nom}`, charge: log.charge })
+      if (state.possessions.vehicule) {
+        const v = CONFIG.VEHICULES[state.possessions.vehicule]
+        if (v?.chargeMensuelle > 0) charges.push({ nom: `Véhicule — ${v.label}`, charge: v.chargeMensuelle })
+      }
+      if (state.possessions.compteBancaire) charges.push({ nom: 'Tenue de compte', charge: CONFIG.COMPTE_BANCAIRE.chargeMensuelle })
+      if (state.pret) charges.push({ nom: 'Mensualité prêt', charge: state.pret.mensualite })
+      return charges
+    })
+
+    const totalChargesEtendues = computed(() =>
+      financesChargesEtendues.value.reduce((acc, ch) => acc + ch.charge, 0)
+    )
+
     // ── Véhicules ─────────────────────────────────────────────────────────────
 
 
@@ -559,7 +654,7 @@ export const AppRoot = {
     // ── Carte — computeds ─────────────────────────────────────────────────────
 
     const carteZones = computed(() =>
-      Object.entries(CONFIG.MAP.ZONES).map(([id, zone]) => {
+      Object.entries(CONFIG.MAP.ZONES).filter(([, zone]) => zone.surCarte !== false).map(([id, zone]) => {
         const estActuelle    = zone.secteur !== null && zone.secteur === state.secteurActif
         const vehiculeBloque = !!zone.vehiculeRequis && (() => {
           const ordre     = CONFIG.ORDRE_VEHICULES
@@ -681,6 +776,7 @@ export const AppRoot = {
 
     const chantierBTPInfo = computed(() => {
       if (state.secteurActif !== 'btp') return null
+      if (calculerNiveau('btp') < CONFIG.BTP.NIVEAU_DEBLOCAGE_CHANTIER) return null
       return getChantierBTPInfo()
     })
 
@@ -931,7 +1027,8 @@ export const AppRoot = {
       acheterUpgrade, acheterItemBoutique, itemsBoutique,
       recapGeneration, boostSelectionne, actionNouvelleGeneration, mortSimulee, competencesAuDeces,
       ongletFinances, financesRevenus, financesCharges, totalChargesAffiche, getTauxPassifTotal,
-      logementActuel, logementLocations, logementAchats, logementsBatiment, actionLouer, actionAcheter,
+      financesChargesEtendues, totalChargesEtendues,
+      logementActuel, logementLocations, logementAchats, logementsBatiment, actionLouer, actionAcheter, allerVersLogements,
       telephoneActions, abonnesAffiche, actionAcheterTelephone, actionTelephone,
       prixPacksTokens, tokensAffiche, boostXpActif, boostXpRestant,
       actionAcheterOrdinateur, actionAcheterTokens, actionExecuterCommande,
@@ -955,6 +1052,8 @@ export const AppRoot = {
       onInfluenceDebut, onInfluenceFin,
       prisonEnCours, formationsPrison, actionExecuterActionPrison,
       formationIndicateur, cashflowAffiche, resumeLignee,
+      montantEpargneInput, actionDeposerEpargne, actionRetirerEpargne,
+      pretsDisponibles, actionPrendreUnPret,
     }
   },
 
@@ -997,6 +1096,7 @@ export const AppRoot = {
         <!-- Nav overlay -->
         <nav class="sidebar-nav">
           <button
+            v-if="state.possessions.compteBancaire"
             :disabled="state.prison.actif"
             @click="ouvrirOverlay('finances')"
             :class="['sidebar-nav__btn', {
@@ -1005,30 +1105,28 @@ export const AppRoot = {
             }]"
           >📊 Finances</button>
           <button
+            v-if="state.possessions.logement !== 'squat'"
             class="sidebar-nav__btn"
             :disabled="state.prison.actif"
             :class="{ 'sidebar-nav__btn--actif': panneauOverlay === 'logement' }"
             @click="ouvrirOverlay('logement')"
           >🏠 Logement</button>
           <button
+            v-if="state.possessions.telephone"
             class="sidebar-nav__btn"
             :disabled="state.prison.actif"
             :class="{ 'sidebar-nav__btn--actif': panneauOverlay === 'telephone' }"
             @click="ouvrirOverlay('telephone')"
-          >
-            📱 Téléphone
-            <span v-if="!state.possessions.telephone" class="nav-badge--prix">1000€</span>
-          </button>
+          >📱 Téléphone</button>
           <button
+            v-if="state.possessions.ordinateur"
             class="sidebar-nav__btn"
             :disabled="state.prison.actif"
             :class="{ 'sidebar-nav__btn--actif': panneauOverlay === 'ordinateur' }"
             @click="ouvrirOverlay('ordinateur')"
-          >
-            💻 Ordinateur
-            <span v-if="!state.possessions.ordinateur" class="nav-badge--prix">10k€</span>
-          </button>
+          >💻 Ordinateur</button>
           <button
+            v-if="state.possessions.vehicule !== null"
             class="sidebar-nav__btn"
             :disabled="state.prison.actif"
             :class="{ 'sidebar-nav__btn--actif': panneauOverlay === 'vehicules' }"
@@ -1453,12 +1551,12 @@ export const AppRoot = {
           <template v-else-if="panneauOverlay === 'finances'">
             <div class="finances-onglets">
               <button
-                v-for="ong in ['revenus', 'charges', 'bilan']"
+                v-for="ong in ['revenus', 'charges', 'bilan', 'epargne', 'pret']"
                 :key="ong"
                 class="finances-onglet"
                 :class="{ 'finances-onglet--actif': ongletFinances === ong }"
                 @click="ongletFinances = ong"
-              >{{ ong.charAt(0).toUpperCase() + ong.slice(1) }}</button>
+              >{{ { revenus: 'Revenus', charges: 'Charges', bilan: 'Bilan', epargne: 'Épargne', pret: 'Prêt' }[ong] }}</button>
             </div>
             <div v-if="ongletFinances === 'revenus'" class="finances-contenu">
               <p v-if="financesRevenus.length === 0" class="finances-vide">Aucun revenu passif actif</p>
@@ -1474,13 +1572,17 @@ export const AppRoot = {
               </div>
             </div>
             <div v-if="ongletFinances === 'charges'" class="finances-contenu">
-              <p v-if="financesCharges.length === 0" class="finances-vide">Aucune charge active</p>
+              <p v-if="financesChargesEtendues.length === 0" class="finances-vide">Aucune charge active</p>
               <ul v-else class="finances-liste">
-                <li v-for="(ch, i) in financesCharges" :key="i" class="finances-ligne">
+                <li v-for="(ch, i) in financesChargesEtendues" :key="i" class="finances-ligne">
                   <span class="finances-ligne__label">{{ ch.nom }}</span>
                   <span class="finances-ligne__valeur finances-ligne__valeur--rouge">−{{ ch.charge }} €</span>
                 </li>
               </ul>
+              <div class="finances-total" v-if="financesChargesEtendues.length > 0">
+                <span>Total charges</span>
+                <span class="finances-ligne__valeur--rouge">−{{ totalChargesEtendues }} €</span>
+              </div>
             </div>
             <div v-if="ongletFinances === 'bilan'" class="finances-contenu">
               <div class="finances-bilan">
@@ -1493,54 +1595,99 @@ export const AppRoot = {
                 </div>
                 <div class="finances-bilan__detail">
                   <span>Charges</span>
-                  <span :class="totalChargesAffiche > 0 ? 'finances-ligne__valeur--rouge' : ''">−{{ totalChargesAffiche.toFixed(0) }} €</span>
+                  <span :class="totalChargesEtendues > 0 ? 'finances-ligne__valeur--rouge' : ''">−{{ totalChargesEtendues }} €</span>
+                </div>
+                <div v-if="state.possessions.epargne > 0" class="finances-bilan__detail">
+                  <span>Épargne</span>
+                  <span class="finances-ligne__valeur--vert">{{ Math.floor(state.possessions.epargne).toLocaleString('fr-FR') }} €</span>
                 </div>
               </div>
+            </div>
+            <div v-if="ongletFinances === 'epargne'" class="finances-contenu">
+              <div class="epargne-section">
+                <div class="epargne-solde">
+                  <span class="epargne-solde__label">Solde épargne</span>
+                  <span class="epargne-solde__montant">{{ Math.floor(state.possessions.epargne).toLocaleString('fr-FR') }} €</span>
+                </div>
+                <div class="epargne-taux">Taux : {{ (CONFIG.EPARGNE_TAUX_ANNUEL * 100).toFixed(1) }}% / an de jeu</div>
+                <div class="epargne-input-row">
+                  <input
+                    class="epargne-input"
+                    type="number"
+                    min="1"
+                    placeholder="Montant €"
+                    v-model="montantEpargneInput"
+                  />
+                </div>
+                <div class="epargne-actions">
+                  <button class="epargne-btn epargne-btn--depot"
+                    :disabled="!montantEpargneInput || parseFloat(montantEpargneInput) > state.argent"
+                    @click="actionDeposerEpargne">💰 Déposer</button>
+                  <button class="epargne-btn epargne-btn--retrait"
+                    :disabled="!montantEpargneInput || parseFloat(montantEpargneInput) > state.possessions.epargne"
+                    @click="actionRetirerEpargne">💸 Retirer</button>
+                </div>
+              </div>
+            </div>
+            <div v-if="ongletFinances === 'pret'" class="finances-contenu">
+              <!-- Prêt actif -->
+              <div v-if="state.pret" class="pret-actif">
+                <div class="pret-actif__titre">📋 Prêt en cours</div>
+                <div class="pret-actif__ligne">
+                  <span>Montant emprunté</span>
+                  <span>{{ state.pret.montant.toLocaleString('fr-FR') }} €</span>
+                </div>
+                <div class="pret-actif__ligne">
+                  <span>Mensualité</span>
+                  <span class="finances-ligne__valeur--rouge">−{{ state.pret.mensualite }} €/mois</span>
+                </div>
+                <div class="pret-actif__ligne">
+                  <span>Mois restants</span>
+                  <span>{{ state.pret.dureeRestante }}</span>
+                </div>
+                <div class="pret-actif__ligne">
+                  <span>Restant dû</span>
+                  <span class="finances-ligne__valeur--rouge">{{ (state.pret.mensualite * state.pret.dureeRestante).toLocaleString('fr-FR') }} €</span>
+                </div>
+              </div>
+              <!-- Prêts disponibles -->
+              <template v-else>
+                <p class="finances-vide" style="margin-bottom:10px;">Réputation ≥ 40 + niveau Finance requis.</p>
+                <div v-for="p in pretsDisponibles" :key="p.id" class="pret-card"
+                  :class="{ 'pret-card--locked': !p.accessible }">
+                  <div class="pret-card__header">
+                    <span class="pret-card__label">{{ p.label }}</span>
+                    <span class="pret-card__montant">{{ p.montant.toLocaleString('fr-FR') }} €</span>
+                  </div>
+                  <div class="pret-card__meta">
+                    {{ p.duree }} mois · {{ p.mensualite }} €/mois
+                    <span v-if="p.niveauFinanceMin > 1"> · Niv. Finance {{ p.niveauFinanceMin }}</span>
+                  </div>
+                  <div v-if="p.raison" class="pret-card__raison">🔒 {{ p.raison }}</div>
+                  <button v-else class="pret-card__btn" :disabled="!p.accessible" @click="actionPrendreUnPret(p.id)">
+                    Emprunter
+                  </button>
+                </div>
+              </template>
             </div>
           </template>
 
           <!-- Logement -->
           <template v-else-if="panneauOverlay === 'logement'">
-            <div class="logement-vue">
-              <div class="logement-actuel">
-                <span class="logement-actuel__label">Logement actuel</span>
-                <span class="logement-actuel__nom">{{ logementActuel.nom }}</span>
-                <span v-if="logementActuel.bonheur > 0" class="logement-actuel__bonus">+{{ logementActuel.bonheur }} bonheur</span>
-                <span v-if="logementActuel.charge > 0" class="logement-actuel__charge">
-                  {{ logementActuel.type === 'achat' ? 'Charges' : 'Loyer' }} : {{ logementActuel.charge }} € / 6 mois
-                </span>
+            <div class="logement-actuel-vue">
+              <div class="logement-actuel-vue__nom">{{ logementActuel.nom }}</div>
+              <div class="logement-actuel-vue__statut">
+                {{ state.possessions.logementAchete ? '🏠 Propriétaire' : '📋 Locataire' }}
               </div>
-              <h3 class="logement-section-titre">Locations</h3>
-              <ul class="logement-liste">
-                <li v-for="l in logementLocations" :key="l.slug" class="logement-item"
-                  :class="{ 'logement-item--actuel': l.estActuel, 'logement-item--verrouille': !l.abordable && !l.estActuel }">
-                  <div class="logement-item__header">
-                    <span class="logement-item__nom">{{ l.nom }}</span>
-                    <span class="logement-item__prix">{{ l.charge }} € / 6 mois</span>
-                  </div>
-                  <div class="logement-item__footer">
-                    <span class="logement-item__bonheur" v-if="l.bonheur > 0">+{{ l.bonheur }} bonheur</span>
-                    <span v-if="l.estActuel" class="logement-item__badge">✓ Actuel</span>
-                    <button v-else class="logement-item__btn" :disabled="!l.abordable" @click="actionLouer(l.slug)">Louer</button>
-                  </div>
-                </li>
-              </ul>
-              <h3 class="logement-section-titre">Achats</h3>
-              <ul class="logement-liste">
-                <li v-for="l in logementAchats" :key="l.slug" class="logement-item"
-                  :class="{ 'logement-item--actuel': l.estActuel, 'logement-item--verrouille': !l.abordable && !l.estActuel }">
-                  <div class="logement-item__header">
-                    <span class="logement-item__nom">{{ l.nom }}</span>
-                    <span class="logement-item__prix">{{ l.cout.toLocaleString('fr-FR') }} €</span>
-                  </div>
-                  <div class="logement-item__footer">
-                    <span class="logement-item__bonheur" v-if="l.bonheur > 0">+{{ l.bonheur }} bonheur</span>
-                    <span class="logement-item__charges" v-if="l.charge > 0">Charges {{ l.charge }} €</span>
-                    <span v-if="l.estActuel" class="logement-item__badge">✓ Actuel</span>
-                    <button v-else class="logement-item__btn" :disabled="!l.abordable" @click="actionAcheter(l.slug)">Acheter</button>
-                  </div>
-                </li>
-              </ul>
+              <div v-if="logementActuel.charge > 0" class="logement-actuel-vue__charge">
+                {{ logementActuel.type === 'achat' ? 'Charges' : 'Loyer' }} : {{ logementActuel.charge }} €/6 mois
+              </div>
+              <div v-if="logementActuel.bonheur > 0" class="logement-actuel-vue__bonus">
+                +{{ logementActuel.bonheur }} bonheur
+              </div>
+              <button class="btn-changer-logement" @click="allerVersLogements">
+                🔍 Changer de logement
+              </button>
             </div>
           </template>
 

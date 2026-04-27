@@ -28,6 +28,22 @@ export const CONFIG = {
     { palier: 'ennemiPublic', min: 0,   max: 4,   modifProductivite: -0.60 },
   ],
 
+  // Compte bancaire — coût d'ouverture et charge mensuelle
+  COMPTE_BANCAIRE: {
+    cout:           500,   // coût d'ouverture (upgrade banque)
+    chargeMensuelle: 15,   // frais de tenue de compte / mois de jeu
+  },
+
+  // Prêts bancaires — conditionnés par niveauFinance + réputation ≥ 40
+  PRETS: [
+    { id: 'pret_s', label: 'Petit prêt',  montant: 5000,  duree: 12, mensualite: 450,  niveauFinanceMin: 1 },
+    { id: 'pret_m', label: 'Prêt moyen',  montant: 20000, duree: 24, mensualite: 900,  niveauFinanceMin: 3 },
+    { id: 'pret_l', label: 'Grand prêt',  montant: 80000, duree: 36, mensualite: 2500, niveauFinanceMin: 5 },
+  ],
+
+  // Épargne — taux annuel (75 ticks = 1 an de jeu)
+  EPARGNE_TAUX_ANNUEL: 0.005,   // 0.5% par an de jeu
+
   // Réputation — paliers (ordre décroissant, find s'arrête au premier match)
   REPUTATION: [
     { min: 80, label: 'Célébrité', couleur: '#ffd700' },
@@ -265,8 +281,8 @@ export const CONFIG = {
       finance:    { label: 'Quartier Financier',   emoji: '🏦', secteur: 'finance',    disponible: true, x: 70, y: 15, vehiculeRequis: 'supercar'  },
       campus:     { label: 'Campus',               emoji: '🎓', secteur: null,         disponible: true, x: 12, y: 45, vehiculeRequis: 'velo'      },
       tech:       { label: 'Quartier Tech',        emoji: '💻', secteur: 'tech',       disponible: true, x: 62, y: 45, vehiculeRequis: 'voiture'   },
-      btp:        { label: 'Zone BTP',              emoji: '🏗', secteur: 'btp',        disponible: true, x: 18, y: 75, vehiculeRequis: 'voiture'   },
-      influence:  { label: 'Studio Influence',     emoji: '🎙', secteur: 'influence',  disponible: true, x: 50, y: 75, vehiculeRequis: 'voiture'   },
+      btp:        { label: 'Zone Industrielle',      emoji: '🏗', secteur: 'btp',        disponible: true, x: 18, y: 75, vehiculeRequis: null        },
+      influence:  { label: 'Studio Influence',     emoji: '🎙', secteur: 'influence',  disponible: true, x: 50, y: 75, vehiculeRequis: 'voiture', surCarte: false },
     },
     MESSAGES_BLOCAGE_VEHICULE: {
       finance:    "T'as pas une Supercar ? Retourne au bureau.",
@@ -305,11 +321,10 @@ export const CONFIG = {
   ],
 
   QUARTIERS: {
-    btp:      { label: 'Zone BTP',            batiments: ['chantiers', 'logements_bas', 'garage'] },
+    btp:      { label: 'Zone Industrielle',    batiments: ['chantiers', 'logements_bas', 'garage'] },
     commerce: { label: 'Quartier Commercial', batiments: ['bureau', 'boutique_upgrades', 'agence_immo', 'logements_moyens'] },
     finance:  { label: 'Quartier Financier',  batiments: ['banque', 'bourse', 'logements_haut', 'concessionnaire'] },
-    tech:     { label: 'Quartier Tech',       batiments: ['coworking', 'startup'] },
-    influence:{ label: 'Studio Influence',    batiments: ['studio'] },
+    tech:     { label: 'Quartier Tech',       batiments: ['coworking', 'startup', 'studio'] },
     campus:   { label: 'Campus',              batiments: ['ecole'] },
   },
 
@@ -553,6 +568,7 @@ export const CONFIG = {
   // BTP — chantiers click-based (T37)
   BTP: {
     VEHICULE_REQUIS: 'voiture',
+    NIVEAU_DEBLOCAGE_CHANTIER: 3,
     CHANTIERS: [
       { id: 'renovation', nom: 'Rénovation',          clicsRequis: 25,  bonusFinChantier: 400   },
       { id: 'maison',     nom: 'Maison individuelle',  clicsRequis: 60,  bonusFinChantier: 1800  },
@@ -578,6 +594,7 @@ export const CONFIG = {
       revenuMin:  5,
       revenuMax:  40,
       upgrades: [
+        { id: 'compte_bancaire', nom: 'Compte bancaire', effet: 'Accès épargne & prêts', prix: 500, prerequis: null, niveauRequis: 1 },
         { id: 'u_f1', nom: 'Compte courtier',         effet: { bonusClic: 3  }, prerequis: null,   niveauRequis: 1 },
         { id: 'u_f2', nom: 'Analyse technique',       effet: { bonusClic: 7  }, prerequis: 'u_f1', niveauRequis: 2 },
         { id: 'u_f3', nom: 'Portefeuille diversifié', effet: { passifId: 'passif_fin_3', passifValeur: 2  }, prerequis: 'u_f2', niveauRequis: 2 },
