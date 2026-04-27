@@ -412,8 +412,11 @@ export function changerSecteur(secteurCible) {
 // ─── Campus — formations (T35 : refaisables, timer en ticks, niveauFormation permanent) ──────────
 
 export function demarrerFormation(id) {
-  const f = CONFIG.FORMATIONS.find(f => f.id === id)
+  // Formations illégales accessibles uniquement en prison
+  const fIllegale = CONFIG.PRISON.FORMATIONS_ILLEGALES.find(f => f.id === id)
+  const f = fIllegale ?? CONFIG.FORMATIONS.find(f => f.id === id)
   if (!f) return { ok: false, raison: 'unknown' }
+  if (fIllegale && !state.prison.actif) return { ok: false, raison: 'prison_requise' }
   if (state.formationActive) return { ok: false, raison: 'en_cours' }
   if (state.argent < f.cout) return { ok: false, raison: 'argent' }
   state.argent -= f.cout
@@ -576,6 +579,7 @@ export function calculerHeritage() {
     argent_transmis:   Math.floor((state.argent + valeurInvestissements) * 0.5),
     karma_final:       state.karma,
     couche_illegale_max: state.coucheIllegalMax,
+    prisonnier:        state.coucheIllegalMax >= 2, // T36 : malus karmaDepart −5 supplémentaire
     secteurPrincipal,
     generationNumero:  state.generation,
   }
@@ -587,6 +591,7 @@ function karmaDepart(lignee) {
   let base = CONFIG.KARMA_DEPART_DEFAUT
   if (derniere.couche_illegale_max >= 2) base -= 10
   if (derniere.couche_illegale_max >= 3) base -= 10  // total -20
+  if (derniere.prisonnier)               base -= 5   // T36 : −5 si passé par la prison (couche ≥ 2)
 
   // Générations consécutives couche 3
   let consecCouche3 = 0
@@ -666,6 +671,8 @@ export function initialiserNouvelleGeneration(boostChoisi = null) {
   state.marcheNoir._immuniteExpiry  = 0
   state.investissementsImmobiliers  = []
   _ticksImmoReeval                  = 0
+  // T36 : reset prison
+  state.prison = { actif: false, couche: 0, dureeInitiale: 0, dureeRestante: 0, bonneConduiteAccumulee: 0, dealPrisonExpiry: 0 }
 
   for (const key of Object.keys(state.jauges)) {
     state.jauges[key] = CONFIG.JAUGE_DEPART
@@ -1032,6 +1039,108 @@ function tickInvestissementsImmobiliers() {
   }
 }
 
+// ─── Prison (T36) ────────────────────────────────────────────────────────────
+
+function entrerEnPrison(couche) {
+  const duree     = CONFIG.PRISON.DUREE_TICKS[couche]     ?? 150
+  const saisePct  = CONFIG.PRISON.SAISIE_ARGENT_PCT[couche] ?? 0.40
+  const malusRep  = CONFIG.PRISON.MALUS_REPUTATION[couche]  ?? -20
+
+  state.prison.actif                  = true
+  state.prison.couche                 = couche
+  state.prison.dureeInitiale          = duree
+  state.prison.dureeRestante          = duree
+  state.prison.bonneConduiteAccumulee = 0
+  state.prison.dealPrisonExpiry       = 0
+
+  // Saisie argent
+  state.argent = Math.max(0, state.argent - Math.floor(state.argent * saisePct))
+
+  // Malus réputation
+  state.jauges.reputation = clampJauge(state.jauges.reputation + malusRep)
+
+  window.dispatchEvent(new CustomEvent('legacy:arrestation', { detail: { couche } }))
+}
+
+function genererDealPrison() {
+  const now   = Date.now() / 1000
+  const deals3 = CONFIG.MARCHE_NOIR.DEALS.filter(d => (d.conditions.coucheMin ?? 0) >= 3)
+  if (deals3.length === 0) return
+  const deal  = deals3[Math.floor(Math.random() * deals3.length)]
+  state.marcheNoir.dealsActifs.push({
+    ...deal,
+    expiryS:     now + CONFIG.PRISON.DEAL_PRISON_DUREE_TICKS * CONFIG.TICK_MS / 1000,
+    id_instance: Math.random(),
+  })
+}
+
+function sortirDePrison() {
+  const avecDeal = state.prison.dealPrisonExpiry > 0
+  state.prison.actif                  = false
+  state.prison.couche                 = 0
+  state.prison.dureeInitiale          = 0
+  state.prison.dureeRestante          = 0
+  state.prison.bonneConduiteAccumulee = 0
+  state.prison.dealPrisonExpiry       = 0
+  if (avecDeal) genererDealPrison()
+  window.dispatchEvent(new CustomEvent('legacy:liberation'))
+}
+
+export function executerActionPrison(id) {
+  if (!state.prison.actif) return { ok: false, raison: 'pas_en_prison' }
+  const action = CONFIG.PRISON.ACTIONS[id]
+  if (!action) return { ok: false, raison: 'inconnue' }
+  if (action.couche > state.prison.couche) return { ok: false, raison: 'couche' }
+
+  if (id === 'travailler_cellule') {
+    state.argent += action.gainArgent
+    state.xpSecteurs[state.secteurActif] = (state.xpSecteurs[state.secteurActif] ?? 0) + action.gainXP
+  } else if (id === 'etudier') {
+    if (state.formationActive) {
+      state.formationActive.dureeRestante = Math.max(0,
+        state.formationActive.dureeRestante - action.formationMulti
+      )
+    }
+  } else if (id === 'bonne_conduite') {
+    state.prison.bonneConduiteAccumulee += action.reductionTicks
+    state.karma = Math.max(0, Math.min(100, state.karma + action.gainKarma))
+  } else if (id === 'reseauter') {
+    const gainMs = action.gainContactsTicks * CONFIG.TICK_MS
+    state.marcheNoir._immuniteExpiry = Math.max(
+      state.marcheNoir._immuniteExpiry,
+      Date.now() / 1000 + gainMs / 1000
+    )
+  } else if (id === 'planifier_coup') {
+    const cooldownKey = 'prison_planifier'
+    const now = Date.now()
+    if (now < (state.telephoneCooldowns[cooldownKey] ?? 0))
+      return { ok: false, raison: 'cooldown' }
+    state.telephoneCooldowns[cooldownKey] = now + action.cooldown * 1000
+    state.prison.dealPrisonExpiry = 1   // flag : deal généré à la sortie
+  }
+
+  return { ok: true }
+}
+
+function tickArrestation() {
+  if (state.coucheIllegalMax === 0) return
+  if (state.prison.actif) return
+  const probaBase = CONFIG.PRISON.PROBA_PAR_TICK[state.coucheIllegalMax] ?? 0
+  if (probaBase === 0) return
+  const multiKarma = CONFIG.PRISON.MULTIPLICATEUR_KARMA[state.palierKarma] ?? 1.0
+  if (Math.random() < probaBase * multiKarma) {
+    entrerEnPrison(state.coucheIllegalMax)
+  }
+}
+
+function tickPrison() {
+  if (!state.prison.actif) return
+  state.prison.dureeRestante -= 1
+  if (state.prison.dureeRestante - state.prison.bonneConduiteAccumulee <= 0) {
+    sortirDePrison()
+  }
+}
+
 // ─── Boucle principale ────────────────────────────────────────────────────────
 
 let _intervalId = null
@@ -1065,6 +1174,8 @@ function tick() {
   tickEvenements()
   tickMarcheNoir()
   tickInvestissementsImmobiliers()
+  tickArrestation()
+  tickPrison()
   calculerCashflowNet()
   verifierMort()
 }
@@ -1097,4 +1208,5 @@ Object.assign(window, {
   getBoostLignee,
   acheterInvestissementImmobilier,
   revendreInvestissementImmobilier,
+  executerActionPrison,
 })

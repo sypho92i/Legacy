@@ -1,7 +1,7 @@
 // ui.js — composants Vue, handlers d'événements, update UI
 // Règle : ne contient que du Vue réactif — zéro querySelector/getElementById
 import { state }            from './state.js'
-import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, demarrerFormation, getBonusFormation, acheterVehicule, vehiculePermetSecteur, declencherEvenementImmo, lancerChantier, calculerGainInfluence, executerCommandeIllegale, COMMANDES_ILLEGALES, appliquerEvenement, accepterDeal, getPalierReputation, getBoostLignee, acheterInvestissementImmobilier, revendreInvestissementImmobilier } from './engine.js'
+import { calculerRevenuClic, calculerXpClic, calculerNiveau, getMultiplicateurNiveau, startEngine, stopEngine, isEngineRunning, acheterUpgrade, acheterItem, louerLogement, acheterLogement, getTauxPassifTotal, initialiserNouvelleGeneration, acheterTelephone, executerActionTelephone, calculerPrixTokens, acheterOrdinateur, acheterTokens, executerCommande, changerSecteur, demarrerFormation, getBonusFormation, acheterVehicule, vehiculePermetSecteur, declencherEvenementImmo, lancerChantier, calculerGainInfluence, executerCommandeIllegale, COMMANDES_ILLEGALES, appliquerEvenement, accepterDeal, getPalierReputation, getBoostLignee, acheterInvestissementImmobilier, revendreInvestissementImmobilier, executerActionPrison } from './engine.js'
 import { CONFIG }           from './config.js'
 
 // ─── Composant racine ─────────────────────────────────────────────────────────
@@ -836,6 +836,11 @@ export const AppRoot = {
       ajouterFlottant('📰 Scandale ! Réputation en chute.', 2000, 'boutique-flottant--negatif')
     })
 
+    // T36 — libération de prison
+    window.addEventListener('legacy:liberation', () => {
+      ajouterFlottant('🕊 Liberté !', 2500, 'boutique-flottant--positif')
+    })
+
     // ── Réputation — palier et badge ─────────────────────────────────────────
     const palierReputation = computed(() => getPalierReputation())
 
@@ -856,6 +861,50 @@ export const AppRoot = {
       const pct = Math.round((state._immoPassifMulti - 1) * 100)
       return pct >= 0 ? `+${pct}% loyers` : `${pct}% loyers`
     })
+
+    // ── Prison (T36) ─────────────────────────────────────────────────────────
+
+    const prisonEnCours = computed(() => {
+      if (!state.prison.actif) return null
+      const effectif = Math.max(0, state.prison.dureeRestante - state.prison.bonneConduiteAccumulee)
+      const pct = Math.min(100, Math.round((1 - effectif / state.prison.dureeInitiale) * 100))
+      const actionsAccessibles = Object.entries(CONFIG.PRISON.ACTIONS).map(([id, action]) => {
+        const locked = action.couche > state.prison.couche
+        const cooldownKey = id === 'planifier_coup' ? 'prison_planifier' : null
+        const expiry = cooldownKey ? (state.telephoneCooldowns[cooldownKey] ?? 0) : 0
+        const enCooldown = cooldownKey ? now.value < expiry : false
+        const cdRestant  = enCooldown ? Math.ceil((expiry - now.value) / 1000) : 0
+        return { id, ...action, locked, enCooldown, cdRestant }
+      })
+      return {
+        ...state.prison,
+        progressionPct:       pct,
+        tempsRestantAffiche:  formatMmSs(effectif * CONFIG.TICK_MS),
+        actionsAccessibles,
+      }
+    })
+
+    const formationsPrison = computed(() => {
+      if (!state.prison.actif) return []
+      return CONFIG.PRISON.FORMATIONS_ILLEGALES.map(f => ({
+        ...f,
+        enCours:      state.formationActive?.id === f.id,
+        abordable:    state.argent >= f.cout,
+        disabled:     state.argent < f.cout || !!state.formationActive,
+        dureeAffiche: formatMmSs(f.duree * CONFIG.TICK_MS),
+      }))
+    })
+
+    function actionExecuterActionPrison(id) {
+      const result = executerActionPrison(id)
+      if (!result.ok) return
+      const action = CONFIG.PRISON.ACTIONS[id]
+      if      (id === 'travailler_cellule') ajouterFlottant(`+${action.gainArgent} €`, 800)
+      else if (id === 'etudier')            ajouterFlottant('📚 Étude accélérée', 800, 'boutique-flottant--positif')
+      else if (id === 'bonne_conduite')     ajouterFlottant('✓ Bonne conduite', 1000, 'boutique-flottant--positif')
+      else if (id === 'reseauter')          ajouterFlottant('🕵️ Contact établi', 1000)
+      else if (id === 'planifier_coup')     ajouterFlottant('🗺 Coup planifié !', 1500, 'boutique-flottant--positif')
+    }
 
     return {
       state, CONFIG, flottants, boutiqueFlottants,
@@ -888,6 +937,7 @@ export const AppRoot = {
       chantierProgression, actionLancerChantier,
       influenceAppuiMs, influenceEnAppui, influenceBarrePct, influencePrecisionLabel,
       onInfluenceDebut, onInfluenceFin,
+      prisonEnCours, formationsPrison, actionExecuterActionPrison,
     }
   },
 
@@ -930,19 +980,22 @@ export const AppRoot = {
         <!-- Nav overlay -->
         <nav class="sidebar-nav">
           <button
+            :disabled="state.prison.actif"
             @click="ouvrirOverlay('finances')"
             :class="['sidebar-nav__btn', {
-              'sidebar-nav__btn--pulse-rouge': state.cashflowNet < 0,
+              'sidebar-nav__btn--pulse-rouge': state.cashflowNet < 0 && !state.prison.actif,
               'sidebar-nav__btn--actif': panneauOverlay === 'finances',
             }]"
           >📊 Finances</button>
           <button
             class="sidebar-nav__btn"
+            :disabled="state.prison.actif"
             :class="{ 'sidebar-nav__btn--actif': panneauOverlay === 'logement' }"
             @click="ouvrirOverlay('logement')"
           >🏠 Logement</button>
           <button
             class="sidebar-nav__btn"
+            :disabled="state.prison.actif"
             :class="{ 'sidebar-nav__btn--actif': panneauOverlay === 'telephone' }"
             @click="ouvrirOverlay('telephone')"
           >
@@ -951,6 +1004,7 @@ export const AppRoot = {
           </button>
           <button
             class="sidebar-nav__btn"
+            :disabled="state.prison.actif"
             :class="{ 'sidebar-nav__btn--actif': panneauOverlay === 'ordinateur' }"
             @click="ouvrirOverlay('ordinateur')"
           >
@@ -959,17 +1013,20 @@ export const AppRoot = {
           </button>
           <button
             class="sidebar-nav__btn"
+            :disabled="state.prison.actif"
             :class="{ 'sidebar-nav__btn--actif': panneauOverlay === 'vehicules' }"
             @click="ouvrirOverlay('vehicules')"
           >🚗 Véhicules</button>
           <button
             class="sidebar-nav__btn"
+            :disabled="state.prison.actif"
             :class="{ 'sidebar-nav__btn--actif': panneauOverlay === 'formations' }"
             @click="ouvrirOverlay('formations')"
           >🎓 Formations</button>
           <button
             v-if="marcheNoirDisponible"
             class="sidebar-nav__btn btn-contact"
+            :disabled="state.prison.actif"
             :class="{ 'sidebar-nav__btn--actif': panneauOverlay === 'marche_noir' }"
             @click="ouvrirOverlay('marche_noir')"
           >🕵️ Contact</button>
@@ -1265,12 +1322,13 @@ export const AppRoot = {
           <button
             class="btn-travailler"
             :style="{ color: multiplicateurActuel.couleur, borderColor: multiplicateurActuel.couleur }"
-            @click="state.secteurActif !== 'influence' && onClic()"
-            @mousedown="state.secteurActif === 'influence' && onInfluenceDebut()"
-            @mouseup="state.secteurActif === 'influence' && onInfluenceFin()"
-            @touchstart.prevent="state.secteurActif === 'influence' && onInfluenceDebut()"
-            @touchend.prevent="state.secteurActif === 'influence' && onInfluenceFin()"
-          >{{ verbeBouton }}</button>
+            :disabled="state.prison.actif"
+            @click="!state.prison.actif && state.secteurActif !== 'influence' && onClic()"
+            @mousedown="!state.prison.actif && state.secteurActif === 'influence' && onInfluenceDebut()"
+            @mouseup="!state.prison.actif && state.secteurActif === 'influence' && onInfluenceFin()"
+            @touchstart.prevent="!state.prison.actif && state.secteurActif === 'influence' && onInfluenceDebut()"
+            @touchend.prevent="!state.prison.actif && state.secteurActif === 'influence' && onInfluenceFin()"
+          >{{ state.prison.actif ? '🔒 Incarcéré' : verbeBouton }}</button>
           <p class="revenu-par-clic">{{ revenuClicAffiche.toFixed(2) }} €/clic</p>
         </div>
 
@@ -1713,6 +1771,87 @@ export const AppRoot = {
         </div>
 
       </main>
+
+      <!-- ══════════════════════════════════════════════════════════ -->
+      <!-- PRISON (overlay bloquant, z-index:95)                    -->
+      <!-- ══════════════════════════════════════════════════════════ -->
+      <div v-if="state.prison.actif && prisonEnCours" class="overlay-prison">
+        <div class="prison-card">
+
+          <!-- Header -->
+          <div class="prison-header">
+            <span class="prison-header__titre">🔒 INCARCÉRÉ</span>
+            <span class="prison-couche">Couche {{ state.prison.couche }}</span>
+          </div>
+
+          <!-- Barre durée -->
+          <div class="prison-duree">
+            <div class="prison-barre-wrap">
+              <div class="prison-barre" :style="{ width: prisonEnCours.progressionPct + '%' }"></div>
+            </div>
+            <div class="prison-duree-label">{{ prisonEnCours.tempsRestantAffiche }} restant</div>
+          </div>
+
+          <!-- Formation en cours (si active pendant la prison) -->
+          <div v-if="formationEnCours" class="formation-active-card" style="margin:8px 0;">
+            <div class="formation-active-header">
+              📚 {{ formationEnCours.label }}
+              <span class="formation-timer">{{ formationEnCours.tempsAffiche }}</span>
+            </div>
+            <div class="formation-barre">
+              <div class="formation-barre-fill" :style="{ width: formationEnCours.pourcent + '%' }"></div>
+            </div>
+          </div>
+
+          <!-- Actions prison -->
+          <div class="prison-actions">
+            <div
+              v-for="action in prisonEnCours.actionsAccessibles"
+              :key="action.id"
+              class="prison-action"
+              :class="{
+                'prison-action--locked':   action.locked,
+                'prison-action--cooldown': !action.locked && action.enCooldown,
+              }"
+            >
+              <div>
+                <div class="prison-action__label">{{ action.label }}</div>
+                <div v-if="action.locked" class="prison-action__raison">Couche {{ action.couche }} requise</div>
+              </div>
+              <div>
+                <span v-if="action.locked">🔒</span>
+                <span v-else-if="action.enCooldown" class="prison-action__cd">{{ action.cdRestant }}s</span>
+                <button v-else class="prison-action__btn" @click="actionExecuterActionPrison(action.id)">▶</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Formations clandestines (prison uniquement) -->
+          <div class="prison-formations">
+            <div class="prison-section-titre">⚠ Formations clandestines</div>
+            <div class="formation-cards-row">
+              <div
+                v-for="f in formationsPrison"
+                :key="f.id"
+                class="formation-mini-card"
+                :class="{ 'formation-mini-card--en-cours': f.enCours, 'formation-mini-card--disabled': f.disabled && !f.enCours }"
+              >
+                <div class="formation-mini-card__label">{{ f.label }}</div>
+                <div class="formation-mini-card__meta">{{ f.cout.toLocaleString('fr-FR') }} € · {{ f.dureeAffiche }}</div>
+                <div class="formation-mini-card__gain" style="color:#ef4444;">+{{ f.gainNiveaux }} niv. {{ f.secteur }}</div>
+                <span v-if="f.enCours" class="formation-en-cours">En cours</span>
+                <button v-else class="prison-action__btn" :disabled="f.disabled" @click="actionDemarrerFormation(f.id)">Démarrer</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Badge deal planifié -->
+          <div v-if="state.prison.dealPrisonExpiry > 0" class="prison-deal-badge">
+            🎲 Un deal vous attend à la sortie
+          </div>
+
+        </div>
+      </div>
 
       <!-- ══════════════════════════════════════════════════════════ -->
       <!-- ÉCRAN DE FIN DE GÉNÉRATION (overlay bloquant global)     -->

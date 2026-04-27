@@ -527,6 +527,29 @@ export const CONFIG = {
     ],
   },
 
+  // Prison — système arrestation et gameplay (T36)
+  PRISON: {
+    PROBA_PAR_TICK: { 0: 0, 1: 0.0003, 2: 0.0008, 3: 0.0018 },
+    MULTIPLICATEUR_KARMA: { vertueux: 0.3, neutre: 1.0, louche: 1.8, criminel: 3.0, ennemiPublic: 5.0 },
+    DUREE_TICKS:          { 1: 150, 2: 400, 3: 900 },
+    SAISIE_ARGENT_PCT:    { 1: 0.40, 2: 0.65, 3: 0.90 },
+    SAISIE_INVESTISSEMENTS: false,
+    MALUS_REPUTATION:     { 1: -20, 2: -40, 3: -60 },
+    DEAL_PRISON_DUREE_TICKS: 375,   // 5 ans de jeu (375×200ms = 75s)
+    ACTIONS: {
+      travailler_cellule: { couche: 1, label: 'Travailler en cellule', gainArgent: 2, gainXP: 0.05 },
+      etudier:            { couche: 1, label: 'Étudier',               formationMulti: 0.3 },
+      bonne_conduite:     { couche: 1, label: 'Bonne conduite',        reductionTicks: 3, gainKarma: 0.5 },
+      reseauter:          { couche: 2, label: 'Réseauter',             gainContactsTicks: 1 },
+      planifier_coup:     { couche: 3, label: 'Planifier un coup',     cooldown: 120 },
+    },
+    FORMATIONS_ILLEGALES: [
+      { id: 'blanchiment_avance', secteur: 'finance',   label: 'Blanchiment avancé',  cout: 2000, duree: 200, gainNiveaux: 3 },
+      { id: 'hacking_terrain',    secteur: 'tech',      label: 'Hacking terrain',      cout: 1500, duree: 180, gainNiveaux: 3 },
+      { id: 'reseau_ombre',       secteur: 'influence', label: "Réseau de l'ombre",   cout: 1800, duree: 220, gainNiveaux: 3 },
+    ],
+  },
+
   METIERS: {
     commerce: {
       revenuBase: 1,

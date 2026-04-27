@@ -106,4 +106,7 @@ export const state = reactive({
 
   // Immobilier avancé — biens d'investissement détenus
   investissementsImmobiliers: [], // [{ idInstance, idBien, label, prixAchat, valeurCourante, revenuPassif }]
+
+  // Prison (T36)
+  prison: { actif: false, couche: 0, dureeInitiale: 0, dureeRestante: 0, bonneConduiteAccumulee: 0, dealPrisonExpiry: 0 },
 })

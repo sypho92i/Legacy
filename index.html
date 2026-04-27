@@ -944,6 +944,62 @@
     .formation-mini-card__meta  { color: #666; }
     .formation-mini-card__gain  { color: #34d399; }
 
+    /* ── Prison (T36) ─────────────────────────────────────────────────────── */
+    .overlay-prison {
+      position: fixed; inset: 0;
+      background: rgba(0, 0, 0, 0.94);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 95;
+    }
+    .prison-card {
+      background: #0a0505; border: 2px solid #7f1d1d; border-radius: 8px;
+      padding: 24px 28px; width: 100%; max-width: 520px;
+      max-height: 90vh; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 14px;
+      font-family: monospace;
+    }
+    .prison-header {
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid #3a1a1a; padding-bottom: 10px;
+    }
+    .prison-header__titre { font-size: 1.2em; font-weight: bold; color: #fca5a5; }
+    .prison-couche { font-size: 0.8em; color: #666; border: 1px solid #3a1a1a;
+                     padding: 2px 8px; border-radius: 3px; }
+    .prison-duree { display: flex; flex-direction: column; gap: 4px; }
+    .prison-barre-wrap { height: 10px; background: #1a0a0a; border: 1px solid #3a1a1a; border-radius: 5px; overflow: hidden; }
+    .prison-barre { height: 100%; background: #ef4444; border-radius: 5px; transition: width 1s linear; }
+    .prison-duree-label { font-size: 0.78em; color: #888; text-align: right; }
+
+    .prison-actions { display: flex; flex-direction: column; gap: 6px; }
+    .prison-action {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 9px 12px; border: 1px solid #2a1a1a; border-radius: 4px;
+      background: #110808;
+    }
+    .prison-action--locked  { opacity: 0.45; }
+    .prison-action--cooldown { border-color: #78350f; background: #1c1008; }
+    .prison-action__label  { font-size: 0.9em; color: #d1d5db; }
+    .prison-action__raison { font-size: 0.72em; color: #6b7280; margin-top: 2px; }
+    .prison-action__cd     { font-size: 0.82em; color: #f59e0b; font-family: monospace; }
+    .prison-action__btn {
+      padding: 4px 12px; font-family: monospace; font-size: 0.82em;
+      cursor: pointer; background: #2d0a0a; color: #fca5a5;
+      border: 1px solid #7f1d1d; border-radius: 3px;
+    }
+    .prison-action__btn:not(:disabled):hover { background: #450f0f; }
+    .prison-action__btn:disabled { cursor: not-allowed; opacity: 0.4; }
+
+    .prison-formations { display: flex; flex-direction: column; gap: 8px; }
+    .prison-section-titre {
+      font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.08em;
+      color: #ef4444; border-bottom: 1px solid #2a1a1a; padding-bottom: 4px;
+    }
+    .prison-deal-badge {
+      font-size: 0.82em; color: #fbbf24; padding: 6px 10px;
+      background: #1c1200; border: 1px solid #78350f; border-radius: 3px;
+      text-align: center;
+    }
+
   </style>
 </head>
 <body>
